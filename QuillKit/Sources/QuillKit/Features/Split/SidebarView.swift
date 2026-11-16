@@ -32,6 +32,8 @@ struct SidebarView: View {
             .padding(.leading, Spacing.m)
             .padding(.trailing, Spacing.xs)
             .padding(.vertical, Spacing.s)
+            // Opaque enough that the labels scrolling underneath never show through the name.
+            .background(.bar)
             .overlay(alignment: .top) {
                 Palette.separator.frame(height: Metrics.hairline)
             }
