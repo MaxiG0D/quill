@@ -10,16 +10,24 @@ struct SidebarView: View {
             VStack(alignment: .leading, spacing: 2) {
                 // iPad keeps Compose floating over the list, within the thumb's reach.
                 #if os(macOS)
+                // Laid out as a sidebar row, so it lines up with the mailboxes below it.
                 Button(action: compose) {
-                    Label("Compose Email", systemImage: "square.and.pencil")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(Palette.onFill)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                        .background(Palette.warmFill, in: .rect(cornerRadius: Radius.small))
+                    HStack(spacing: Spacing.s) {
+                        Image(systemName: "square.and.pencil")
+                            .frame(width: 24)
+                            .accessibilityHidden(true)
+                        Text("Compose Email")
+                            .font(.body.weight(.medium))
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(Palette.warm)
+                    .padding(.horizontal, Spacing.s)
+                    .frame(minHeight: Metrics.target)
+                    .background(Palette.warm.opacity(0.12), in: .rect(cornerRadius: Radius.small))
+                    .contentShape(.rect)
                 }
                 .buttonStyle(.pressable)
-                .padding(.bottom, Spacing.s)
+                .padding(.bottom, Spacing.xs)
                 #endif
                 MailboxRows()
                 Text("Labels")
