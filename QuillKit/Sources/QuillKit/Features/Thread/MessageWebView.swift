@@ -12,14 +12,15 @@ struct MessageWebView {
     /// The width on offer. A change means the page must be fitted again.
     let width: Double
     @Binding var height: Double
-    /// Set once the page is laid out with its pictures, or has taken long enough that it should show anyway.
+    /// Set once the page can show without its layout moving, or has taken long enough that it should show anyway.
     @Binding var isReady: Bool
 
     @Environment(\.openURL) private var openURL
 
-    /// One store for every message, kept in memory only: pictures fetched once are reused
-    /// until Quill quits, and nothing a sender sets is written to the device.
-    private static let store = WKWebsiteDataStore.nonPersistent()
+    /// One store for every message, apart from the browser's. It keeps pictures on the
+    /// device so a message opens without fetching them again, and it refuses cookies, so a
+    /// sender cannot use it to follow the reader from one message to the next.
+    private static let store = WKWebsiteDataStore(forIdentifier: UUID(uuid: (0x51, 0x75, 0x69, 0x6C, 0x6C, 0x4D, 0x41, 0x49, 0x4C, 0x50, 0x41, 0x47, 0x45, 0x53, 0x30, 0x31)))
     private static var warm: WKWebView?
 
     private static var configuration: WKWebViewConfiguration {
@@ -30,11 +31,17 @@ struct MessageWebView {
     }
 
     /// Starts the web engine ahead of the first designed message, which would otherwise wait for it.
-    static func warmUp() {
+    static func warmUp() async {
         guard warm == nil else { return }
+        await store.httpCookieStore.setCookiePolicy(.disallow)
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.loadHTMLString(HTMLDocument.page(for: ""), baseURL: nil)
         warm = view
+    }
+
+    /// Removes every picture kept from the account's mail.
+    static func forget() async {
+        await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -85,35 +92,36 @@ struct MessageWebView {
         var reveal: () -> Void = {}
         private var settling: Task<Void, Never>?
 
-        /// Measures the page, and optionally shows it once the measurement is in.
-        func fit(_ view: WKWebView, thenReveal: Bool = false) {
+        /// Measures the page. It is shown once nothing still loading can move it, or when asked to regardless.
+        func fit(_ view: WKWebView, revealing: Bool = false) {
             view.evaluateJavaScript(HTMLDocument.fitScript) { [weak self] result, _ in
-                if let number = result as? NSNumber, number.doubleValue > 0 {
-                    self?.report(number.doubleValue)
+                let values = result as? [NSNumber] ?? []
+                if let height = values.first?.doubleValue, height > 0 {
+                    self?.report(height)
                 }
-                if thenReveal {
+                if revealing || values.last?.boolValue == true {
                     self?.reveal()
                 }
             }
         }
 
-        /// A page that resizes as each picture lands looks broken, so it stays hidden until
-        /// everything has loaded. A slow sender is not waited on for long: after a moment the
-        /// page shows as it is, and is fitted again for pictures that arrive late.
+        /// Text is laid out the moment the page arrives, so a message whose pictures state
+        /// their sizes shows at once and the pictures fill in. One whose pictures would push
+        /// the text around stays hidden a little longer, so it does not appear in steps.
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
             settling?.cancel()
             settling = Task { [weak self, weak webView] in
-                for (pause, reveals) in [(1200, true), (1500, false), (3000, false)] {
+                for (pause, reveals) in [(20, false), (80, false), (150, false), (250, false), (300, true), (700, false), (1500, false), (3000, false)] {
                     try? await Task.sleep(for: .milliseconds(pause))
                     guard !Task.isCancelled, let self, let webView else { return }
-                    self.fit(webView, thenReveal: reveals)
+                    self.fit(webView, revealing: reveals)
                 }
             }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             settling?.cancel()
-            fit(webView, thenReveal: true)
+            fit(webView, revealing: true)
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {

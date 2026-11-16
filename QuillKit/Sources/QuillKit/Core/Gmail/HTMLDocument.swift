@@ -20,7 +20,9 @@ enum HTMLDocument {
         """
     }
 
-    /// Shrinks a page wider than its view until it fits, then reports its height in points.
+    /// Shrinks a page wider than its view until it fits, then reports `[height, isSettled]`:
+    /// its height in points, and 1 when no picture still to arrive can change that height,
+    /// because each one has loaded or states its size.
     static let fitScript = """
         (function () {
             var message = document.getElementById("quill-message");
@@ -28,7 +30,10 @@ enum HTMLDocument {
             var available = document.documentElement.clientWidth;
             var needed = message.scrollWidth;
             if (needed > available + 1) { message.style.zoom = available / needed; }
-            return Math.ceil(message.getBoundingClientRect().height);
+            var settled = Array.prototype.every.call(document.images, function (image) {
+                return image.complete || (image.getAttribute("width") && image.getAttribute("height"));
+            });
+            return [Math.ceil(message.getBoundingClientRect().height), settled ? 1 : 0];
         })()
         """
 }

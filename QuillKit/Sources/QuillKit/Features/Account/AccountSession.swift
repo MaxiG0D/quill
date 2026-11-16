@@ -97,6 +97,7 @@ final class AccountSession {
     /// Returns to the sign-in screen and removes the account's mail from the device.
     private func close() async {
         await service?.erase()
+        await MessageWebView.forget()
         service = nil
         store = nil
         phase = .signedOut
