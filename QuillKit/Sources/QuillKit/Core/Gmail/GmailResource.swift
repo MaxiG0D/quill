@@ -84,7 +84,7 @@ enum GmailResource {
         var photoURL: URL? {
             guard let picture else { return nil }
             guard let size = picture.range(of: "=s", options: .backwards) else { return URL(string: picture) }
-            return URL(string: picture[..<size.lowerBound] + "=s192-c")
+            return URL(string: String(picture[..<size.lowerBound]) + "=s192-c")
         }
     }
 
