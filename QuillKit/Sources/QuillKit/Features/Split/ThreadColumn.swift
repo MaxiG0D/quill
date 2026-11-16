@@ -3,6 +3,7 @@ import SwiftUI
 /// The middle column of the wide layout: the current mailbox, or search results.
 struct ThreadColumn: View {
     @Environment(MailStore.self) private var store
+    @Environment(Router.self) private var router
 
     @FocusState private var isFocused: Bool
 
@@ -21,7 +22,7 @@ struct ThreadColumn: View {
                 }
             }
             .padding(.horizontal, Spacing.xs)
-            .padding(.bottom, Spacing.m)
+            .padding(.bottom, Metrics.listBottomPadding)
         }
         .background(Palette.background)
         .overlay {
@@ -52,6 +53,11 @@ struct ThreadColumn: View {
         }
         #else
         .toolbarTitleDisplayMode(.inline)
+        // The iPad toolbar has no room for Compose, so it floats over the list as on iPhone.
+        .overlay(alignment: .bottomTrailing) {
+            ComposeButton(action: compose)
+                .padding(Spacing.m)
+        }
         #endif
     }
 
@@ -100,6 +106,10 @@ struct ThreadColumn: View {
         } else {
             store.phase == .loaded && store.sections.isEmpty
         }
+    }
+
+    private func compose() {
+        router.draft = Draft()
     }
 
     private func step(_ offset: Int) -> KeyPress.Result {

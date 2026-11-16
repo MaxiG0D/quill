@@ -28,6 +28,17 @@ struct ModelTests {
         #expect(Attachment(filename: filename).kind == kind)
     }
 
+    @Test func previewSkipsAnOpeningGreetingAndJoinsLines() {
+        let greeted = Message(sender: SampleData.priya, date: Fixture.now, body: "Hi both,\n\nAttached is the agreement.\nPlease sign.")
+        #expect(greeted.preview == "Attached is the agreement. Please sign.")
+
+        let plain = Message(sender: SampleData.priya, date: Fixture.now, body: "Parking is included, and more.\nSecond line.")
+        #expect(plain.preview == "Parking is included, and more. Second line.")
+
+        let onlyGreeting = Message(sender: SampleData.priya, date: Fixture.now, body: "Thanks,")
+        #expect(onlyGreeting.preview == "Thanks,")
+    }
+
     @Test func snoozedThreadsLeaveTheInboxUntilTheirDatePasses() {
         var thread = MailThread(subject: "Later", messages: [])
         thread.snoozedUntil = Fixture.now.addingTimeInterval(3600)

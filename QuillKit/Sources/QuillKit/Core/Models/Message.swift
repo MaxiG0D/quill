@@ -31,11 +31,14 @@ struct Message: Identifiable, Hashable, Sendable {
         self.attachments = attachments
     }
 
-    /// The body on one line, for list previews.
+    /// The body on one line, for list previews. An opening greeting such as "Hi both," is left out.
     var preview: String {
-        body.split(whereSeparator: \.isNewline)
+        var lines = body.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-            .joined(separator: " ")
+        if lines.count > 1, let first = lines.first, first.hasSuffix(","), first.split(separator: " ").count <= 4 {
+            lines.removeFirst()
+        }
+        return lines.joined(separator: " ")
     }
 }

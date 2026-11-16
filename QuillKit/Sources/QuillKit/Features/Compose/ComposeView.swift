@@ -45,6 +45,7 @@ struct ComposeView: View {
                 RecipientField(title: "Cc", recipients: $draft.cc)
                 Divider().overlay(Palette.separator)
                 TextField("Subject", text: $draft.subject, axis: .vertical)
+                    .textFieldStyle(.plain)
                     .font(.system(.title2, design: .serif, weight: .semibold))
                     .foregroundStyle(Palette.label)
                     .lineLimit(1...3)

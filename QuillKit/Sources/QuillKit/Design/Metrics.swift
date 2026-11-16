@@ -16,6 +16,13 @@ enum Metrics {
     static let panePadding = 32.0
     #endif
 
+    /// Room under the wide layout's list, which on iPad clears the floating Compose button.
+    #if os(macOS)
+    static let listBottomPadding = 16.0
+    #else
+    static let listBottomPadding = 88.0
+    #endif
+
     /// The widest a column of reading text should grow.
     static let readingWidth = 720.0
 }

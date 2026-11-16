@@ -35,6 +35,7 @@ struct SearchResultsList: View {
         }
         .cardListStyle()
         .scrollContentBackground(.hidden)
+        .contentMargins(.top, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.immediately)
         .overlay {
             if hasNoResults {

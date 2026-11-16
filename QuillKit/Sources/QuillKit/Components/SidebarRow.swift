@@ -45,7 +45,6 @@ struct SidebarRow: View {
         switch icon {
         case .symbol(let name):
             Image(systemName: name)
-                .symbolVariant(isSelected && !isCard ? .fill : .none)
                 .foregroundStyle(isCard || isSelected ? Palette.accent : Palette.secondaryLabel)
                 .accessibilityHidden(true)
         case .swatch(let tone):

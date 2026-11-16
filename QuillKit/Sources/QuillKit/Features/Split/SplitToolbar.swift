@@ -28,12 +28,14 @@ struct SplitToolbar: ToolbarContent {
             Button("Forward", systemImage: "arrowshape.turn.up.right", action: forward)
                 .keyboardShortcut("f", modifiers: [.command, .shift])
         }
+        #if os(macOS)
         ToolbarSpacer(.flexible)
         ToolbarItem(placement: .primaryAction) {
             Button("Compose", systemImage: "square.and.pencil", action: compose)
                 .buttonStyle(.borderedProminent)
                 .tint(Palette.warmFill)
         }
+        #endif
     }
 
     private func archive() {

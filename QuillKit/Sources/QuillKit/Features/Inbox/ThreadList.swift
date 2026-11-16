@@ -40,6 +40,7 @@ struct ThreadList: View {
         }
         .cardListStyle()
         .scrollContentBackground(.hidden)
+        .contentMargins(.top, 0, for: .scrollContent)
         .overlay {
             if isEmpty {
                 InboxZero()

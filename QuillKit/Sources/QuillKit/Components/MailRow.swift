@@ -49,7 +49,9 @@ struct MailRow: View {
                     .foregroundStyle(Palette.secondaryLabel)
                     .lineLimit(1)
             }
+            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         }
+        .alignmentGuide(.listRowSeparatorTrailing) { $0[.trailing] + Spacing.m }
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
     }

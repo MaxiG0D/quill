@@ -25,6 +25,7 @@ struct RecipientField: View {
                         }
                     }
                     TextField(title, text: $entry, prompt: Text(verbatim: ""))
+                        .textFieldStyle(.plain)
                         .font(.callout)
                         .focused($isFocused)
                         .emailEntry()
