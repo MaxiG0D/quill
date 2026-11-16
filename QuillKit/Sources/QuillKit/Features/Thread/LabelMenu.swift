@@ -8,15 +8,23 @@ struct LabelMenu: View {
     let thread: MailThread?
 
     var body: some View {
-        Menu("Label", systemImage: "tag") {
+        menu
+        .disabled(thread == nil || store.labels.isEmpty)
+    }
+
+    private var menu: some View {
+        let menu = Menu("Label", systemImage: "tag") {
             if let thread {
                 ForEach(store.labels) { label in
                     Toggle(label.name, isOn: isOn(label, for: thread))
                 }
             }
         }
-        .menuActionDismissBehavior(.disabled)
-        .disabled(thread == nil || store.labels.isEmpty)
+        #if os(macOS)
+        return menu
+        #else
+        return menu.menuActionDismissBehavior(.disabled)
+        #endif
     }
 
     private func isOn(_ label: MailLabel, for thread: MailThread) -> Binding<Bool> {
