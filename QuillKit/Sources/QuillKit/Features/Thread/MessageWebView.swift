@@ -12,6 +12,8 @@ struct MessageWebView {
     /// The width on offer. A change means the page must be fitted again.
     let width: Double
     @Binding var height: Double
+    /// Set once the page is laid out with its pictures, or has taken long enough that it should show anyway.
+    @Binding var isReady: Bool
 
     @Environment(\.openURL) private var openURL
 
@@ -59,6 +61,11 @@ struct MessageWebView {
                 height = newHeight
             }
         }
+        coordinator.reveal = {
+            if !isReady {
+                isReady = true
+            }
+        }
         if coordinator.html != html {
             coordinator.html = html
             coordinator.width = width
@@ -75,32 +82,40 @@ struct MessageWebView {
         var width = 0.0
         var open: (URL) -> Void = { _ in }
         var report: (Double) -> Void = { _ in }
+        var reveal: () -> Void = {}
+        private var settling: Task<Void, Never>?
 
         private var settling: Task<Void, Never>?
 
-        func fit(_ view: WKWebView) {
+        /// Measures the page, and optionally shows it once the measurement is in.
+        func fit(_ view: WKWebView, thenReveal: Bool = false) {
             view.evaluateJavaScript(HTMLDocument.fitScript) { [weak self] result, _ in
-                guard let number = result as? NSNumber, number.doubleValue > 0 else { return }
-                self?.report(number.doubleValue)
+                if let number = result as? NSNumber, number.doubleValue > 0 {
+                    self?.report(number.doubleValue)
+                }
+                if thenReveal {
+                    self?.reveal()
+                }
             }
         }
 
-        /// The text is laid out as soon as the page arrives, long before its pictures, so
-        /// the page is fitted at once and again as pictures land and change its height.
+        /// A page that resizes as each picture lands looks broken, so it stays hidden until
+        /// everything has loaded. A slow sender is not waited on for long: after a moment the
+        /// page shows as it is, and is fitted again for pictures that arrive late.
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
             settling?.cancel()
             settling = Task { [weak self, weak webView] in
-                for pause in [50, 150, 300, 500, 1000, 2000, 4000] {
+                for (pause, reveals) in [(1200, true), (1500, false), (3000, false)] {
                     try? await Task.sleep(for: .milliseconds(pause))
                     guard !Task.isCancelled, let self, let webView else { return }
-                    self.fit(webView)
+                    self.fit(webView, thenReveal: reveals)
                 }
             }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             settling?.cancel()
-            fit(webView)
+            fit(webView, thenReveal: true)
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
