@@ -17,18 +17,8 @@ struct SignInView: View {
             Text("Quill")
                 .textRole(.display)
                 .foregroundStyle(Palette.label)
-            Button(action: signIn) {
-                Text("Sign in with Google")
-                    .font(.headline)
-                    .foregroundStyle(Palette.onFill)
-                    .frame(maxWidth: 280)
-                    .frame(height: 52)
-                    .background(Palette.accentFill, in: .capsule)
-                    .opacity(session.isSigningIn ? 0.6 : 1)
-            }
-            .buttonStyle(.pressable)
-            .disabled(session.isSigningIn)
-            .padding(.top, Spacing.xs)
+            GoogleSignInButton(isBusy: session.isSigningIn, action: signIn)
+                .padding(.top, Spacing.xs)
         }
         .padding(Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
