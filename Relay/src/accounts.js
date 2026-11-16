@@ -28,6 +28,11 @@ export class Accounts {
     );
   }
 
+  /** Corrects which of Apple's push services a device's token belongs to. */
+  async setEnvironment(email, deviceToken, environment) {
+    await this.#collection.doc(email).set({ devices: { [deviceToken]: { environment } } }, { merge: true });
+  }
+
   /** Removes a device. Resolves to how many the account has left. */
   async removeDevice(email, deviceToken) {
     const reference = this.#collection.doc(email);

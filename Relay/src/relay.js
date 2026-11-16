@@ -112,23 +112,33 @@ export class Relay {
 
     const badge = await mailbox.unreadCount();
     for (const [deviceToken, device] of Object.entries(account.devices)) {
+      const name = `${device.platform} ${deviceToken.slice(0, 8)}`;
+      let delivered = 0;
       for (const message of messages) {
         try {
-          const outcome = await this.#apns.send({
+          const { outcome, environment, reason } = await this.#apns.send({
             deviceToken,
             environment: device.environment,
             payload: payload(message, badge),
             collapseID: message.id,
           });
           if (outcome === "gone") {
+            console.warn(`Apple no longer knows ${name} (${reason}), so it is forgotten.`);
             await this.#accounts.removeDevice(email, deviceToken);
             break;
           }
+          if (environment !== device.environment) {
+            console.warn(`${name} is in Apple's ${environment} service, not ${device.environment}.`);
+            device.environment = environment;
+            await this.#accounts.setEnvironment(email, deviceToken, environment);
+          }
+          delivered += 1;
         } catch (error) {
-          console.error(`Push failed for one device: ${error.message}`);
+          console.error(`Push failed for ${name}: ${error.message}`);
           break;
         }
       }
+      if (delivered) console.log(`Sent ${delivered} to ${name}.`);
     }
   }
 

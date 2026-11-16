@@ -23,10 +23,36 @@ export class APNs {
   }
 
   /**
-   * Sends one notification. Resolves to "sent", or to "gone" when Apple says the device
-   * token is no longer good and should be forgotten. Throws on anything else.
+   * Sends one notification. Resolves to `{ outcome, environment, reason }`: the outcome is
+   * "sent", or "gone" when Apple says the device token is no longer good and should be
+   * forgotten. Throws on anything else.
+   *
+   * A token only works in the push service that issued it, and a device can report the
+   * wrong one, so a token Apple does not recognise is tried in the other service before it
+   * is given up on. `environment` is the service that answered, for the caller to remember.
    */
   async send({ deviceToken, environment, payload, collapseID }) {
+    const first = environment === "development" ? "development" : "production";
+    const second = first === "development" ? "production" : "development";
+    let reply = await this.#post(first, { deviceToken, payload, collapseID });
+    let answered = first;
+    if (reply.reason === "BadDeviceToken") {
+      const other = await this.#post(second, { deviceToken, payload, collapseID });
+      if (other.status === 200 || other.reason !== "BadDeviceToken") {
+        reply = other;
+        answered = second;
+      }
+    }
+
+    const { status, reason } = reply;
+    if (status === 200) return { outcome: "sent", environment: answered, reason: "" };
+    if (status === 410 || reason === "BadDeviceToken" || reason === "DeviceTokenNotForTopic") {
+      return { outcome: "gone", environment: answered, reason: reason || String(status) };
+    }
+    throw new Error(`APNs ${status} ${reason}`);
+  }
+
+  async #post(environment, { deviceToken, payload, collapseID }) {
     const session = this.#session(environment);
     const headers = {
       ":method": "POST",
@@ -49,11 +75,7 @@ export class APNs {
       request.on("error", reject);
       request.end(JSON.stringify(payload));
     });
-
-    if (status === 200) return "sent";
-    const reason = safeReason(body);
-    if (status === 410 || reason === "BadDeviceToken" || reason === "DeviceTokenNotForTopic") return "gone";
-    throw new Error(`APNs ${status} ${reason}`);
+    return { status, reason: status === 200 ? "" : safeReason(body) };
   }
 
   /** Closes the connections to Apple. */

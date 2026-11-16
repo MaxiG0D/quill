@@ -39,6 +39,8 @@ final class AccountSession {
     private var polling: Task<Void, Never>?
     /// How often Quill looks for new mail while it is running.
     private static let pollInterval = Duration.seconds(60)
+    /// How many polls pass between registrations with the push relay.
+    private static let pollsPerRegistration = 15
 
     init(
         options: LaunchOptions = LaunchOptions(),
@@ -146,12 +148,15 @@ final class AccountSession {
         }
         polling?.cancel()
         polling = Task { [weak self, weak store] in
+            var polls = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.pollInterval)
                 guard !Task.isCancelled, let store else { return }
                 await store.refreshUnseen()
-                // A relay that could not be reached at launch gets another chance.
-                if self?.notifier?.isPushed == false {
+                polls += 1
+                // A relay that could not be reached at launch gets another chance, and one
+                // that has since lost this device gets it back.
+                if self?.notifier?.isPushed == false || polls.isMultiple(of: Self.pollsPerRegistration) {
                     await self?.startPush()
                 }
             }

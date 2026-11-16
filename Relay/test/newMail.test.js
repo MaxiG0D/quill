@@ -79,7 +79,7 @@ test("the APNs token is a valid ES256 signature", async () => {
   http2.default.connect = () => original(`http://localhost:${server.address().port}`);
   try {
     const outcome = await apns.send({ deviceToken: "ab", environment: "development", payload: {}, collapseID: "m1" });
-    assert.equal(outcome, "gone");
+    assert.deepEqual(outcome, { outcome: "gone", environment: "development", reason: "Unregistered" });
     const headers = await seen;
     assert.equal(headers["apns-collapse-id"], "m1");
     const [head, claims, signature] = headers.authorization.replace("bearer ", "").split(".");
@@ -91,5 +91,41 @@ test("the APNs token is a valid ES256 signature", async () => {
     http2.default.connect = original;
     apns.close();
     server.close();
+  }
+});
+
+test("a token Apple does not recognise is tried in its other push service", async () => {
+  const { APNs } = await import("../src/apns.js");
+  const { privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const apns = new APNs({ key: privateKey.export({ type: "pkcs8", format: "pem" }), keyID: "KEY", teamID: "TEAM", topic: "t" });
+  const http2 = await import("node:http2");
+  // Two local servers stand in for Apple's two services. Only the sandbox knows the token.
+  const serve = (status, reason) => {
+    const server = http2.createServer();
+    server.on("stream", (stream) => {
+      stream.respond({ ":status": status });
+      stream.end(reason ? JSON.stringify({ reason }) : "");
+    });
+    return new Promise((resolve) => server.listen(0, () => resolve(server)));
+  };
+  const production = await serve(400, "BadDeviceToken");
+  const sandbox = await serve(200);
+  const original = http2.default.connect;
+  http2.default.connect = (host) =>
+    original(`http://localhost:${(host.includes("sandbox") ? sandbox : production).address().port}`);
+  try {
+    const sent = await apns.send({ deviceToken: "ab", environment: "production", payload: {} });
+    assert.deepEqual(sent, { outcome: "sent", environment: "development", reason: "" });
+    // Known to neither service, it is gone.
+    http2.default.connect = () => original(`http://localhost:${production.address().port}`);
+    apns.close();
+    const gone = await apns.send({ deviceToken: "ab", environment: "production", payload: {} });
+    assert.equal(gone.outcome, "gone");
+    assert.equal(gone.reason, "BadDeviceToken");
+  } finally {
+    http2.default.connect = original;
+    apns.close();
+    production.close();
+    sandbox.close();
   }
 });

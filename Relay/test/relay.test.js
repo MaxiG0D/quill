@@ -21,6 +21,9 @@ class MemoryAccounts {
     delete account.devices[deviceToken];
     return Object.keys(account.devices).length;
   }
+  async setEnvironment(email, deviceToken, environment) {
+    this.data.get(email).devices[deviceToken].environment = environment;
+  }
   async update(email, fields) {
     this.data.set(email, { ...this.data.get(email), ...fields });
   }
@@ -32,9 +35,10 @@ class MemoryAccounts {
 class RecordingAPNs {
   sent = [];
   outcome = "sent";
+  environment;
   async send(push) {
     this.sent.push(push);
-    return this.outcome;
+    return { outcome: this.outcome, environment: this.environment ?? push.environment, reason: "" };
   }
 }
 
@@ -163,4 +167,19 @@ test("unregistering the last device stops the watch and forgets the account", as
   await relay.unregister("bearer", { deviceToken: device });
   assert.equal(await accounts.get("max@example.com"), null);
   assert.ok(calls.some((call) => call.startsWith("POST") && call.endsWith("/stop")));
+});
+
+test("a device found in Apple's other push service is remembered there", async () => {
+  stubGoogle({
+    ...google,
+    "/history": { history: [{ messagesAdded: [{ message: { id: "m1", labelIds: ["INBOX", "UNREAD"] } }] }] },
+    "/messages/m1": message("m1", ["INBOX", "UNREAD"]),
+  });
+  const accounts = new MemoryAccounts();
+  const apns = new RecordingAPNs();
+  apns.environment = "development";
+  const relay = new Relay({ config, accounts, apns });
+  await relay.register("bearer", { deviceToken: device, environment: "production", refreshToken: "refresh" });
+  await relay.mailboxChanged({ emailAddress: "max@example.com", historyId: 150 });
+  assert.equal((await accounts.get("max@example.com")).devices[device].environment, "development");
 });
