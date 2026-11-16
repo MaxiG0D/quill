@@ -53,6 +53,12 @@ struct ThreadColumn: View {
                     .padding(.leading, Spacing.xs)
             }
             .sharedBackgroundVisibility(.hidden)
+            // At the list's trailing edge, where Mail keeps it.
+            ToolbarItem(placement: .primaryAction) {
+                Button("Compose", systemImage: "square.and.pencil", action: compose)
+                    .buttonStyle(.borderedProminent)
+                    .tint(Palette.warmFill)
+            }
         }
         #else
         .toolbarTitleDisplayMode(.inline)

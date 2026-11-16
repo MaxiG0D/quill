@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The wide layout's toolbar: a triage group with Move and Label, a respond group, and Compose.
+/// The wide layout's toolbar: a triage group with Move and Label, and a respond group.
 struct SplitToolbar: ToolbarContent {
     let thread: MailThread?
     let store: MailStore
@@ -30,14 +30,6 @@ struct SplitToolbar: ToolbarContent {
             Button("Forward", systemImage: "arrowshape.turn.up.right", action: forward)
                 .keyboardShortcut("f", modifiers: [.command, .shift])
         }
-        #if os(macOS)
-        ToolbarSpacer(.flexible)
-        ToolbarItem(placement: .primaryAction) {
-            Button("Compose", systemImage: "square.and.pencil", action: compose)
-                .buttonStyle(.borderedProminent)
-                .tint(Palette.warmFill)
-        }
-        #endif
     }
 
     private func archive() {
@@ -63,9 +55,5 @@ struct SplitToolbar: ToolbarContent {
     private func forward() {
         guard let thread else { return }
         router.draft = .forward(thread)
-    }
-
-    private func compose() {
-        router.draft = Draft()
     }
 }
