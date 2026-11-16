@@ -1,13 +1,18 @@
 import SwiftUI
 
-/// The compact layout's home: the current mailbox with Compose at the foot,
-/// and search a tap away in the toolbar.
+/// The compact layout's home: the current mailbox, with Search and Compose at the
+/// bottom trailing corner. When the device leaves a strip beside the content, as the
+/// folded iPhone Duo does, the two stack inside it and stay clear of the list.
 struct InboxScreen: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
 
     @FocusState private var isSearchFocused: Bool
     @State private var isTitleCovered = false
+    @State private var trailingInset = 0.0
+
+    /// The narrowest side strip that can hold the actions.
+    private static let railMinimum = 56.0
 
     var body: some View {
         ZStack {
@@ -32,8 +37,8 @@ struct InboxScreen: View {
                 if router.isSearching {
                     BottomSearchBar(isFocused: $isSearchFocused)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
-                } else {
-                    ComposeButton(action: compose)
+                } else if !hasRail {
+                    InboxActions(search: beginSearch, compose: compose)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.horizontal, Spacing.m)
                         .padding(.vertical, Spacing.xs)
@@ -50,6 +55,26 @@ struct InboxScreen: View {
                     .ignoresSafeArea()
                 }
             }
+        }
+        .overlay {
+            if hasRail && !router.isSearching {
+                InboxActions(
+                    arrangement: .stack,
+                    size: min(54, trailingInset - Spacing.s),
+                    search: beginSearch,
+                    compose: compose
+                )
+                .frame(width: trailingInset)
+                .padding(.bottom, Spacing.xs)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .ignoresSafeArea(.container, edges: .trailing)
+                .transition(.opacity)
+            }
+        }
+        .onGeometryChange(for: Double.self) { proxy in
+            proxy.safeAreaInsets.trailing
+        } action: { inset in
+            trailingInset = inset
         }
         .navigationTitle(store.title)
         .toolbarTitleDisplayMode(.inline)
@@ -69,9 +94,7 @@ struct InboxScreen: View {
                     .opacity(isTitleCovered ? 1 : 0)
                     .animation(Motion.quick, value: isTitleCovered)
             }
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button("Search", systemImage: "magnifyingglass", action: beginSearch)
-                    .tint(Palette.accent)
+            ToolbarItem(placement: .primaryAction) {
                 FilterMenu()
             }
             .sharedBackgroundVisibility(.hidden)
@@ -84,6 +107,10 @@ struct InboxScreen: View {
         .task {
             await store.load()
         }
+    }
+
+    private var hasRail: Bool {
+        trailingInset >= Self.railMinimum
     }
 
     private func beginSearch() {
