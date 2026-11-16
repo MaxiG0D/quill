@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Quill's mark: a sealed envelope with a dot of ink, shown above the sidebar.
+/// Quill's mark: a sealed envelope with a dot of ink, shown where no thread is open.
 struct AppMark: View {
     var size = 38.0
 

@@ -1,15 +1,12 @@
 import SwiftUI
 
-/// The first column of the wide layout: the app mark, mailboxes, labels and the account.
+/// The first column of the wide layout: mailboxes, labels and the account.
 struct SidebarView: View {
     @Environment(MailStore.self) private var store
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
-                AppMark()
-                    .padding(.leading, Spacing.xs)
-                    .padding(.bottom, Spacing.m)
                 MailboxRows()
                 Text("Labels")
                     .textRole(.section)

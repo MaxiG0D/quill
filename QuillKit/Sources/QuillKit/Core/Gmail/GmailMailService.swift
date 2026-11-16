@@ -58,7 +58,7 @@ actor GmailMailService: MailService {
         async let trashed = api.threadReferences(labelIDs: ["TRASH"], limit: Self.sideLimit)
 
         let user = try await info
-        let account = Contact(name: user.name ?? "", email: user.email.lowercased(), tone: .teal)
+        let account = Contact(name: user.name ?? "", email: user.email.lowercased(), tone: .teal, photoURL: user.photoURL)
         let mapper = GmailMapper(account: account, labels: GmailMapper.labels(from: try await gmailLabels))
 
         var seen = Set<String>()

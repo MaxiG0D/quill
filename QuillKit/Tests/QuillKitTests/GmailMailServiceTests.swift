@@ -44,6 +44,15 @@ struct GmailMailServiceTests {
         #expect(newsletter.messages.first?.preview == "Fall hours & events. Don't miss Thursdays")
     }
 
+    @Test func theAccountsPictureIsAskedForAtAvatarSize() throws {
+        func photo(_ json: String) throws -> String? {
+            try JSONDecoder().decode(GmailResource.UserInfo.self, from: Data(json.utf8)).photoURL?.absoluteString
+        }
+        #expect(try photo(#"{"email":"a@b.c","picture":"https://lh3.googleusercontent.com/a/abc=s96-c"}"#) == "https://lh3.googleusercontent.com/a/abc=s192-c")
+        #expect(try photo(#"{"email":"a@b.c","picture":"https://example.com/me.png"}"#) == "https://example.com/me.png")
+        #expect(try photo(#"{"email":"a@b.c"}"#) == nil)
+    }
+
     @Test func foldersFollowGmailsLabels() throws {
         let mapper = GmailMapper(account: GmailFixture.me, labels: [])
         func folder(_ labels: [[String]]) throws -> Mailbox? {

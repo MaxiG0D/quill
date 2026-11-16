@@ -4,13 +4,16 @@ struct Contact: Identifiable, Hashable, Codable, Sendable {
     var name: String
     var email: String
     var tone: LabelTone
+    /// The person's own picture, when the mail service has one.
+    var photoURL: URL?
 
     var id: String { email }
 
-    init(name: String, email: String, tone: LabelTone? = nil) {
+    init(name: String, email: String, tone: LabelTone? = nil, photoURL: URL? = nil) {
         self.name = name
         self.email = email
         self.tone = tone ?? .stable(for: email)
+        self.photoURL = photoURL
     }
 
     /// Up to two leading letters, one per word: "Priya Raman" is "PR", "Max" is "M".

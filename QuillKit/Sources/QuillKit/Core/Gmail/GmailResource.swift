@@ -77,6 +77,15 @@ enum GmailResource {
     struct UserInfo: Decodable, Sendable {
         let email: String
         var name: String?
+        /// The address of the account's Google picture.
+        var picture: String?
+
+        /// The picture at a size that stays sharp in the largest avatar. Google sends a small one by default.
+        var photoURL: URL? {
+            guard let picture else { return nil }
+            guard let size = picture.range(of: "=s", options: .backwards) else { return URL(string: picture) }
+            return URL(string: picture[..<size.lowerBound] + "=s192-c")
+        }
     }
 
     struct LabelChange: Encodable, Sendable {
