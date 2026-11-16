@@ -36,6 +36,9 @@ struct RootView: View {
         .onChange(of: sizeClass) {
             carrySelectionAcrossLayouts()
         }
+        .task {
+            await AppIcon.restore()
+        }
         .sensoryFeedback(trigger: store.haptic) { _, cue in
             switch cue?.kind {
             case .selection: .selection
@@ -54,6 +57,8 @@ struct RootView: View {
     /// Keeps the open thread open when the window crosses between the phone and
     /// wide layouts, as it does when a folding phone opens or an iPad window is resized.
     private func carrySelectionAcrossLayouts() {
+        // Settings hangs off a view that belongs to one layout, so it closes with that layout.
+        router.isShowingSettings = false
         if sizeClass == .compact {
             router.path = store.selectedThreadID.map { [$0] } ?? []
         } else {

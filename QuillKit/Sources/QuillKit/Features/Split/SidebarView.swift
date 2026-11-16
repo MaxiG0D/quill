@@ -30,13 +30,14 @@ struct SidebarView: View {
                     .font(.body)
                     .foregroundStyle(Palette.label)
                 Spacer()
+                SettingsButton()
             }
-            .padding(.horizontal, Spacing.m)
+            .padding(.leading, Spacing.m)
+            .padding(.trailing, Spacing.xs)
             .padding(.vertical, Spacing.s)
             .overlay(alignment: .top) {
                 Palette.separator.frame(height: Metrics.hairline)
             }
-            .accessibilityElement(children: .combine)
         }
         .navigationTitle("")
     }

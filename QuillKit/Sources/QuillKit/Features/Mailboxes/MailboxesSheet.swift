@@ -1,11 +1,14 @@
 import SwiftUI
 
-/// The compact layout's mailbox switcher: mailboxes and labels in two cards.
+/// The compact layout's mailbox switcher: mailboxes and labels in two cards,
+/// with Settings behind the gear.
 struct MailboxesSheet: View {
     @Environment(MailStore.self) private var store
+    @Environment(Router.self) private var router
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        @Bindable var router = router
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.m) {
                 HStack(spacing: Spacing.s) {
@@ -15,17 +18,8 @@ struct MailboxesSheet: View {
                         .foregroundStyle(Palette.label)
                         .accessibilityAddTraits(.isHeader)
                     Spacer()
-                    Button(action: close) {
-                        Label("Close", systemImage: "xmark")
-                            .labelStyle(.iconOnly)
-                            .font(.footnote.weight(.bold))
-                            .foregroundStyle(Palette.secondaryLabel)
-                            .frame(width: 32, height: 32)
-                            .background(Palette.fill, in: .circle)
-                            .frame(minWidth: Metrics.target, minHeight: Metrics.target, alignment: .trailing)
-                            .contentShape(.rect)
-                    }
-                    .buttonStyle(.pressable)
+                    SettingsButton()
+                    SheetCloseButton(action: close)
                 }
                 .padding(.top, Spacing.xl)
 
@@ -53,6 +47,7 @@ struct MailboxesSheet: View {
         }
         .background(Palette.background)
         .presentationDragIndicator(.visible)
+        .settingsSheet(isPresented: $router.isShowingSettings)
     }
 
     private func close() {
@@ -63,4 +58,5 @@ struct MailboxesSheet: View {
 #Preview {
     MailboxesSheet()
         .environment(MailStore(snapshot: SampleData.snapshot(now: .now)))
+        .environment(Router())
 }

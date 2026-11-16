@@ -1,0 +1,31 @@
+{
+  "icons": [
+    {
+      "name": "Forest",
+      "primary": true,
+      "light": { "top": "#5E8C5A", "bottom": "#3C6B3F", "nib": ["#FFFDF7", "#F0E6D2"], "shadow": "#16301A", "shadowOpacity": 0.4 },
+      "dark": { "top": "#171D17", "bottom": "#0A0E0A", "nib": ["#A5D1A0", "#5E8C5A"], "shadow": "#000000", "shadowOpacity": 0.45 }
+    },
+    {
+      "name": "Terracotta",
+      "light": { "top": "#E08A5E", "bottom": "#C4623A", "nib": ["#FFFDF7", "#F0E6D2"], "shadow": "#5A2410", "shadowOpacity": 0.4 },
+      "dark": { "top": "#211B18", "bottom": "#0E0B0A", "nib": ["#F2A274", "#D0683A"], "shadow": "#000000", "shadowOpacity": 0.45 }
+    },
+    {
+      "name": "Indigo",
+      "light": { "top": "#6C79C9", "bottom": "#4A56A6", "nib": ["#FFFDF7", "#F0E6D2"], "shadow": "#1C2350", "shadowOpacity": 0.4 },
+      "dark": { "top": "#1A1C26", "bottom": "#0C0D12", "nib": ["#A9B4F0", "#6C79C9"], "shadow": "#000000", "shadowOpacity": 0.45 }
+    },
+    {
+      "name": "Oxblood",
+      "light": { "top": "#A8404F", "bottom": "#7A2231", "nib": ["#FFFDF7", "#F0E6D2"], "shadow": "#2E0A12", "shadowOpacity": 0.4 },
+      "dark": { "top": "#20161A", "bottom": "#0F0A0C", "nib": ["#E58E9B", "#A8404F"], "shadow": "#000000", "shadowOpacity": 0.45 }
+    },
+    {
+      "name": "Paper",
+      "light": { "top": "#FBF8F0", "bottom": "#EAE3D2", "nib": ["#C4562A", "#A8431C"], "shadow": "#6B5F45", "shadowOpacity": 0.28 },
+      "dark": { "top": "#1C1F24", "bottom": "#0C0D10", "nib": ["#F2A274", "#D0683A"], "shadow": "#000000", "shadowOpacity": 0.45 }
+    }
+  ],
+  "tinted": { "top": "#000000", "bottom": "#000000", "nib": ["#FFFFFF", "#BDBDBD"], "shadow": "#000000", "shadowOpacity": 0.45, "flat": true }
+}
