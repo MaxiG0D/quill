@@ -12,14 +12,14 @@ struct SidebarView: View {
                 #if os(macOS)
                 Button(action: compose) {
                     Label("Compose Email", systemImage: "square.and.pencil")
-                        .font(.body.weight(.semibold))
+                        .font(.title3.weight(.bold))
                         .foregroundStyle(Palette.onFill)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                        .background(Palette.warmFill, in: .rect(cornerRadius: Radius.small))
+                        .frame(height: 52)
+                        .background(Palette.warmFill, in: .rect(cornerRadius: Radius.medium))
                 }
                 .buttonStyle(.pressable)
-                .padding(.bottom, Spacing.s)
+                .padding(.bottom, Spacing.m)
                 #endif
                 MailboxRows()
                 Text("Labels")
