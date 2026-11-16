@@ -6,7 +6,7 @@ import Testing
 struct NotificationTests {
     private static let me = GmailFixture.me
     private static let priya = Contact(name: "Priya Raman", email: "priya@example.com")
-    private static let start = Date(timeIntervalSince1970: 1_000_000)
+    private nonisolated static let start = Date(timeIntervalSince1970: 1_000_000)
 
     private static func message(_ id: String, from sender: Contact = priya, after seconds: TimeInterval, body: String = "Hello") -> Message {
         Message(id: id, sender: sender, date: start.addingTimeInterval(seconds), body: body)
