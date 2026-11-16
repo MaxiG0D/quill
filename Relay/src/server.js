@@ -80,6 +80,7 @@ createServer(async (request, response) => {
     // makes Pub/Sub deliver the notice again later.
     const status = error instanceof Refused ? error.status : error instanceof SignedOut ? 401 : 500;
     if (status === 500) console.error(error);
+    else if (status >= 400) console.warn(`${request.method} ${request.url} refused ${status}: ${error.message || error.constructor.name}`);
     response.writeHead(status, { "content-type": "application/json" });
     response.end(JSON.stringify({ error: status === 500 ? "Something went wrong." : error.message }));
   }

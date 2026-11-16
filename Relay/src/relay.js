@@ -148,7 +148,8 @@ export class Relay {
     let info;
     try {
       info = await tokenInfo(bearer);
-    } catch {
+    } catch (error) {
+      console.warn(`tokeninfo failed: ${error.status ?? ""} ${error.message ?? error}`);
       throw new Refused(401, "Sign in first.");
     }
     if (info.aud !== this.#config.googleClientID || !info.email) {
