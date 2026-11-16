@@ -81,18 +81,19 @@ struct InboxScreen: View {
         .hidesNavigationBar(router.isSearching)
         .toolbar {
             ToolbarItem(placement: .navigation) {
+                // The same mark that opens the sidebar in the wide layout.
+                Button("Mailboxes", systemImage: "sidebar.leading", action: showMailboxes)
+            }
+            ToolbarItem(placement: .principal) {
                 Button(action: showMailboxes) {
-                    MonogramAvatar(store.account, size: .compact)
+                    Text(store.title)
+                        .textRole(.section)
+                        .foregroundStyle(Palette.label)
                 }
                 .buttonStyle(.pressable)
-                .accessibilityLabel("Mailboxes")
-            }
-            .sharedBackgroundVisibility(.hidden)
-            ToolbarItem(placement: .principal) {
-                Text(store.title)
-                    .textRole(.section)
-                    .opacity(isTitleCovered ? 1 : 0)
-                    .animation(Motion.quick, value: isTitleCovered)
+                .opacity(isTitleCovered ? 1 : 0)
+                .allowsHitTesting(isTitleCovered)
+                .animation(Motion.quick, value: isTitleCovered)
             }
             ToolbarItem(placement: .primaryAction) {
                 FilterMenu()

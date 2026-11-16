@@ -4,6 +4,8 @@ import SwiftUI
 struct MailboxTitle: View {
     let title: String
     var count = 0
+    /// Adds the chevron that marks the title as the way to the other mailboxes.
+    var opensMailboxes = false
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
@@ -17,6 +19,12 @@ struct MailboxTitle: View {
                     .contentTransition(.numericText())
                     .transition(.opacity)
                     .accessibilityLabel("\(count) unread")
+            }
+            if opensMailboxes {
+                Image(systemName: "chevron.down")
+                    .font(.headline)
+                    .foregroundStyle(Palette.secondaryLabel)
+                    .accessibilityHidden(true)
             }
         }
         .lineLimit(1)

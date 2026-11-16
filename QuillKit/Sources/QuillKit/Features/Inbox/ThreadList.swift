@@ -3,13 +3,19 @@ import SwiftUI
 /// The compact layout's mailbox: a large title over dated cards of threads.
 struct ThreadList: View {
     @Environment(MailStore.self) private var store
+    @Environment(Router.self) private var router
 
     /// Set once the large title has scrolled under the navigation bar.
     @Binding var isTitleCovered: Bool
 
     var body: some View {
         List {
-            MailboxTitle(title: store.title, count: store.unreadCount)
+            Button(action: showMailboxes) {
+                MailboxTitle(title: store.title, count: store.unreadCount, opensMailboxes: true)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.pressable)
+            .accessibilityHint("Mailboxes")
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 0, leading: Spacing.xxs, bottom: Spacing.xxs, trailing: 0))
@@ -64,5 +70,9 @@ struct ThreadList: View {
 
     private var isEmpty: Bool {
         store.phase == .loaded && store.sections.isEmpty
+    }
+
+    private func showMailboxes() {
+        router.isShowingMailboxes = true
     }
 }
