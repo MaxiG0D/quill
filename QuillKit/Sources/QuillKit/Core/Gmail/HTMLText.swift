@@ -31,7 +31,8 @@ enum HTMLText {
         "zwnj": "", "zwj": "", "shy": "",
     ]
 
-    private static func decodingEntities(in text: String) -> String {
+    /// Replaces entities such as `&amp;` and `&#39;` with the characters they stand for.
+    static func decodingEntities(in text: String) -> String {
         guard text.contains("&") else { return text }
         return text.replacing(#/&(#[xX]?[0-9a-fA-F]+|[a-zA-Z]+);/#) { match -> String in
             let name = match.1

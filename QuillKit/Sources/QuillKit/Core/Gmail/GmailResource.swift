@@ -23,6 +23,8 @@ enum GmailResource {
         var labelIds: [String]?
         /// Milliseconds since 1970, as text.
         var internalDate: String?
+        /// Gmail's one-line summary, with HTML entities.
+        var snippet: String?
         var payload: Part?
 
         func has(_ label: String) -> Bool {

@@ -30,7 +30,7 @@ enum GmailFixture {
         let reply = base64URL("Thanks, signing tonight.\n\nOn Tue, Nov 11, Priya Raman wrote:\n> Hi Max,\n>\n> The renewal is attached.")
         return """
             {"id":"t1","historyId":"100","messages":[
-              {"id":"m1","labelIds":["INBOX","UNREAD","Label_1"],"internalDate":"1762900000000","payload":{
+              {"id":"m1","labelIds":["INBOX","UNREAD","Label_1"],"internalDate":"1762900000000","snippet":"The renewal is attached. Don&#39;t wait ","payload":{
                 "mimeType":"multipart/mixed",
                 "headers":[
                   {"name":"From","value":"Priya Raman <Priya@HaldenLeasing.example>"},
@@ -64,7 +64,7 @@ enum GmailFixture {
         let html = base64URL("<html><head><style>p{color:red}</style></head><body><p>Fall hours &amp; events</p><div>Open late on Thursdays.<br>See you soon&nbsp;&#8212; Hollis</div></body></html>")
         return """
             {"id":"t2","historyId":"200","messages":[
-              {"id":"m3","labelIds":["CATEGORY_UPDATES"],"internalDate":"1762800000000","payload":{
+              {"id":"m3","labelIds":["CATEGORY_UPDATES"],"internalDate":"1762800000000","snippet":"Fall hours &amp; events. Don&#39;t miss Thursdays ","payload":{
                 "mimeType":"text/html",
                 "headers":[
                   {"name":"From","value":"=?UTF-8?B?SG9sbGlzIExpYnJhcnkg4oCUIE5ld3M=?= <news@hollis.example>"},

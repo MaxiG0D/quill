@@ -24,6 +24,27 @@ struct GmailParsingTests {
         #expect(HTMLText.plain(from: html) == "Fall hours & events\n\n• Mon\n• Tue\n\nOpen late.\nSee you soon — Hollis ☺")
     }
 
+    @Test func designedMailKeepsItsHTML() throws {
+        func html(_ parts: [(type: String, content: String)]) throws -> String? {
+            let children = parts.map { #"{"mimeType":"\#($0.type)","body":{"size":1,"data":"\#(GmailFixture.base64URL($0.content))"}}"# }
+            let json = #"{"mimeType":"multipart/alternative","parts":[\#(children.joined(separator: ","))]}"#
+            return MessageContent.designedHTML(of: try JSONDecoder().decode(GmailResource.Part.self, from: Data(json.utf8)))
+        }
+        let note = "<div>See you at six.</div>"
+        let designed = "<TABLE><tr><td><img src=\"https://example.com/a.png\"></td></tr></table>"
+
+        #expect(try html([("text/plain", "See you at six."), ("text/html", note)]) == nil)
+        #expect(try html([("text/plain", "Sale"), ("text/html", designed)]) == designed)
+        #expect(try html([("text/html", note)]) == note)
+        #expect(try html([("text/plain", "See you at six.")]) == nil)
+    }
+
+    @Test func aMessagePageHoldsTheMessageAndStaysLight() {
+        let page = HTMLDocument.page(for: "<p>Hello</p>")
+        #expect(page.contains(#"<div id="quill-message"><p>Hello</p></div>"#))
+        #expect(page.contains("light only"))
+    }
+
     @Test func quotedMailIsSetApartFromTheReply() {
         let reply = QuotedText.split("Thanks, signing tonight.\n\nOn Tue, Nov 11, Priya Raman wrote:\n> Hi Max,\n>\n> The renewal is attached.")
         #expect(reply.body == "Thanks, signing tonight.")

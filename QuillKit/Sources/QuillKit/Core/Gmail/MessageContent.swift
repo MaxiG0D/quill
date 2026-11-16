@@ -14,6 +14,16 @@ enum MessageContent {
         return ""
     }
 
+    /// The HTML part, for mail that needs its layout to make sense: mail with no text
+    /// version, and designed mail built from tables and images. A plain note that merely
+    /// arrives with an HTML copy reads better as text.
+    static func designedHTML(of part: GmailResource.Part?) -> String? {
+        guard let part, let html = first("text/html", in: part).flatMap(decoded) else { return nil }
+        let hasText = first("text/plain", in: part) != nil
+        let isDesigned = html.contains(#/(?i)<(table|img)\b/#)
+        return hasText && !isDesigned ? nil : html
+    }
+
     static func attachments(of part: GmailResource.Part?, messageID: String) -> [Attachment] {
         guard let part else { return [] }
         var found: [Attachment] = []

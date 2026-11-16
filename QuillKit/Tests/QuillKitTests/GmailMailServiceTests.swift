@@ -27,6 +27,8 @@ struct GmailMailServiceTests {
         #expect(first.body == "Hi Max,\n\nThe renewal is attached.\n\nPriya")
         #expect(first.attachments.map(\.filename) == ["Lease.pdf"])
         #expect(first.attachments.first?.byteCount == 48211)
+        #expect(first.html == nil)
+        #expect(first.preview == "The renewal is attached. Priya")
 
         let reply = try #require(lease.messages.last)
         #expect(reply.sender == GmailFixture.me)
@@ -38,6 +40,8 @@ struct GmailMailServiceTests {
         #expect(newsletter.subject == "Café hours")
         #expect(newsletter.sender?.name == "Hollis Library — News")
         #expect(newsletter.messages.first?.body == "Fall hours & events\n\nOpen late on Thursdays.\nSee you soon — Hollis")
+        #expect(newsletter.messages.first?.html?.hasPrefix("<html>") == true)
+        #expect(newsletter.messages.first?.preview == "Fall hours & events. Don't miss Thursdays")
     }
 
     @Test func foldersFollowGmailsLabels() throws {
@@ -135,6 +139,27 @@ struct GmailMailServiceTests {
         await second.erase()
         #expect(await second.cachedSnapshot() == nil)
         #expect(file.load() == nil)
+    }
+
+    @Test func anArchiveInAnOlderFormatIsFetchedAgain() async throws {
+        let file = MailArchiveFile(url: .temporaryDirectory.appending(path: "quill-\(UUID().uuidString).json"))
+        defer { file.erase() }
+        let http = await GmailFixture.mailbox()
+        _ = try await GmailFixture.service(http: http, file: file).snapshot()
+
+        var old = try #require(file.load())
+        old.format = nil
+        old.threads[1].messages[0].html = nil
+        try file.save(old)
+        let before = await http.requests.count
+
+        let service = GmailFixture.service(http: http, file: file)
+        #expect(await service.cachedSnapshot()?.threads.count == 2)
+        let snapshot = try await service.snapshot()
+        let fetched = await http.log().dropFirst(before).filter { $0.contains("/threads/t") }
+        #expect(fetched.count == 2)
+        #expect(snapshot.threads.last?.messages.first?.html != nil)
+        #expect(file.load()?.format == MailArchive.currentFormat)
     }
 
     @Test func changesAreCarriedToGmail() async throws {

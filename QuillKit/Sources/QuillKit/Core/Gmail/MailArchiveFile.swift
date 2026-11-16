@@ -12,7 +12,7 @@ struct MailArchiveFile: Sendable {
 
     func load() -> MailArchive? {
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(MailArchive.self, from: data)
+        return (try? JSONDecoder().decode(MailArchive.self, from: data))?.current
     }
 
     func save(_ archive: MailArchive) throws {

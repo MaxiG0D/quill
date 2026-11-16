@@ -33,7 +33,7 @@ no Gmail equivalent, so they stay on the device. `SampleMailService` remains for
 tests and screenshots.
 
 Not built yet: sending attachments, saving drafts to Gmail, downloading attachments,
-rendering HTML mail as HTML (it is shown as text), push notifications, and more than the
+images embedded inside a message, push notifications, and more than the
 newest 100 threads outside search.
 
 ## Layout

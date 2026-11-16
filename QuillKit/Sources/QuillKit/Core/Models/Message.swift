@@ -10,6 +10,10 @@ struct Message: Identifiable, Hashable, Codable, Sendable {
     /// Earlier text the sender quoted, hidden behind the quoted-text toggle.
     var quoted: String?
     var attachments: [Attachment]
+    /// The message as its sender designed it, kept only for mail that depends on its layout.
+    var html: String?
+    /// The mail service's own one-line summary, when it gives one.
+    var snippet: String?
 
     init(
         id: String = UUID().uuidString,
@@ -19,7 +23,9 @@ struct Message: Identifiable, Hashable, Codable, Sendable {
         date: Date,
         body: String,
         quoted: String? = nil,
-        attachments: [Attachment] = []
+        attachments: [Attachment] = [],
+        html: String? = nil,
+        snippet: String? = nil
     ) {
         self.id = id
         self.sender = sender
@@ -29,10 +35,16 @@ struct Message: Identifiable, Hashable, Codable, Sendable {
         self.body = body
         self.quoted = quoted
         self.attachments = attachments
+        self.html = html
+        self.snippet = snippet
     }
 
-    /// The body on one line, for list previews. An opening greeting such as "Hi both," is left out.
+    /// One line for list previews. Designed mail uses the service's summary, since its text is
+    /// mostly layout; other mail uses the body, with an opening greeting such as "Hi both," left out.
     var preview: String {
+        if html != nil, let snippet, !snippet.isEmpty {
+            return snippet
+        }
         var lines = body.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
