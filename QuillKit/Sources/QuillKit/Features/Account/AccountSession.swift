@@ -139,11 +139,15 @@ final class AccountSession {
             await startPush()
         }
         polling?.cancel()
-        polling = Task { [weak store] in
+        polling = Task { [weak self, weak store] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.pollInterval)
                 guard !Task.isCancelled, let store else { return }
                 await store.refreshUnseen()
+                // A relay that could not be reached at launch gets another chance.
+                if self?.notifier?.isPushed == false {
+                    await self?.startPush()
+                }
             }
         }
     }
