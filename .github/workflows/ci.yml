@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  workflow_dispatch:
+
+# The screenshot step commits the latest screenshots back to the branch.
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build, test and screenshot
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Pick simulators
+        run: |
+          xcrun simctl list devices available -j > devices.json
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          devices = [d for group in json.load(open("devices.json"))["devices"].values() for d in group]
+          def pick(prefix, preferred):
+              named = [d for d in devices if d["name"].startswith(prefix)]
+              best = [d for d in named if preferred in d["name"]] or named
+              return best[-1]["udid"]
+          print("IPHONE_UDID=" + pick("iPhone", "Pro"))
+          print("IPAD_UDID=" + pick("iPad", "Pro 13"))
+          PY
+
+      - name: Test on iPhone
+        run: |
+          set -o pipefail
+          xcrun simctl boot "$IPHONE_UDID" || true
+          xcrun simctl status_bar "$IPHONE_UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          xcodebuild test \
+            -project Quill.xcodeproj -scheme Quill \
+            -destination "platform=iOS Simulator,id=$IPHONE_UDID" \
+            -resultBundlePath build/iphone.xcresult \
+            -skipPackagePluginValidation \
+            | xcbeautify --renderer github-actions
+
+      - name: Screenshot on iPad
+        run: |
+          set -o pipefail
+          xcrun simctl boot "$IPAD_UDID" || true
+          xcrun simctl status_bar "$IPAD_UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 || true
+          xcodebuild test \
+            -project Quill.xcodeproj -scheme Quill \
+            -destination "platform=iOS Simulator,id=$IPAD_UDID" \
+            -only-testing:QuillUITests/ScreenshotTests \
+            -resultBundlePath build/ipad.xcresult \
+            | xcbeautify --renderer github-actions
+
+      - name: Test on Mac
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Quill.xcodeproj -scheme Quill \
+            -destination "platform=macOS" \
+            -skip-testing:QuillUITests/NavigationTests \
+            -resultBundlePath build/mac.xcresult \
+            CODE_SIGN_IDENTITY=- \
+            | xcbeautify --renderer github-actions
+
+      - name: Collect screenshots
+        if: always()
+        run: |
+          for device in iphone ipad mac; do
+            if [ -d "build/$device.xcresult" ]; then
+              xcrun xcresulttool export attachments --path "build/$device.xcresult" --output-path "build/screenshots/$device" || true
+            fi
+          done
+          python3 Scripts/name-screenshots.py build/screenshots || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: build/screenshots
+          if-no-files-found: ignore
+
+      # Keeps a current picture of every screen in the repository, so a pull request
+      # shows what changed visually. Pushes made with the workflow token do not start CI again.
+      - name: Commit screenshots
+        if: always() && github.ref != 'refs/heads/main'
+        run: |
+          # The export lives under build/ because the Mac file system ignores case,
+          # so a folder named "screenshots" would be the same folder as "Screenshots".
+          [ -d build/screenshots ] || exit 0
+          rm -rf Screenshots
+          for device in iphone ipad mac; do
+            [ -d "build/screenshots/$device" ] || continue
+            mkdir -p "Screenshots/$device"
+            for file in build/screenshots/"$device"/*.png; do
+              [ -e "$file" ] || continue
+              sips -Z 1600 -s format jpeg -s formatOptions 80 "$file" --out "Screenshots/$device/$(basename "${file%.png}").jpg" > /dev/null
+            done
+          done
+          [ -d Screenshots ] || exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Screenshots
+          git diff --cached --quiet || { git commit -m "Update screenshots [skip ci]"; git push origin "HEAD:$GITHUB_REF_NAME"; }
