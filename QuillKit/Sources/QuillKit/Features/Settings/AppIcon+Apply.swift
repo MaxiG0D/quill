@@ -8,7 +8,7 @@ extension AppIcon {
     /// Makes this the app's icon.
     ///
     /// On iOS the system swaps the Home Screen icon and remembers it. On macOS the Dock
-    /// icon changes while the app runs, so `restore()` applies the choice again at launch.
+    /// icon changes only while the app runs. `restore()` applies the choice again at launch.
     @MainActor
     func apply() async throws {
         #if canImport(UIKit)
@@ -21,11 +21,10 @@ extension AppIcon {
         #endif
     }
 
-    /// Brings back the chosen icon at launch on macOS. iOS keeps it without help.
+    /// Puts the chosen icon back at launch. macOS forgets it between runs, and on iOS
+    /// the choice can fall out of step with the system when the default icon changes.
     @MainActor
     static func restore() async {
-        #if os(macOS)
         try? await stored().apply()
-        #endif
     }
 }

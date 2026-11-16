@@ -4,8 +4,8 @@ import Testing
 
 struct AppIconTests {
     @Test func primaryIconHasNoAlternateName() {
-        #expect(AppIcon.primary == .forest)
-        #expect(AppIcon.forest.alternateName == nil)
+        #expect(AppIcon.primary == .paper)
+        #expect(AppIcon.paper.alternateName == nil)
     }
 
     @Test(arguments: [
@@ -13,7 +13,7 @@ struct AppIconTests {
         (.indigo, "AppIcon-Indigo"),
         (.oxblood, "AppIcon-Oxblood"),
         (.midnight, "AppIcon-Midnight"),
-        (.paper, "AppIcon-Paper"),
+        (.forest, "AppIcon-Forest"),
         (.paperTerracotta, "AppIcon-PaperTerracotta")
     ])
     func alternateNamesMatchTheAssetCatalog(icon: AppIcon, expected: String) {
@@ -23,11 +23,11 @@ struct AppIconTests {
     @Test func storedIconFallsBackToThePrimary() throws {
         let defaults = try #require(UserDefaults(suiteName: "AppIconTests"))
         defaults.removePersistentDomain(forName: "AppIconTests")
-        #expect(AppIcon.stored(in: defaults) == .forest)
+        #expect(AppIcon.stored(in: defaults) == .paper)
         defaults.set("oxblood", forKey: AppIcon.storageKey)
         #expect(AppIcon.stored(in: defaults) == .oxblood)
         defaults.set("gone", forKey: AppIcon.storageKey)
-        #expect(AppIcon.stored(in: defaults) == .forest)
+        #expect(AppIcon.stored(in: defaults) == .paper)
         defaults.removePersistentDomain(forName: "AppIconTests")
     }
 }

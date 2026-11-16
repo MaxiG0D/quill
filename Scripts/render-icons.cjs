@@ -103,7 +103,7 @@ async function main() {
   const tintedPNG = await render(svg(tinted), 1024);
   writeFileSync("Design/Icon/tinted.svg", svg(tinted));
 
-  rmSync(kitAssets, { recursive: true, force: true });
+  // Other images share this catalog, so only the previews are replaced.
   mkdirSync(kitAssets, { recursive: true });
   writeJSON(`${kitAssets}/Contents.json`, { info: { author: "xcode", version: 1 } });
 
@@ -120,6 +120,7 @@ async function main() {
     }
 
     const preview = `${kitAssets}/IconPreview-${icon.name}.imageset`;
+    rmSync(preview, { recursive: true, force: true });
     mkdirSync(preview, { recursive: true });
     writeJSON(`${preview}/Contents.json`, previewContents);
     for (const mode of ["light", "dark"]) {

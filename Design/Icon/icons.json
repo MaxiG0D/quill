@@ -2,7 +2,6 @@
   "icons": [
     {
       "name": "Forest",
-      "primary": true,
       "light": { "top": "#5E8C5A", "bottom": "#3C6B3F", "nib": ["#FFFDF7", "#F0E6D2"], "shadow": "#16301A", "shadowOpacity": 0.4 },
       "dark": { "top": "#171D17", "bottom": "#0A0E0A", "nib": ["#A5D1A0", "#5E8C5A"], "shadow": "#000000", "shadowOpacity": 0.45 }
     },
@@ -23,6 +22,7 @@
     },
     {
       "name": "Paper",
+      "primary": true,
       "light": { "top": "#FBF8F0", "bottom": "#EAE3D2", "nib": ["#3A3F46", "#24272C"], "shadow": "#6B5F45", "shadowOpacity": 0.28 },
       "dark": { "top": "#22252A", "bottom": "#0D0E10", "nib": ["#F6F1E4", "#CFC8B6"], "shadow": "#000000", "shadowOpacity": 0.45 }
     },

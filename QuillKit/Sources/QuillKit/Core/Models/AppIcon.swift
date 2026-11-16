@@ -6,10 +6,10 @@ import Foundation
 /// `Scripts/render-icons.cjs` from `Design/Icon/icons.json`. Raw values are stored
 /// in the person's settings, so they never change.
 enum AppIcon: String, CaseIterable, Identifiable, Sendable {
-    case forest, terracotta, indigo, oxblood, midnight, paper, paperTerracotta
+    case paper, paperTerracotta, forest, terracotta, indigo, oxblood, midnight
 
     /// The icon the app ships with.
-    static let primary = AppIcon.forest
+    static let primary = AppIcon.paper
     /// The settings key that holds the chosen icon's raw value.
     static let storageKey = "QuillAppIcon"
 
