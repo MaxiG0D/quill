@@ -14,7 +14,7 @@ extension View {
     }
 
     @ViewBuilder
-    func navigationBarHidden(_ isHidden: Bool) -> some View {
+    func hidesNavigationBar(_ isHidden: Bool) -> some View {
         #if os(iOS)
         self.toolbar(isHidden ? .hidden : .visible, for: .navigationBar)
         #else

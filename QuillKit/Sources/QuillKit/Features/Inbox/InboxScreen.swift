@@ -41,7 +41,7 @@ struct InboxScreen: View {
         }
         .navigationTitle(store.title)
         .toolbarTitleDisplayMode(.inline)
-        .navigationBarHidden(router.isSearching)
+        .hidesNavigationBar(router.isSearching)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button(action: showMailboxes) {
