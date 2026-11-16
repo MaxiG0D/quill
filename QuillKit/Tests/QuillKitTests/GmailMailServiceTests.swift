@@ -225,6 +225,42 @@ struct GmailMailServiceTests {
         }
     }
 
+    @Test func aSpentAllowanceFallsBackToTheKeptMailbox() async throws {
+        let quota = #"{"error":{"code":429,"message":"Too many requests"}}"#
+        let http = await GmailFixture.mailbox()
+        let service = GmailFixture.service(http: http)
+        _ = try await service.snapshot()
+
+        // Even listing the mailbox is refused.
+        await http.reply(to: "/threads?", status: 429, json: quota)
+        let kept = try await service.snapshot()
+        #expect(kept.threads.map(\.id) == ["t1", "t2"])
+        #expect(kept.isComplete == false)
+    }
+
+    @MainActor
+    @Test func aSpentAllowanceNeverReachesThePerson() async throws {
+        let quota = #"{"error":{"code":403,"message":"User Rate Limit Exceeded","errors":[{"domain":"usageLimits","reason":"userRateLimitExceeded"}]}}"#
+        let http = await GmailFixture.mailbox()
+        await http.reply(to: "/threads/t1?", status: 403, json: quota)
+        await http.reply(to: "/threads/t2?", status: 403, json: quota)
+        let store = MailStore(service: GmailFixture.service(http: http), retryDelay: .milliseconds(20))
+
+        await store.load()
+        #expect(store.phase == .loading)
+        #expect(store.alert == nil)
+
+        // Gmail answers again, and the mailbox arrives without anyone asking.
+        await http.reply(to: "/threads/t1?", json: GmailFixture.leaseThread)
+        await http.reply(to: "/threads/t2?", json: GmailFixture.newsletterThread)
+        for _ in 0..<200 where store.phase != .loaded {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(store.phase == .loaded)
+        #expect(store.threads.count == 2)
+        #expect(store.alert == nil)
+    }
+
     @MainActor
     @Test func theStoreShowsTheKeptMailboxBeforeTheFreshOne() async throws {
         let file = MailArchiveFile(url: .temporaryDirectory.appending(path: "quill-\(UUID().uuidString).json"))

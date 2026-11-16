@@ -29,7 +29,20 @@ actor GmailMailService: MailService {
         stored()?.snapshot
     }
 
+    /// The mailbox, brought up to date as far as Gmail's allowance goes. When the allowance
+    /// is spent before anything new arrives, the mailbox on the device is returned as
+    /// incomplete, so the caller comes back later instead of failing.
     func snapshot() async throws -> MailSnapshot {
+        do {
+            return try await refreshed()
+        } catch GmailError.rateLimited {
+            guard var kept = stored()?.snapshot else { throw GmailError.rateLimited }
+            kept.isComplete = false
+            return kept
+        }
+    }
+
+    private func refreshed() async throws -> MailSnapshot {
         let api = api
         async let info = api.userInfo()
         async let gmailLabels = api.labels()

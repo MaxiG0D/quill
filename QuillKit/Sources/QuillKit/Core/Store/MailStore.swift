@@ -34,16 +34,22 @@ final class MailStore {
     private var searchTask: Task<Void, Never>?
     private var isFetching = false
     private var continuation: Task<Void, Never>?
+    /// The wait before asking again for a mailbox that is still arriving. It doubles each
+    /// time the service has nothing new, up to eight times its starting length.
+    private let retryDelay: Duration
+    private var waits = 0
     private static let log = Logger(subsystem: "com.maxig0d.quill", category: "mail")
 
     init(
         service: any MailService,
         calendar: Calendar = .current,
-        clock: @escaping @Sendable () -> Date = { .now }
+        clock: @escaping @Sendable () -> Date = { .now },
+        retryDelay: Duration = .seconds(30)
     ) {
         self.service = service
         self.calendar = calendar
         self.clock = clock
+        self.retryDelay = retryDelay
         self.account = Contact(name: "", email: "")
     }
 
@@ -155,10 +161,18 @@ final class MailStore {
         defer { isFetching = false }
         do {
             let snapshot = try await service.snapshot()
+            let hasNews = snapshot.threads != threads
             adopt(snapshot)
-            if !snapshot.isComplete {
-                continueLoading()
+            if snapshot.isComplete {
+                waits = 0
+            } else {
+                continueLoading(isWaitingLonger: !hasNews)
             }
+        } catch GmailError.rateLimited {
+            // The service's allowance refills by itself, so this is never the person's
+            // problem: whatever is on screen stays, and the fetch is tried again later.
+            Self.log.info("Mail service is rate limited; trying again later")
+            continueLoading(isWaitingLonger: true)
         } catch {
             Self.log.error("Mail could not be loaded: \(String(describing: error), privacy: .public)")
             if threads.isEmpty && phase != .loaded {
@@ -171,10 +185,13 @@ final class MailStore {
 
     /// Fetches the next part of a mailbox that is arriving in passes, once the service's
     /// allowance has had time to refill.
-    private func continueLoading() {
+    private func continueLoading(isWaitingLonger: Bool) {
+        waits = isWaitingLonger ? min(waits + 1, 4) : 1
+        // A little randomness keeps several devices on one account from asking in step.
+        let delay = retryDelay * Double(1 << (waits - 1)) * Double.random(in: 1...1.3)
         continuation?.cancel()
         continuation = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(30))
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
             await self?.fetch(isQuiet: true)
         }
