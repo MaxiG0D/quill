@@ -32,6 +32,9 @@ struct ThreadColumn: View {
                     .transition(.opacity)
             }
         }
+        .overlay(alignment: .top) {
+            SyncProgressBar()
+        }
         .animation(Motion.list, value: isEmpty)
         .animation(Motion.list, value: store.sections)
         .refreshable {

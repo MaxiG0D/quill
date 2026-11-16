@@ -13,6 +13,8 @@ final class MailStore {
     private(set) var account: Contact
     private(set) var labels: [MailLabel] = []
     private(set) var threads: [MailThread] = []
+    /// How much of the mailbox has arrived, from 0 to 1, while it is still arriving. Nil once it is all here.
+    private(set) var syncProgress: Double?
 
     var selection: MailboxSelection = .mailbox(.inbox)
     var filter: InboxFilter = .all
@@ -163,6 +165,7 @@ final class MailStore {
             let snapshot = try await service.snapshot()
             let hasNews = snapshot.threads != threads
             adopt(snapshot)
+            syncProgress = snapshot.isComplete ? nil : snapshot.progress
             if snapshot.isComplete {
                 waits = 0
             } else {
@@ -172,6 +175,7 @@ final class MailStore {
             // The service's allowance refills by itself, so this is never the person's
             // problem: whatever is on screen stays, and the fetch is tried again later.
             Self.log.info("Mail service is rate limited; trying again later")
+            syncProgress = syncProgress ?? 0
             continueLoading(isWaitingLonger: true)
         } catch {
             Self.log.error("Mail could not be loaded: \(String(describing: error), privacy: .public)")

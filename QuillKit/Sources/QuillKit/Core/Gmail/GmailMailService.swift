@@ -9,6 +9,8 @@ actor GmailMailService: MailService {
     private let file: MailArchiveFile?
     private var archive: MailArchive?
     private var hasReadFile = false
+    /// How much of the listed mailbox was up to date after the last refresh.
+    private var progress = 0.0
 
     /// How many threads are listed from the Inbox, and from the newest mail anywhere.
     private static let recentLimit = 100
@@ -38,6 +40,7 @@ actor GmailMailService: MailService {
         } catch GmailError.rateLimited {
             guard var kept = stored()?.snapshot else { throw GmailError.rateLimited }
             kept.isComplete = false
+            kept.progress = progress
             return kept
         }
     }
@@ -101,8 +104,11 @@ actor GmailMailService: MailService {
             }
         }
         keep(next)
+        let current = references.count { next.historyIDs[$0.id] == $0.historyId || pass.missing.contains($0.id) }
+        progress = references.isEmpty ? 1 : Double(current) / Double(references.count)
         var snapshot = next.snapshot
         snapshot.isComplete = isComplete
+        snapshot.progress = progress
         return snapshot
     }
 

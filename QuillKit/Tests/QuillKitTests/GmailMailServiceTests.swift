@@ -98,6 +98,7 @@ struct GmailMailServiceTests {
         let first = try await service.snapshot()
         #expect(first.threads.map(\.id) == ["t1"])
         #expect(first.isComplete == false)
+        #expect(first.progress == 0.5)
 
         // A minute later Gmail answers again, and only the missing thread is asked for.
         await http.reply(to: "/threads/t2?", json: GmailFixture.newsletterThread)
@@ -249,6 +250,7 @@ struct GmailMailServiceTests {
         await store.load()
         #expect(store.phase == .loading)
         #expect(store.alert == nil)
+        #expect(store.syncProgress == 0)
 
         // Gmail answers again, and the mailbox arrives without anyone asking.
         await http.reply(to: "/threads/t1?", json: GmailFixture.leaseThread)
@@ -259,6 +261,7 @@ struct GmailMailServiceTests {
         #expect(store.phase == .loaded)
         #expect(store.threads.count == 2)
         #expect(store.alert == nil)
+        #expect(store.syncProgress == nil)
     }
 
     @MainActor

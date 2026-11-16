@@ -48,6 +48,9 @@ struct ThreadList: View {
                     .transition(.opacity)
             }
         }
+        .overlay(alignment: .top) {
+            SyncProgressBar()
+        }
         .animation(Motion.list, value: isEmpty)
         .refreshable {
             await store.refresh()
