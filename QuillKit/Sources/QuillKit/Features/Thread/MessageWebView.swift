@@ -6,6 +6,7 @@ import WebKit
 /// The message's own scripts never run, nothing it stores outlives the view, and a tapped
 /// link opens in the browser instead of inside the message. The page does not scroll by
 /// itself: the view reports the page's height so the thread can scroll as one.
+@MainActor
 struct MessageWebView {
     let html: String
     /// The width on offer. A change means the page must be fitted again.
