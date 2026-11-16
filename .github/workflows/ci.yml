@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  push:
   workflow_dispatch:
 
 # The screenshot step commits the latest screenshots back to the branch.
