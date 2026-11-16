@@ -22,8 +22,8 @@ final class SenderPictures {
     @ObservationIgnored private var logoFetches: [String: Task<Void, Never>] = [:]
     @ObservationIgnored private var loading: Task<Void, Never>?
 
-    /// A logo smaller than this would blur in the largest avatar.
-    private static let smallestLogo = 64
+    /// Google serves many real brand icons (GitHub, Substack) at 32px; the 16px globe fallback is a 404 anyway.
+    private static let smallestLogo = 32
 
     /// Without `http` no picture is ever fetched, which keeps sample mail and screenshots still.
     init(http: (any HTTPClient)? = nil) {
