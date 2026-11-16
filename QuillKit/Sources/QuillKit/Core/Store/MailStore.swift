@@ -31,6 +31,7 @@ final class MailStore {
     private let service: any MailService
     private let clock: @Sendable () -> Date
     private var searchTask: Task<Void, Never>?
+    private var isFetching = false
 
     init(
         service: any MailService,
@@ -128,25 +129,33 @@ final class MailStore {
 
     // MARK: Loading
 
+    /// Shows the mailbox as last seen, if the service kept one, then brings it up to date.
     func load() async {
         switch phase {
         case .loading, .loaded: return
         case .idle, .failed: phase = .loading
         }
-        await fetch()
+        if let cached = await service.cachedSnapshot() {
+            adopt(cached)
+        }
+        await fetch(isQuiet: false)
     }
 
-    func refresh() async {
-        await fetch()
+    /// Brings the mailbox up to date. A quiet refresh, such as one on returning to the app, keeps failures to itself.
+    func refresh(isQuiet: Bool = false) async {
+        await fetch(isQuiet: isQuiet)
     }
 
-    private func fetch() async {
+    private func fetch(isQuiet: Bool) async {
+        guard !isFetching else { return }
+        isFetching = true
+        defer { isFetching = false }
         do {
             adopt(try await service.snapshot())
         } catch {
-            if threads.isEmpty {
+            if threads.isEmpty && phase != .loaded {
                 phase = .failed(error.localizedDescription)
-            } else {
+            } else if !isQuiet {
                 alert = error.localizedDescription
             }
         }
@@ -352,9 +361,10 @@ final class MailStore {
             let remote = (try? await service.search(query)) ?? []
             guard !Task.isCancelled else { return }
 
+            // Older mail the service found joins the mailbox, so a result can be opened and filed.
             let known = Set(threads.map(\.id))
-            let merged = threads + remote.filter { !known.contains($0.id) }
-            searchResults = MailSearch.results(for: query, in: merged)
+            threads += remote.filter { !known.contains($0.id) }
+            searchResults = MailSearch.results(for: query, in: threads)
             isSearching = false
         }
     }

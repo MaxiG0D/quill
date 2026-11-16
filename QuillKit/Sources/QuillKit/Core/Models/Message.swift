@@ -1,6 +1,6 @@
 import Foundation
 
-struct Message: Identifiable, Hashable, Sendable {
+struct Message: Identifiable, Hashable, Codable, Sendable {
     let id: String
     var sender: Contact
     var to: [Contact]

@@ -10,16 +10,38 @@ Xcode 26 or later. The app targets iOS 26 and macOS 26.
 
 Open `Quill.xcodeproj` and run the `Quill` scheme on a simulator, a device or My Mac.
 
-The app currently runs on the sample mailbox from the design mockups. Mail access goes
-through the `MailService` protocol, so a Gmail implementation can replace
-`SampleMailService` without touching the interface.
+Out of the box the app opens the sample mailbox from the design mockups. With a Google
+client ID it signs in to Gmail instead.
+
+## Gmail
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create a
+   project and enable the Gmail API.
+2. Configure the OAuth consent screen, and add your own Google account as a test user.
+3. Create an OAuth client of type iOS with the bundle ID `com.maxig0d.quill`.
+4. Paste its client ID into `App/Configuration.swift`.
+
+The same client serves iPhone, iPad and Mac. Sign-in uses the system web sign-in sheet with
+PKCE, and the token is kept in the keychain. Quill asks for the `gmail.modify` scope, which
+covers reading, filing and sending.
+
+Mail access goes through the `MailService` protocol. `GmailMailService` lists the newest
+100 threads, fetches only those whose history ID changed since the last refresh, and keeps
+the result in `Application Support/Quill/mailbox.json` so the app opens at once and reads
+offline. Archive, Trash, star and unread are written back to Gmail. Pins and snoozes have
+no Gmail equivalent, so they stay on the device. `SampleMailService` remains for previews,
+tests and screenshots.
+
+Not built yet: sending attachments, saving drafts to Gmail, downloading attachments,
+rendering HTML mail as HTML (it is shown as text), push notifications, and more than the
+newest 100 threads outside search.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
 | `App/` | The app target: the entry point, icon and entitlements. |
-| `QuillKit/Sources/QuillKit/Core/` | Models, sectioning, search, the mail service and `MailStore`. No SwiftUI. |
+| `QuillKit/Sources/QuillKit/Core/` | Models, sectioning, search, `MailStore`, Google sign-in (`Google/`) and the Gmail client (`Gmail/`). No SwiftUI. |
 | `QuillKit/Sources/QuillKit/Design/` | Design tokens: colors, type roles, spacing, radius and motion. |
 | `QuillKit/Sources/QuillKit/Components/` | Reusable views such as `MailRow`, `PinnedCard` and `MonogramAvatar`. |
 | `QuillKit/Sources/QuillKit/Features/` | Screens, grouped by feature. `Root/` chooses the phone or wide layout. |

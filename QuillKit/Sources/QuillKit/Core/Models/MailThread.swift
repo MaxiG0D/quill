@@ -1,6 +1,6 @@
 import Foundation
 
-struct MailThread: Identifiable, Hashable, Sendable {
+struct MailThread: Identifiable, Hashable, Codable, Sendable {
     let id: String
     var subject: String
     /// Oldest first.

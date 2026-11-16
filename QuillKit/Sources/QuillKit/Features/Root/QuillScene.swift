@@ -2,21 +2,23 @@ import SwiftUI
 
 /// The app's window and commands. The app target's only job is to show this scene.
 public struct QuillScene: Scene {
-    @State private var store: MailStore
+    @State private var session: AccountSession
     @State private var router: Router
     private let options: LaunchOptions
 
-    public init() {
+    /// - Parameter googleClientID: The iOS OAuth client ID from Google Cloud Console.
+    ///   Left empty, Quill opens the sample mailbox instead of signing in to Gmail.
+    public init(googleClientID: String = "") {
         let options = LaunchOptions()
         self.options = options
-        _store = State(initialValue: options.makeStore())
+        _session = State(initialValue: AccountSession(options: options, googleClientID: googleClientID))
         _router = State(initialValue: options.makeRouter())
     }
 
     public var body: some Scene {
         WindowGroup {
-            RootView()
-                .environment(store)
+            SessionView()
+                .environment(session)
                 .environment(router)
                 .preferredColorScheme(options.colorScheme)
         }
@@ -28,11 +30,13 @@ public struct QuillScene: Scene {
             CommandGroup(replacing: .newItem) {
                 Button("New Message", action: compose)
                     .keyboardShortcut("n", modifiers: .command)
+                    .disabled(session.store == nil)
             }
         }
         #if os(macOS)
         Settings {
             SettingsView()
+                .environment(session)
                 .tint(Palette.accent)
                 .preferredColorScheme(options.colorScheme)
         }

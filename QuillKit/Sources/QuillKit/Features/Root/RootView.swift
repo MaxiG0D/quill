@@ -6,6 +6,7 @@ struct RootView: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var isShowingAlert = false
 
@@ -36,6 +37,9 @@ struct RootView: View {
         .onChange(of: sizeClass) {
             carrySelectionAcrossLayouts()
         }
+        .onChange(of: scenePhase) {
+            refreshOnReturn()
+        }
         .task {
             await AppIcon.restore()
         }
@@ -47,6 +51,14 @@ struct RootView: View {
             case .warning: .warning
             case nil: nil
             }
+        }
+    }
+
+    /// Catches up on mail that arrived while Quill was in the background.
+    private func refreshOnReturn() {
+        guard scenePhase == .active, store.phase == .loaded else { return }
+        Task {
+            await store.refresh(isQuiet: true)
         }
     }
 

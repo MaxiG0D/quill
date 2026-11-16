@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Quill's settings: a sheet on iOS and the Settings window on macOS.
 struct SettingsView: View {
+    @Environment(AccountSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -34,16 +35,24 @@ struct SettingsView: View {
 
     private var sections: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
-            Text("App Icon")
-                .textRole(.section)
-                .foregroundStyle(Palette.label)
-                .padding(.leading, Spacing.xxs)
-                .accessibilityAddTraits(.isHeader)
+            if session.canSignOut, let account = session.store?.account {
+                heading("Account")
+                AccountRow(account: account)
+                    .card()
+                    .padding(.bottom, Spacing.s)
+            }
+            heading("App Icon")
             AppIconPicker()
-                .padding(Spacing.m)
-                .background(Palette.surface)
-                .clipShape(.rect(cornerRadius: Radius.large))
+                .card()
         }
+    }
+
+    private func heading(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .textRole(.section)
+            .foregroundStyle(Palette.label)
+            .padding(.leading, Spacing.xxs)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private func close() {
@@ -51,6 +60,17 @@ struct SettingsView: View {
     }
 }
 
+private extension View {
+    /// The white rounded panel a settings group sits on.
+    func card() -> some View {
+        padding(Spacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.surface)
+            .clipShape(.rect(cornerRadius: Radius.large))
+    }
+}
+
 #Preview {
     SettingsView()
+        .environment(AccountSession())
 }
