@@ -25,6 +25,7 @@ through the `MailService` protocol, so a Gmail implementation can replace
 | `QuillKit/Sources/QuillKit/Features/` | Screens, grouped by feature. `Root/` chooses the phone or wide layout. |
 | `QuillKit/Tests/` | Unit tests for the models, logic and store. |
 | `UITests/` | Navigation tests, and screenshot tests for each mockup screen. |
+| `Screenshots/` | The latest screenshot of each screen, written by CI. |
 | `Design/Icon/` | Icon sources. `node Scripts/render-icons.cjs` renders them into the asset catalog. |
 
 The Xcode project uses synchronized folders, so new files appear in the project as soon
@@ -45,4 +46,5 @@ xcodebuild test -project Quill.xcodeproj -scheme Quill -destination 'platform=ma
 
 The screenshot tests launch the app with `-QuillScreen <inbox|thread|search|compose|mailboxes|zero>`
 and `-QuillAppearance <light|dark>`, which loads the mockup's mailbox frozen at the moment
-the mockups show. CI runs everything on each push and uploads the screenshots as an artifact.
+the mockups show. CI runs everything on each push and commits the latest screenshots to
+`Screenshots/` on the branch, so a pull request shows what changed visually.
