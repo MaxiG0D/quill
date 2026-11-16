@@ -56,7 +56,9 @@ struct GmailAPI: Sendable {
         let _: GmailResource.Ignored = try await call(Self.mail + "messages/send", method: "POST", body: JSONEncoder().encode(message))
     }
 
-    /// Makes one call, waiting and trying again when Gmail asks Quill to slow down.
+    /// Makes one call. A server hiccup is retried after a pause. Running out of Gmail's
+    /// per-minute allowance is not, since only waiting out the minute helps: it is thrown
+    /// as `GmailError.rateLimited` for the caller to pace itself.
     private func call<Response: Decodable>(
         _ address: String,
         method: String = "GET",
@@ -72,8 +74,9 @@ struct GmailAPI: Sendable {
         guard let url = components.url else {
             throw URLError(.badURL)
         }
-        var delay = Duration.milliseconds(500)
-        let attempts = 4
+
+        var delay = Duration.seconds(1)
+        let attempts = 3
         for attempt in 1...attempts {
             var request = URLRequest(url: url)
             request.httpMethod = method
@@ -91,20 +94,35 @@ struct GmailAPI: Sendable {
             }
 
             let failure = (try? JSONDecoder().decode(Failure.self, from: data))?.error
-            let isRateLimited = status == 429 || (status == 403 && failure?.status == "RESOURCE_EXHAUSTED")
-            guard attempt < attempts, isRateLimited || status >= 500 else {
+            if status == 429 || (status == 403 && failure?.isRateLimit == true) {
+                throw GmailError.rateLimited
+            }
+            guard attempt < attempts, status >= 500 else {
                 throw GmailError.status(status, failure?.message ?? "")
             }
             try await Task.sleep(for: delay)
             delay = delay * 2
         }
-        throw GmailError.status(429, "")
+        throw GmailError.status(503, "")
     }
 
     private struct Failure: Decodable {
         struct Detail: Decodable {
+            struct Item: Decodable {
+                var reason: String?
+            }
+
             var message: String?
             var status: String?
+            var errors: [Item]?
+
+            /// Gmail reports a spent allowance as a 403 with one of these marks.
+            var isRateLimit: Bool {
+                let reasons = Set(errors?.compactMap(\.reason) ?? [])
+                return !reasons.isDisjoint(with: ["rateLimitExceeded", "userRateLimitExceeded"])
+                    || status == "RESOURCE_EXHAUSTED"
+                    || message?.hasPrefix("Quota exceeded") == true
+            }
         }
 
         var error: Detail?

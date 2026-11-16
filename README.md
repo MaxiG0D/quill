@@ -26,7 +26,7 @@ PKCE, and the token is kept in the keychain. Quill asks for the `gmail.modify` s
 covers reading, filing and sending.
 
 Mail access goes through the `MailService` protocol. `GmailMailService` lists the newest
-100 threads, fetches only those whose history ID changed since the last refresh, and keeps
+100 threads, fetches only those whose history ID changed since the last refresh (40 per pass, to stay inside Gmail's 6,000 quota units a minute), and keeps
 the result in `Application Support/Quill/mailbox.json` so the app opens at once and reads
 offline. Archive, Trash, star and unread are written back to Gmail. Pins and snoozes have
 no Gmail equivalent, so they stay on the device. `SampleMailService` remains for previews,

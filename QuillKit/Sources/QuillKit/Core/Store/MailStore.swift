@@ -33,6 +33,7 @@ final class MailStore {
     private let clock: @Sendable () -> Date
     private var searchTask: Task<Void, Never>?
     private var isFetching = false
+    private var continuation: Task<Void, Never>?
     private static let log = Logger(subsystem: "com.maxig0d.quill", category: "mail")
 
     init(
@@ -153,7 +154,11 @@ final class MailStore {
         isFetching = true
         defer { isFetching = false }
         do {
-            adopt(try await service.snapshot())
+            let snapshot = try await service.snapshot()
+            adopt(snapshot)
+            if !snapshot.isComplete {
+                continueLoading()
+            }
         } catch {
             Self.log.error("Mail could not be loaded: \(String(describing: error), privacy: .public)")
             if threads.isEmpty && phase != .loaded {
@@ -161,6 +166,17 @@ final class MailStore {
             } else if !isQuiet {
                 alert = Self.describe(error)
             }
+        }
+    }
+
+    /// Fetches the next part of a mailbox that is arriving in passes, once the service's
+    /// allowance has had time to refill.
+    private func continueLoading() {
+        continuation?.cancel()
+        continuation = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(30))
+            guard !Task.isCancelled else { return }
+            await self?.fetch(isQuiet: true)
         }
     }
 

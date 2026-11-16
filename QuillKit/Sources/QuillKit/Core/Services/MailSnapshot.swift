@@ -3,4 +3,6 @@ struct MailSnapshot: Sendable {
     var account: Contact
     var labels: [MailLabel]
     var threads: [MailThread]
+    /// False when the service is still gathering mail and a later snapshot will hold more.
+    var isComplete = true
 }

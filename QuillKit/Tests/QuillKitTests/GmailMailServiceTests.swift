@@ -75,6 +75,39 @@ struct GmailMailServiceTests {
         #expect(snapshot.threads.count == 2)
     }
 
+    @Test func aSpentAllowanceDeliversTheMailboxInPasses() async throws {
+        let quota = #"{"error":{"code":403,"message":"Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user' of service 'gmail.googleapis.com'.","errors":[{"domain":"usageLimits","reason":"rateLimitExceeded"}],"status":"PERMISSION_DENIED"}}"#
+        let http = await GmailFixture.mailbox()
+        await http.reply(to: "/threads/t2?", status: 403, json: quota)
+        let service = GmailFixture.service(http: http)
+
+        let first = try await service.snapshot()
+        #expect(first.threads.map(\.id) == ["t1"])
+        #expect(first.isComplete == false)
+
+        // A minute later Gmail answers again, and only the missing thread is asked for.
+        await http.reply(to: "/threads/t2?", json: GmailFixture.newsletterThread)
+        let before = await http.requests.count
+        let second = try await service.snapshot()
+        let everything = await http.log()
+        #expect(everything.dropFirst(before).filter { $0.contains("/threads/") } == ["GET /gmail/v1/users/me/threads/t2"])
+        #expect(second.threads.map(\.id) == ["t1", "t2"])
+        #expect(second.isComplete)
+    }
+
+    @Test func aSpentAllowanceWithNothingToShowIsReported() async throws {
+        let quota = #"{"error":{"code":403,"message":"User Rate Limit Exceeded","errors":[{"domain":"usageLimits","reason":"userRateLimitExceeded"}]}}"#
+        let http = await GmailFixture.mailbox()
+        await http.reply(to: "/threads/t1?", status: 403, json: quota)
+        await http.reply(to: "/threads/t2?", status: 403, json: quota)
+        let service = GmailFixture.service(http: http)
+        await #expect(throws: GmailError.rateLimited) {
+            _ = try await service.snapshot()
+        }
+        // Each thread was asked for once: a spent allowance is not hammered.
+        #expect(await http.log().filter { $0.contains("/threads/t") }.count <= 2)
+    }
+
     @Test func theMailboxIsKeptOnTheDeviceBetweenLaunches() async throws {
         let file = MailArchiveFile(url: .temporaryDirectory.appending(path: "quill-\(UUID().uuidString).json"))
         defer { file.erase() }

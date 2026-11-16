@@ -14,8 +14,10 @@ actor GmailMailService: MailService {
     private static let recentLimit = 100
     private static let trashLimit = 25
     private static let searchLimit = 25
-    /// Gmail allows each account a few dozen thread fetches a second.
-    private static let concurrentFetches = 6
+    /// How many threads one refresh fetches. A full thread costs up to 60 of the 6,000
+    /// quota units Gmail allows an account each minute, so this leaves room to spare.
+    private static let passLimit = 40
+    private static let concurrentFetches = 4
 
     init(api: GmailAPI, file: MailArchiveFile? = .standard) {
         self.api = api
@@ -48,27 +50,40 @@ actor GmailMailService: MailService {
         let changed = references.filter { reference in
             old?.thread(reference.id) == nil || old?.historyIDs[reference.id] != reference.historyId
         }
-        let fetched = try await threads(changed.map(\.id), mapper: mapper)
+        // Gmail meters each account by the minute, so a big mailbox arrives over several
+        // passes: the newest changed threads now, the rest on the refreshes that follow.
+        let pass = try await threads(Array(changed.prefix(Self.passLimit)).map(\.id), mapper: mapper)
+        let fetched = pass.threads
+        if fetched.isEmpty, pass.wasCutShort, old == nil {
+            throw GmailError.rateLimited
+        }
 
         var next = MailArchive(account: account, labels: mapper.labels)
         let listed = Set(references.map(\.id))
         next.pinned = (old?.pinned ?? []).intersection(listed)
         next.snoozed = (old?.snoozed ?? [:]).filter { listed.contains($0.key) }
+        var isComplete = true
         for reference in references {
             if let mapped = fetched[reference.id] {
                 next.threads.append(next.decorated(mapped.thread))
                 next.anchors[reference.id] = mapped.anchor
-            } else if let thread = old?.thread(reference.id), !changed.contains(reference) {
+                next.historyIDs[reference.id] = reference.historyId
+            } else if let thread = old?.thread(reference.id) {
+                // Unchanged, or changed and still waiting its turn: the copy on the device stands,
+                // under the history ID it was fetched with so a stale one is fetched next time.
                 next.threads.append(thread)
                 next.anchors[reference.id] = old?.anchors[reference.id]
-            } else {
-                // Changed, but gone by the time it was fetched.
-                continue
+                next.historyIDs[reference.id] = old?.historyIDs[reference.id]
+                isComplete = isComplete && old?.historyIDs[reference.id] == reference.historyId
+            } else if !pass.missing.contains(reference.id) {
+                // New to the device and not fetched yet.
+                isComplete = false
             }
-            next.historyIDs[reference.id] = reference.historyId
         }
         keep(next)
-        return next.snapshot
+        var snapshot = next.snapshot
+        snapshot.isComplete = isComplete
+        return snapshot
     }
 
     func apply(_ change: ThreadChange, to ids: [MailThread.ID]) async throws {
@@ -125,7 +140,7 @@ actor GmailMailService: MailService {
             labels: known?.labels ?? []
         )
         let missing = references.map(\.id).filter { known?.thread($0) == nil }
-        let fetched = try await threads(missing, mapper: mapper)
+        let fetched = try await threads(missing, mapper: mapper).threads
         return references.compactMap { reference in
             known?.thread(reference.id) ?? fetched[reference.id]?.thread
         }
@@ -170,35 +185,59 @@ actor GmailMailService: MailService {
         }
     }
 
-    /// Fetches threads a few at a time. A thread deleted in the meantime is left out.
-    private func threads(_ ids: [String], mapper: GmailMapper) async throws -> [String: MappedThread] {
+    private struct Pass {
+        var threads: [String: MappedThread] = [:]
+        /// Threads Gmail no longer has.
+        var missing: Set<String> = []
+        /// True when Gmail's allowance ran out before every thread was fetched.
+        var wasCutShort = false
+    }
+
+    private enum Fetched: Sendable {
+        case thread(MappedThread)
+        case missing(String)
+        case skipped
+        case rateLimited
+    }
+
+    /// Fetches threads a few at a time, in the order given. When Gmail's allowance runs
+    /// out, the fetch stops and returns what it has.
+    private func threads(_ ids: [String], mapper: GmailMapper) async throws -> Pass {
         let api = api
-        return try await withThrowingTaskGroup(of: MappedThread?.self) { group in
-            var results: [String: MappedThread] = [:]
+        return try await withThrowingTaskGroup(of: Fetched.self) { group in
+            var pass = Pass()
+            func record(_ result: Fetched) {
+                switch result {
+                case .thread(let mapped): pass.threads[mapped.thread.id] = mapped
+                case .missing(let id): pass.missing.insert(id)
+                case .skipped: break
+                case .rateLimited: pass.wasCutShort = true
+                }
+            }
+
             var running = 0
-            for id in ids {
-                if running == Self.concurrentFetches, let mapped = try await group.next() {
+            for id in ids where !pass.wasCutShort {
+                if running == Self.concurrentFetches, let result = try await group.next() {
                     running -= 1
-                    if let mapped {
-                        results[mapped.thread.id] = mapped
-                    }
+                    record(result)
+                    if pass.wasCutShort { break }
                 }
                 group.addTask {
                     do {
                         let resource = try await api.thread(id)
-                        return mapper.thread(from: resource)
+                        return mapper.thread(from: resource).map(Fetched.thread) ?? .skipped
                     } catch GmailError.status(404, _) {
-                        return nil
+                        return .missing(id)
+                    } catch GmailError.rateLimited {
+                        return .rateLimited
                     }
                 }
                 running += 1
             }
-            for try await mapped in group {
-                if let mapped {
-                    results[mapped.thread.id] = mapped
-                }
+            for try await result in group {
+                record(result)
             }
-            return results
+            return pass
         }
     }
 
