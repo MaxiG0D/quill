@@ -52,7 +52,10 @@ struct RootView: View {
             // Reading or filing mail here changes the badge and clears its notifications.
             await notifier?.reflect(store.threads)
         }
-        .task {
+        .task(id: scenePhase) {
+            // The system only shows its prompt to an app that is in front, which Quill
+            // may not be yet in the first moment after launch.
+            guard scenePhase == .active else { return }
             await notifier?.prepare()
         }
         .task(id: store.visibleThreads.first?.id) {

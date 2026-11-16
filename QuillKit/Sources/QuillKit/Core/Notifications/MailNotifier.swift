@@ -52,10 +52,10 @@ final class MailNotifier {
         isEnabled && permission == .allowed
     }
 
-    /// Asks for the system's permission the first time, while Quill is on screen.
+    /// Asks for the system's permission the first time. Called once Quill is on screen.
     func prepare() async {
         await readPermission()
-        if isEnabled, permission == .undecided, isAppActive() {
+        if isEnabled, permission == .undecided {
             permission = await poster.requestPermission()
         }
     }
