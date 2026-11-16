@@ -15,8 +15,12 @@ struct ThreadScreen: View {
                     .toolbar {
                         ToolbarItemGroup(placement: .primaryAction) {
                             StarButton(thread: thread)
+                            LabelMenu(thread: thread)
+                                .tint(Palette.accent)
+                            MoveMenu(thread: thread, onFiled: close)
+                                .tint(Palette.accent)
                             Menu("More", systemImage: "ellipsis") {
-                                ThreadActions(thread: thread, onFiled: close)
+                                ThreadActions(thread: thread, hasMenus: false, onFiled: close)
                             }
                             .tint(Palette.accent)
                         }

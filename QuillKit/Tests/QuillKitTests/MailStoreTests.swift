@@ -31,6 +31,38 @@ struct MailStoreTests {
         #expect(store.unreadCount == 2)
     }
 
+    @Test func labelsGoOnAndComeOff() {
+        let store = Fixture.store()
+        store.setLabel("travel", on: "dental", isOn: true)
+        #expect(store.labels(for: store.thread("dental")!).map(\.id) == ["travel"])
+        #expect(store.thread("dental")?.folder == .inbox)
+        #expect(store.toast == nil)
+
+        store.setLabel("travel", on: "dental", isOn: false)
+        #expect(store.thread("dental")?.labelIDs == [])
+    }
+
+    @Test func movingToALabelLeavesTheInboxAndUndoRestoresIt() {
+        let store = Fixture.store()
+        let before = store.thread("dental")
+        store.move("dental", toLabel: "travel")
+        #expect(store.thread("dental")?.folder == .archive)
+        #expect(store.thread("dental")?.labelIDs == ["travel"])
+        #expect(store.toast?.title == "Moved to Travel")
+
+        store.undo()
+        #expect(store.thread("dental") == before)
+    }
+
+    @Test func movingFromOneLabelToAnotherSwapsThem() throws {
+        let store = Fixture.store()
+        store.show(.label("house"))
+        let id = try #require(store.visibleThreads.first?.id)
+        store.move(id, toLabel: "travel")
+        #expect(store.thread(id)?.labelIDs == ["travel"])
+        #expect(!store.visibleThreads.map(\.id).contains(id))
+    }
+
     @Test func trashingTheOpenThreadSelectsItsNeighbor() {
         let store = Fixture.store()
         store.select("dental")

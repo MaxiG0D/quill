@@ -129,8 +129,9 @@ final class MailStore {
         labels.first { $0.id == id }
     }
 
+    /// A thread's labels, in the account's order.
     func labels(for thread: MailThread) -> [MailLabel] {
-        thread.labelIDs.compactMap(label)
+        labels.filter { thread.labelIDs.contains($0.id) }
     }
 
     /// Everyone who appears in the mailbox, for recipient suggestions.
@@ -263,6 +264,32 @@ final class MailStore {
         file(id, in: mailbox, title: "Moved to \(mailbox.title)", symbol: mailbox.symbol, cue: .lift)
     }
 
+    /// Files a thread under a label, as Gmail's Move does: it leaves the Inbox, and the label being shown.
+    func move(_ id: MailThread.ID, toLabel label: MailLabel.ID) {
+        guard let thread = thread(id), let name = self.label(label)?.name else { return }
+        var shown: MailLabel.ID?
+        if case .label(let open) = selection, open != label, thread.labelIDs.contains(open) {
+            shown = open
+        }
+        let change = ThreadChange.file(under: label, leaving: shown)
+        var filed = thread
+        change.apply(to: &filed)
+        guard filed != thread else { return }
+        if !filed.belongs(to: selection, at: now) {
+            deselect(id)
+        }
+        commit(change, to: id, cue: .lift)
+        toast = UndoToast(title: "Moved to \(name)", symbol: "tag", previous: [thread])
+    }
+
+    func setLabel(_ label: MailLabel.ID, on id: MailThread.ID, isOn: Bool) {
+        guard let thread = thread(id), thread.labelIDs.contains(label) != isOn else { return }
+        if !isOn, selection == .label(label) {
+            deselect(id)
+        }
+        commit(.setLabel(label, isOn), to: id, cue: .selection)
+    }
+
     func snooze(_ id: MailThread.ID, until option: SnoozeOption) {
         guard let thread = thread(id) else { return }
         let date = option.date(from: now, calendar: calendar)
@@ -277,7 +304,11 @@ final class MailStore {
         self.toast = nil
         for previous in toast.previous {
             guard let index = threads.firstIndex(where: { $0.id == previous.id }) else { continue }
+            let labels = Set(threads[index].labelIDs).symmetricDifference(previous.labelIDs)
             threads[index] = previous
+            for label in labels.sorted() {
+                report(.setLabel(label, previous.labelIDs.contains(label)), for: previous.id, rollback: nil)
+            }
             report(.move(previous.folder), for: previous.id, rollback: nil)
             report(.snooze(previous.snoozedUntil), for: previous.id, rollback: nil)
         }

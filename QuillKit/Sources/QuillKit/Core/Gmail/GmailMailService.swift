@@ -133,6 +133,13 @@ actor GmailMailService: MailService {
                 }
             case .snooze(let date):
                 update { $0.snoozed[id] = date }
+            case .setLabel(let label, let isOn):
+                try await api.modifyThread(id, adding: isOn ? [label] : [], removing: isOn ? [] : [label])
+            case .file(let label, let old):
+                if known?.folder == .trash {
+                    try await api.untrashThread(id)
+                }
+                try await api.modifyThread(id, adding: [label], removing: ["INBOX"] + [old].compactMap { $0 })
             }
             // Gmail gives a changed thread a new history ID, so the next refresh fetches it again.
             update { archive in

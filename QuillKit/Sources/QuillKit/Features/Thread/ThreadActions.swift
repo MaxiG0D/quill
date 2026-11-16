@@ -5,6 +5,8 @@ struct ThreadActions: View {
     @Environment(MailStore.self) private var store
 
     let thread: MailThread
+    /// False where Label and Move already have buttons of their own.
+    var hasMenus = true
     /// Called after an action removes the thread from the current list.
     var onFiled: () -> Void = {}
 
@@ -32,10 +34,9 @@ struct ThreadActions: View {
             }
         }
         Divider()
-        if thread.folder != .inbox {
-            Button("Move to Inbox", systemImage: "tray") {
-                move(to: .inbox)
-            }
+        if hasMenus {
+            LabelMenu(thread: thread)
+            MoveMenu(thread: thread, onFiled: onFiled)
         }
         if thread.folder != .archive {
             Button("Archive", systemImage: "archivebox") {
@@ -68,10 +69,10 @@ struct ThreadActions: View {
 
     private func move(to mailbox: Mailbox) {
         withAnimation(Motion.list) {
-            switch mailbox {
-            case .archive: store.archive(thread.id)
-            case .trash: store.trash(thread.id)
-            default: store.move(thread.id, to: mailbox)
+            if mailbox == .trash {
+                store.trash(thread.id)
+            } else {
+                store.archive(thread.id)
             }
         }
         onFiled()

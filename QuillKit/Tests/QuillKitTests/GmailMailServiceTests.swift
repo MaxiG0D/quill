@@ -178,6 +178,9 @@ struct GmailMailServiceTests {
         try await service.apply(.move(.trash), to: ["t1"])
         try await service.apply(.move(.inbox), to: ["t1"])
         try await service.apply(.snooze(.now), to: ["t1"])
+        try await service.apply(.setLabel("Label_1", true), to: ["t1"])
+        try await service.apply(.setLabel("Label_1", false), to: ["t1"])
+        try await service.apply(.file(under: "Label_2", leaving: "Label_1"), to: ["t1"])
 
         let everything = await http.log()
         let log = Array(everything.dropFirst(before))
@@ -188,7 +191,13 @@ struct GmailMailServiceTests {
             "POST /gmail/v1/users/me/threads/t1/trash",
             "POST /gmail/v1/users/me/threads/t1/untrash",
             "POST /gmail/v1/users/me/threads/t1/modify",
+            "POST /gmail/v1/users/me/threads/t1/modify",
+            "POST /gmail/v1/users/me/threads/t1/modify",
+            "POST /gmail/v1/users/me/threads/t1/modify",
         ])
+        #expect(await http.labelChange(at: before + 6) == ["addLabelIds": ["Label_1"], "removeLabelIds": []])
+        #expect(await http.labelChange(at: before + 7) == ["addLabelIds": [], "removeLabelIds": ["Label_1"]])
+        #expect(await http.labelChange(at: before + 8) == ["addLabelIds": ["Label_2"], "removeLabelIds": ["INBOX", "Label_1"]])
         #expect(await http.labelChange(at: before) == ["addLabelIds": [], "removeLabelIds": ["INBOX"]])
         #expect(await http.labelChange(at: before + 1) == ["addLabelIds": ["STARRED"], "removeLabelIds": []])
         #expect(await http.labelChange(at: before + 2) == ["addLabelIds": [], "removeLabelIds": ["UNREAD"]])

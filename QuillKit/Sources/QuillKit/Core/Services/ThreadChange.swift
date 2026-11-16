@@ -7,6 +7,9 @@ enum ThreadChange: Hashable, Sendable {
     case setUnread(Bool)
     case setPinned(Bool)
     case snooze(Date?)
+    case setLabel(MailLabel.ID, Bool)
+    /// Files the thread under a label: out of the Inbox, and out of the label it was moved from.
+    case file(under: MailLabel.ID, leaving: MailLabel.ID?)
 
     func apply(to thread: inout MailThread) {
         switch self {
@@ -21,6 +24,20 @@ enum ThreadChange: Hashable, Sendable {
             thread.isPinned = value
         case .snooze(let date):
             thread.snoozedUntil = date
+        case .setLabel(let label, let isOn):
+            if !isOn {
+                thread.labelIDs.removeAll { $0 == label }
+            } else if !thread.labelIDs.contains(label) {
+                thread.labelIDs.append(label)
+            }
+        case .file(let label, let old):
+            thread.labelIDs.removeAll { $0 == old }
+            if !thread.labelIDs.contains(label) {
+                thread.labelIDs.append(label)
+            }
+            if thread.folder == .inbox || thread.folder == .trash {
+                thread.folder = .archive
+            }
         }
     }
 }
