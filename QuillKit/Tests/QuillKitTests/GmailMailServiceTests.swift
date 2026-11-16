@@ -75,6 +75,16 @@ struct GmailMailServiceTests {
         #expect(snapshot.threads.count == 2)
     }
 
+    @Test func olderInboxMailIsListedByName() async throws {
+        // t2 sits in the Inbox but is too old to be among the newest threads.
+        let http = await GmailFixture.mailbox()
+        await http.reply(to: "/threads?", json: #"{"threads":[{"id":"t1","historyId":"100"}]}"#)
+        await http.reply(to: "labelIds=INBOX", json: #"{"threads":[{"id":"t2","historyId":"200"},{"id":"t1","historyId":"100"}]}"#)
+        let snapshot = try await GmailFixture.service(http: http).snapshot()
+        #expect(snapshot.threads.map(\.id) == ["t2", "t1"])
+        #expect(snapshot.isComplete)
+    }
+
     @Test func aSpentAllowanceDeliversTheMailboxInPasses() async throws {
         let quota = #"{"error":{"code":403,"message":"Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user' of service 'gmail.googleapis.com'.","errors":[{"domain":"usageLimits","reason":"rateLimitExceeded"}],"status":"PERMISSION_DENIED"}}"#
         let http = await GmailFixture.mailbox()

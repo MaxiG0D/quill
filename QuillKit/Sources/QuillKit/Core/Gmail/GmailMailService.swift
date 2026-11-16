@@ -10,9 +10,10 @@ actor GmailMailService: MailService {
     private var archive: MailArchive?
     private var hasReadFile = false
 
-    /// How many of the newest threads a refresh keeps up to date.
+    /// How many threads are listed from the Inbox, and from the newest mail anywhere.
     private static let recentLimit = 100
-    private static let trashLimit = 25
+    /// How many threads are listed from Starred, Drafts and Trash.
+    private static let sideLimit = 25
     private static let searchLimit = 25
     /// How many threads one refresh fetches. A full thread costs up to 60 of the 6,000
     /// quota units Gmail allows an account each minute, so this leaves room to spare.
@@ -32,15 +33,21 @@ actor GmailMailService: MailService {
         let api = api
         async let info = api.userInfo()
         async let gmailLabels = api.labels()
+        // The Inbox, Starred and Drafts are asked for by name, because mail can sit in them
+        // long after it has dropped out of the newest hundred threads.
+        async let inbox = api.threadReferences(labelIDs: ["INBOX"], limit: Self.recentLimit)
+        async let starred = api.threadReferences(labelIDs: ["STARRED"], limit: Self.sideLimit)
+        async let drafts = api.threadReferences(labelIDs: ["DRAFT"], limit: Self.sideLimit)
         async let recent = api.threadReferences(limit: Self.recentLimit)
-        async let trashed = api.threadReferences(labelIDs: ["TRASH"], limit: Self.trashLimit)
+        async let trashed = api.threadReferences(labelIDs: ["TRASH"], limit: Self.sideLimit)
 
         let user = try await info
         let account = Contact(name: user.name ?? "", email: user.email.lowercased(), tone: .teal)
         let mapper = GmailMapper(account: account, labels: GmailMapper.labels(from: try await gmailLabels))
 
         var seen = Set<String>()
-        let references = try await (recent + trashed).filter { seen.insert($0.id).inserted }
+        // In the order they are fetched when Gmail's allowance cannot cover them all at once.
+        let references = try await (inbox + starred + drafts + recent + trashed).filter { seen.insert($0.id).inserted }
 
         // Another account's archive is of no use here.
         var old = stored()

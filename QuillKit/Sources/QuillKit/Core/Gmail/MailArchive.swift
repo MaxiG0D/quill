@@ -5,7 +5,7 @@ import Foundation
 struct MailArchive: Codable, Sendable {
     var account: Contact
     var labels: [MailLabel] = []
-    /// Newest first, as Gmail lists them.
+    /// Inbox first, then the rest, in the order Gmail listed them.
     var threads: [MailThread] = []
     /// Each thread's history ID when it was fetched. A different one from Gmail means the thread changed.
     var historyIDs: [MailThread.ID: String] = [:]

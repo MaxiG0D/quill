@@ -25,7 +25,7 @@ The same client serves iPhone, iPad and Mac. Sign-in uses the system web sign-in
 PKCE, and the token is kept in the keychain. Quill asks for the `gmail.modify` scope, which
 covers reading, filing and sending.
 
-Mail access goes through the `MailService` protocol. `GmailMailService` lists the newest
+Mail access goes through the `MailService` protocol. `GmailMailService` lists the Inbox, Starred, Drafts, Trash and the newest
 100 threads, fetches only those whose history ID changed since the last refresh (40 per pass, to stay inside Gmail's 6,000 quota units a minute), and keeps
 the result in `Application Support/Quill/mailbox.json` so the app opens at once and reads
 offline. Archive, Trash, star and unread are written back to Gmail. Pins and snoozes have
