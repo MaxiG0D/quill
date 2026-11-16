@@ -11,6 +11,8 @@ struct ReplyActions: View {
         Button("Reply", systemImage: "arrowshape.turn.up.left", action: reply)
             .labelStyle(.titleAndIcon)
             .fontWeight(.semibold)
+            .buttonStyle(.borderedProminent)
+            .tint(Palette.accentFill)
         Spacer()
         Button("Reply All", systemImage: "arrowshape.turn.up.left.2", action: replyAll)
         Button("Forward", systemImage: "arrowshape.turn.up.right", action: forward)
