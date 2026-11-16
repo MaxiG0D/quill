@@ -39,9 +39,39 @@ Quill refreshes every minute while it runs, and on iPhone and iPad the system's 
 app refresh (`BackgroundRefresh`) gives it a turn while it is closed. Tapping a notification
 opens its thread (`NotificationTaps`).
 
+## Push
+
+`Relay/` is a small Node service for Google Cloud Run that makes notifications instant. Gmail
+publishes each mailbox change to a Pub/Sub topic (`users.watch`), Pub/Sub delivers it to the
+relay, and the relay reads what arrived and sends each of the account's devices a notification
+through Apple's push service.
+
+| Path | Contents |
+| --- | --- |
+| `Relay/src/server.js` | The three routes: `POST` and `DELETE /devices` for Quill, `POST /gmail` for Pub/Sub. |
+| `Relay/src/relay.js` | Registration, the Gmail watch and its renewal, and turning a change into notifications. |
+| `Relay/src/newMail.js` | Which messages earn a notification, and its payload. |
+| `Relay/src/google.js`, `apns.js`, `accounts.js` | Gmail and OAuth calls, Apple's push service, and the Firestore record per account. |
+| `Relay/deploy.sh` | Creates everything in Google Cloud and deploys. Safe to run again. |
+
+To read the mailbox the relay keeps the account's refresh token in Firestore, in the same
+Google Cloud project as the OAuth client. A device registers with a Google access token, and
+the relay only accepts tokens issued to Quill's own client ID. The push key lives in Secret
+Manager and never in the repository.
+
+```sh
+Relay/deploy.sh ~/Developer/quill-secrets/AuthKey_<key ID>.p8   # prints the relay's URL
+cd Relay && npm test
+```
+
+Paste the URL into `pushRelayURL` in `App/Configuration.swift`. On each launch Quill registers
+the device (`PushRelay`, `PushDevice`, `QuillAppDelegate`), and from then on the relay sends the
+notifications while `MailNotifier` keeps the badge and delivered notifications in step. With
+the URL empty, or when the relay cannot be reached, Quill announces new mail itself as above.
+Turning off New Mail in Settings, or signing out, removes the device from the relay.
+
 Not built yet: sending attachments, saving drafts to Gmail, downloading attachments,
-images embedded inside a message, server push for instant notifications, and more than the
-newest 100 threads outside search.
+images embedded inside a message, and more than the newest 100 threads outside search.
 
 ## Layout
 

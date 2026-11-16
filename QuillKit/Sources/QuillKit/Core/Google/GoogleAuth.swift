@@ -87,19 +87,24 @@ actor GoogleAuth {
 
     /// A token that is good for at least the next minute.
     func accessToken() async throws -> String {
+        try await credentials().accessToken
+    }
+
+    /// The account's tokens, with an access token that is good for at least the next minute.
+    func credentials() async throws -> OAuthToken {
         guard let token = await current() else {
             throw GoogleAuthError.signedOut
         }
         if token.isFresh(at: clock()) {
-            return token.accessToken
+            return token
         }
         if let refresh {
-            return try await refresh.value.accessToken
+            return try await refresh.value
         }
         let task = Task { try await self.refreshed(token) }
         refresh = task
         defer { refresh = nil }
-        return try await task.value.accessToken
+        return try await task.value
     }
 
     /// Forgets the account here and asks Google to withdraw the token.

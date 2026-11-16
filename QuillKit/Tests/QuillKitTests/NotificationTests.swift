@@ -132,6 +132,32 @@ struct NotificationTests {
         #expect(!blocked.isOn)
     }
 
+    @Test func leavesAnnouncingToThePushRelayOnceItHasTheDevice() async throws {
+        let log = NotificationLog()
+        let defaults = try Self.defaults()
+        let notifier = Self.notifier(log, defaults: defaults)
+        await notifier.announce([], account: Self.me)
+        notifier.setPushed(true)
+
+        let arrived = Self.thread("t2", [Self.message("m2", after: 7200)])
+        await notifier.announce([arrived], account: Self.me)
+        #expect(await log.posted.isEmpty)
+        #expect(await log.badge == 1)
+        #expect(Self.notifier(log, defaults: defaults).isPushed)
+
+        await notifier.reset()
+        #expect(!notifier.isPushed)
+    }
+
+    @Test func tellsTheSessionWhenThePersonFlipsTheSwitch() async throws {
+        let notifier = Self.notifier(NotificationLog(), defaults: try Self.defaults())
+        var heard: [Bool] = []
+        notifier.onSwitch = { heard.append($0) }
+        _ = await notifier.setOn(false)
+        _ = await notifier.setOn(true)
+        #expect(heard == [false, true])
+    }
+
     @Test func signingOutForgetsWhatWasSeen() async throws {
         let log = NotificationLog()
         let defaults = try Self.defaults()

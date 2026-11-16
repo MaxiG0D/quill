@@ -9,12 +9,19 @@ import AppKit
 
 /// Tells the person about new mail: a notification for each message that arrives while
 /// Quill is out of sight, and the unread count on the app's icon.
+///
+/// Once the push relay has this device, the relay sends the notifications and this class
+/// only keeps the badge and the delivered notifications in step with the mailbox.
 @MainActor
 @Observable
 final class MailNotifier {
     private(set) var permission = NotificationPermission.undecided
     /// The person's own choice in Settings. Notifications also need the system's permission.
     private(set) var isEnabled: Bool
+    /// True while the push relay is sending this device its notifications.
+    private(set) var isPushed: Bool
+    /// Told when the person turns notifications on or off, so the relay can follow.
+    var onSwitch: (@MainActor (Bool) async -> Void)?
 
     private let poster: any NotificationPosting
     private let defaults: UserDefaults
@@ -25,6 +32,7 @@ final class MailNotifier {
     private static let burstLimit = 6
     private static let enabledKey = "notifiesNewMail"
     private static let ledgerKey = "newMailLedger"
+    private static let pushedKey = "relayNotifiesNewMail"
 
     init(
         poster: any NotificationPosting = SystemNotifications(),
@@ -37,6 +45,7 @@ final class MailNotifier {
         self.isAppActive = isAppActive
         self.clock = clock
         isEnabled = defaults.object(forKey: Self.enabledKey) as? Bool ?? true
+        isPushed = defaults.bool(forKey: Self.pushedKey)
     }
 
     var isOn: Bool {
@@ -60,6 +69,7 @@ final class MailNotifier {
     func setOn(_ isOn: Bool) async -> Bool {
         isEnabled = isOn
         defaults.set(isOn, forKey: Self.enabledKey)
+        await onSwitch?(isOn)
         guard isOn else {
             await clear()
             return true
@@ -81,7 +91,7 @@ final class MailNotifier {
 
         await readPermission()
         await reflect(threads)
-        guard isOn, !mail.isEmpty, !isAppActive() else { return }
+        guard isOn, !isPushed, !mail.isEmpty, !isAppActive() else { return }
         await poster.post(Array(mail.suffix(Self.burstLimit)))
     }
 
@@ -94,9 +104,16 @@ final class MailNotifier {
         await poster.withdraw(keeping: Set(waiting.map(\.id)))
     }
 
+    /// Records whether the push relay has taken over sending this device's notifications.
+    func setPushed(_ isPushed: Bool) {
+        self.isPushed = isPushed
+        defaults.set(isPushed, forKey: Self.pushedKey)
+    }
+
     /// Forgets the account on sign-out.
     func reset() async {
         ledger = nil
+        setPushed(false)
         await clear()
     }
 

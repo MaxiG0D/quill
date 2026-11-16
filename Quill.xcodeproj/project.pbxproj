@@ -31,6 +31,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				"Quill-iOS.entitlements",
 				Quill.entitlements,
 			);
 			target = A1B2C3D40000000000000005 /* Quill */;
@@ -301,8 +302,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				CODE_SIGN_ENTITLEMENTS = App/Quill.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "App/Quill-iOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "App/Quill-iOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = App/Quill.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NZN9M2VV5J;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -334,8 +338,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				CODE_SIGN_ENTITLEMENTS = App/Quill.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "App/Quill-iOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "App/Quill-iOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = App/Quill.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NZN9M2VV5J;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;

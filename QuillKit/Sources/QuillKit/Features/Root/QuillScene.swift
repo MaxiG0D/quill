@@ -8,10 +8,11 @@ public struct QuillScene: Scene {
 
     /// - Parameter googleClientID: The iOS OAuth client ID from Google Cloud Console.
     ///   Left empty, Quill opens the sample mailbox instead of signing in to Gmail.
-    public init(googleClientID: String = "") {
+    /// - Parameter pushRelayURL: The push relay's address. Left empty, Quill checks for new mail itself.
+    public init(googleClientID: String = "", pushRelayURL: String = "") {
         let options = LaunchOptions()
         self.options = options
-        _session = State(initialValue: AccountSession(options: options, googleClientID: googleClientID))
+        _session = State(initialValue: AccountSession(options: options, googleClientID: googleClientID, pushRelayURL: pushRelayURL))
         _router = State(initialValue: options.makeRouter())
         NotificationTaps.shared.listen()
     }

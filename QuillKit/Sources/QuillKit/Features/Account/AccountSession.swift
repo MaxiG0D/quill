@@ -1,5 +1,6 @@
 import AuthenticationServices
 import Observation
+import os
 import SwiftUI
 
 /// Who is signed in, and the mailbox that goes with them.
@@ -25,7 +26,11 @@ final class AccountSession {
 
     private let auth: GoogleAuth?
     private let http: any HTTPClient
+    private let relayAddress: String
+    /// The push relay, when this build has one and someone is signed in.
+    private var relay: PushRelay?
     private var service: GmailMailService? = nil
+    private static let log = Logger(subsystem: "com.maxig0d.quill", category: "push")
     /// New-mail notifications, for a real account only.
     let notifier: MailNotifier?
     private var restoration: Task<Void, Never>?
@@ -36,11 +41,13 @@ final class AccountSession {
     init(
         options: LaunchOptions = LaunchOptions(),
         googleClientID: String = "",
+        pushRelayURL: String = "",
         http: any HTTPClient = URLSessionHTTPClient(),
         tokens: any TokenStore = KeychainTokenStore(),
         notifier: MailNotifier? = nil
     ) {
         self.http = http
+        relayAddress = pushRelayURL
         if options.screen == nil, let client = GoogleClient(id: googleClientID) {
             auth = GoogleAuth(client: client, http: http, tokens: tokens)
             self.notifier = notifier ?? MailNotifier()
@@ -105,6 +112,8 @@ final class AccountSession {
 
     func signOut() async {
         guard let auth else { return }
+        // While the token still works, so the relay can tell who is asking.
+        await stopPush()
         await auth.signOut()
         await close()
     }
@@ -115,6 +124,20 @@ final class AccountSession {
         let store = MailStore(service: service, notifier: notifier)
         self.store = store
         phase = .ready
+        relay = PushRelay(address: relayAddress, auth: auth, http: http)
+        notifier?.onSwitch = { [weak self] isOn in
+            if isOn {
+                await self?.startPush()
+            } else {
+                await self?.stopPush()
+            }
+        }
+        PushDevice.shared.onPush = { [weak self] in
+            await self?.checkMail()
+        }
+        Task {
+            await startPush()
+        }
         polling?.cancel()
         polling = Task { [weak store] in
             while !Task.isCancelled {
@@ -125,10 +148,30 @@ final class AccountSession {
         }
     }
 
+    /// Hands this device to the push relay, on every launch so the relay's record stays
+    /// current. Until that has worked, Quill announces new mail itself.
+    private func startPush() async {
+        guard let relay, notifier?.isEnabled == true, let token = await PushDevice.shared.token() else { return }
+        do {
+            try await relay.register(token)
+            notifier?.setPushed(true)
+        } catch {
+            Self.log.info("Push relay did not take this device: \(String(describing: error), privacy: .public)")
+            notifier?.setPushed(false)
+        }
+    }
+
+    private func stopPush() async {
+        notifier?.setPushed(false)
+        guard let relay, let token = PushDevice.shared.knownToken else { return }
+        try? await relay.unregister(token)
+    }
+
     /// Returns to the sign-in screen and removes the account's mail from the device.
     private func close() async {
         polling?.cancel()
         polling = nil
+        relay = nil
         await notifier?.reset()
         await service?.erase()
         MessagePreloader.shared.forget()
