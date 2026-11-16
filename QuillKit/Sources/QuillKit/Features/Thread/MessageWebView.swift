@@ -85,8 +85,6 @@ struct MessageWebView {
         var reveal: () -> Void = {}
         private var settling: Task<Void, Never>?
 
-        private var settling: Task<Void, Never>?
-
         /// Measures the page, and optionally shows it once the measurement is in.
         func fit(_ view: WKWebView, thenReveal: Bool = false) {
             view.evaluateJavaScript(HTMLDocument.fitScript) { [weak self] result, _ in
