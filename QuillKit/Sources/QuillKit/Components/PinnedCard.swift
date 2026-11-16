@@ -1,0 +1,56 @@
+import SwiftUI
+
+/// The roomier presentation for a pinned thread: a large monogram, a two-line
+/// preview, and the thread's attachment and label.
+struct PinnedCard: View {
+    @Environment(MailStore.self) private var store
+
+    let thread: MailThread
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            HStack(alignment: .top, spacing: Spacing.s) {
+                if let sender = thread.sender {
+                    MonogramAvatar(sender, size: .large)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.xxs + 2) {
+                        if thread.isUnread {
+                            UnreadMark()
+                        }
+                        Text(thread.sender?.displayName ?? "")
+                            .textRole(.sender(unread: thread.isUnread))
+                            .foregroundStyle(Palette.label)
+                            .lineLimit(1)
+                        Spacer(minLength: Spacing.xs)
+                        ThreadStatus(thread: thread)
+                    }
+                    Text(thread.subject)
+                        .textRole(.sender(unread: false))
+                        .foregroundStyle(Palette.label)
+                        .lineLimit(1)
+                }
+            }
+            Text(thread.preview)
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryLabel)
+                .lineLimit(2)
+            if !accessories.isEmpty {
+                HStack(spacing: Spacing.xs) {
+                    if let attachment = thread.attachments.last {
+                        AttachmentChip(attachment: attachment)
+                    }
+                    ForEach(store.labels(for: thread)) { label in
+                        LabelChip(label)
+                    }
+                }
+            }
+        }
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var accessories: [String] {
+        thread.attachments.map(\.id) + thread.labelIDs
+    }
+}
