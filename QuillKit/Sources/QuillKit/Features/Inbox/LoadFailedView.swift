@@ -7,6 +7,12 @@ struct LoadFailedView: View {
     var body: some View {
         ContentUnavailableView {
             Label("Couldn’t Load Mail", systemImage: "wifi.exclamationmark")
+        } description: {
+            // The service's own words: the only clue to what went wrong.
+            if case .failed(let reason) = store.phase {
+                Text(reason)
+                    .textSelection(.enabled)
+            }
         } actions: {
             Button("Try Again", action: retry)
                 .buttonStyle(.borderedProminent)

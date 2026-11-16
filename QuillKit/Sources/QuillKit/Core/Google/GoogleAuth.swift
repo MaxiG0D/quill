@@ -73,6 +73,10 @@ actor GoogleAuth {
             ("grant_type", "authorization_code"),
             ("redirect_uri", client.redirectURI),
         ])
+        // Google lets people untick individual permissions, and still signs them in.
+        if let scope = grant.scope, !scope.contains("gmail.modify") {
+            throw GoogleAuthError.mailNotAllowed
+        }
         guard let refreshToken = grant.refreshToken else {
             throw GoogleAuthError.server("")
         }
@@ -181,6 +185,7 @@ actor GoogleAuth {
         let accessToken: String
         let refreshToken: String?
         let expiresIn: Int?
+        let scope: String?
     }
 
     private struct TokenFailure: Decodable {

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// The app's mailbox state and every action that changes it.
 ///
@@ -32,6 +33,7 @@ final class MailStore {
     private let clock: @Sendable () -> Date
     private var searchTask: Task<Void, Never>?
     private var isFetching = false
+    private static let log = Logger(subsystem: "com.maxig0d.quill", category: "mail")
 
     init(
         service: any MailService,
@@ -153,12 +155,19 @@ final class MailStore {
         do {
             adopt(try await service.snapshot())
         } catch {
+            Self.log.error("Mail could not be loaded: \(String(describing: error), privacy: .public)")
             if threads.isEmpty && phase != .loaded {
-                phase = .failed(error.localizedDescription)
+                phase = .failed(Self.describe(error))
             } else if !isQuiet {
-                alert = error.localizedDescription
+                alert = Self.describe(error)
             }
         }
+    }
+
+    /// An error in words. A decoding failure says which field it tripped on, which its
+    /// localized description leaves out.
+    private static func describe(_ error: any Error) -> String {
+        error is DecodingError ? "Unexpected reply from the mail service. \(error)" : error.localizedDescription
     }
 
     private func adopt(_ snapshot: MailSnapshot) {

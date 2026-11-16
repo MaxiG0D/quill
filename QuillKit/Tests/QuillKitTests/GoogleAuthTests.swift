@@ -62,6 +62,18 @@ struct GoogleAuthTests {
         }
     }
 
+    @Test func signingInWithoutGmailAccessIsRefused() async throws {
+        let http = StubHTTP()
+        await http.reply(to: "/token", json: #"{"access_token":"a1","refresh_token":"r1","expires_in":3599,"scope":"openid https://www.googleapis.com/auth/userinfo.email"}"#)
+        let tokens = MemoryTokenStore()
+        let auth = GoogleAuth(client: GmailFixture.client, http: http, tokens: tokens)
+        let callback = try #require(URL(string: "x:/oauth2redirect?state=s1&code=c1"))
+        await #expect(throws: GoogleAuthError.mailNotAllowed) {
+            try await auth.signIn(callback: callback, verifier: "v1", state: "s1")
+        }
+        #expect(await auth.isSignedIn() == false)
+    }
+
     @Test func anExpiredTokenIsRefreshedOnce() async throws {
         let http = StubHTTP()
         await http.reply(to: "/token", json: #"{"access_token":"a2","expires_in":3599}"#)
