@@ -17,12 +17,18 @@ final class NotificationTaps: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
     }
 
+    /// The completion handler form: UIKit expects `completionHandler` on the main thread,
+    /// and the async form finishes on a background one and crashes.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
+    ) {
         let threadID = response.notification.request.content.threadIdentifier
-        await request(threadID)
+        Task { @MainActor in
+            request(threadID)
+            completionHandler()
+        }
     }
 
     private func request(_ threadID: MailThread.ID) {
