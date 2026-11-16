@@ -6,38 +6,59 @@ struct MonogramAvatar: View {
         case small = 24, compact = 32, medium = 40, large = 48
     }
 
-    let initials: String
-    let tone: LabelTone
-    var photoURL: URL?
+    @Environment(SenderPictures.self) private var pictures: SenderPictures?
+
+    let contact: Contact
     var size: Size = .medium
 
     init(_ contact: Contact, size: Size = .medium) {
-        self.initials = contact.initials
-        self.tone = contact.tone
-        self.photoURL = contact.photoURL
+        self.contact = contact
         self.size = size
     }
 
     var body: some View {
-        Text(initials)
+        let picture = pictures?.picture(for: contact)
+        Text(contact.initials)
             .font(.system(size: size.rawValue * 0.42, weight: .semibold, design: .serif))
-            .foregroundStyle(tone.ink)
+            .foregroundStyle(contact.tone.ink)
             .frame(width: size.rawValue, height: size.rawValue)
-            .background(tone.fill)
+            .background(contact.tone.fill)
             .overlay {
                 // The initials stay underneath until the picture arrives, and if it never does.
-                if let photoURL {
-                    AsyncImage(url: photoURL) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
-                        Color.clear
-                    }
+                if let picture {
+                    tile(picture)
+                        .transition(.opacity)
                 }
             }
             .clipShape(.rect(cornerRadius: size.rawValue * Radius.squircle))
+            .animation(Motion.quick, value: picture != nil)
             .accessibilityHidden(true)
+            .task(id: lookup) {
+                await pictures?.resolve(contact)
+            }
+    }
+
+    @ViewBuilder
+    private func tile(_ picture: SenderPicture) -> some View {
+        switch picture.kind {
+        case .person:
+            picture.image
+                .resizable()
+                .interpolation(.high)
+                .scaledToFill()
+        case .logo:
+            picture.image
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.white)
+        }
+    }
+
+    /// Changes when the contact does, and when new pictures may have arrived for it.
+    private var lookup: String {
+        "\(contact.email) \(pictures?.revision ?? 0)"
     }
 }
 

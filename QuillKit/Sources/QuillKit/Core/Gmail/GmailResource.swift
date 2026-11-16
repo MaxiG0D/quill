@@ -80,12 +80,55 @@ enum GmailResource {
         /// The address of the account's Google picture.
         var picture: String?
 
-        /// The picture at a size that stays sharp in the largest avatar. Google sends a small one by default.
         var photoURL: URL? {
-            guard let picture else { return nil }
-            guard let size = picture.range(of: "=s", options: .backwards) else { return URL(string: picture) }
-            return URL(string: String(picture[..<size.lowerBound]) + "=s192-c")
+            picture.flatMap(GmailResource.sharpPicture)
         }
+    }
+
+    /// One page of the account's saved contacts, or of the people it has written with.
+    struct PersonList: Decodable, Sendable {
+        var connections: [Person]?
+        var otherContacts: [Person]?
+        var nextPageToken: String?
+
+        var people: [Person] {
+            (connections ?? []) + (otherContacts ?? [])
+        }
+    }
+
+    struct Person: Decodable, Sendable {
+        struct EmailAddress: Decodable, Sendable {
+            var value: String?
+        }
+
+        struct Photo: Decodable, Sendable {
+            var url: String?
+            /// True for the letter tile Google draws for people without a picture.
+            var isDefault: Bool?
+
+            private enum CodingKeys: String, CodingKey {
+                case url
+                case isDefault = "default"
+            }
+        }
+
+        var emailAddresses: [EmailAddress]?
+        var photos: [Photo]?
+
+        var addresses: [String] {
+            (emailAddresses ?? []).compactMap { $0.value?.lowercased() }
+        }
+
+        /// The person's own picture, if they have set one.
+        var photoURL: URL? {
+            photos?.first { $0.isDefault != true && $0.url != nil }?.url.flatMap(GmailResource.sharpPicture)
+        }
+    }
+
+    /// A Google picture at a size that stays sharp in the largest avatar. Google sends a small one by default.
+    static func sharpPicture(_ address: String) -> URL? {
+        guard let size = address.range(of: "=s", options: .backwards) else { return URL(string: address) }
+        return URL(string: String(address[..<size.lowerBound]) + "=s192-c")
     }
 
     struct LabelChange: Encodable, Sendable {

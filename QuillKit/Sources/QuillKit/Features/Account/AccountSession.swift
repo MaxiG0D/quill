@@ -33,6 +33,8 @@ final class AccountSession {
     private static let log = Logger(subsystem: "com.maxig0d.quill", category: "push")
     /// New-mail notifications, for a real account only.
     let notifier: MailNotifier?
+    /// Senders' pictures, for a real account only.
+    let pictures: SenderPictures
     private var restoration: Task<Void, Never>?
     private var polling: Task<Void, Never>?
     /// How often Quill looks for new mail while it is running.
@@ -51,10 +53,12 @@ final class AccountSession {
         if options.screen == nil, let client = GoogleClient(id: googleClientID) {
             auth = GoogleAuth(client: client, http: http, tokens: tokens)
             self.notifier = notifier ?? MailNotifier()
+            pictures = SenderPictures(http: http)
             phase = .launching
         } else {
             auth = nil
             self.notifier = nil
+            pictures = SenderPictures()
             store = options.makeStore()
             phase = .ready
         }
@@ -119,8 +123,10 @@ final class AccountSession {
     }
 
     private func open(with auth: GoogleAuth) {
-        let service = GmailMailService(api: GmailAPI(auth: auth, http: http))
+        let api = GmailAPI(auth: auth, http: http)
+        let service = GmailMailService(api: api)
         self.service = service
+        pictures.load(from: api)
         let store = MailStore(service: service, notifier: notifier)
         self.store = store
         phase = .ready
@@ -178,6 +184,7 @@ final class AccountSession {
         relay = nil
         await notifier?.reset()
         await service?.erase()
+        pictures.forget()
         MessagePreloader.shared.forget()
         await MessageWebView.forget()
         service = nil

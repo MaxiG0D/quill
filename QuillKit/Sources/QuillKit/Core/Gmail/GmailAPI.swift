@@ -7,9 +7,48 @@ struct GmailAPI: Sendable {
 
     private static let mail = "https://gmail.googleapis.com/gmail/v1/users/me/"
     private static let userInfoURL = "https://openidconnect.googleapis.com/v1/userinfo"
+    private static let people = "https://people.googleapis.com/v1/"
+    /// How many pages of a thousand people are read from each list.
+    private static let peoplePages = 5
 
     func userInfo() async throws -> GmailResource.UserInfo {
         try await call(Self.userInfoURL)
+    }
+
+    /// Pictures of the people the account knows, by lowercased address. Empty when the
+    /// account has not let Quill see its contacts.
+    func contactPhotos() async -> [String: URL] {
+        async let others = photos(in: "otherContacts", query: [
+            URLQueryItem(name: "readMask", value: "emailAddresses,photos"),
+            URLQueryItem(name: "sources", value: "READ_SOURCE_TYPE_CONTACT"),
+            URLQueryItem(name: "sources", value: "READ_SOURCE_TYPE_PROFILE"),
+        ])
+        async let saved = photos(in: "people/me/connections", query: [
+            URLQueryItem(name: "personFields", value: "emailAddresses,photos"),
+        ])
+        // A saved contact's picture wins over one Google gathered.
+        return await others.merging(saved) { _, saved in saved }
+    }
+
+    private func photos(in list: String, query: [URLQueryItem]) async -> [String: URL] {
+        var photos: [String: URL] = [:]
+        var page: String?
+        for _ in 0..<Self.peoplePages {
+            var items = query + [URLQueryItem(name: "pageSize", value: "1000")]
+            if let page {
+                items.append(URLQueryItem(name: "pageToken", value: page))
+            }
+            guard let found: GmailResource.PersonList = try? await call(Self.people + list, query: items) else { break }
+            for person in found.people {
+                guard let url = person.photoURL else { continue }
+                for address in person.addresses {
+                    photos[address] = url
+                }
+            }
+            guard let next = found.nextPageToken else { break }
+            page = next
+        }
+        return photos
     }
 
     func labels() async throws -> [GmailResource.Label] {

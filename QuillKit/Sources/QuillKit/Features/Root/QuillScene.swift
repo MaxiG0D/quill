@@ -45,6 +45,7 @@ public struct QuillScene: Scene {
         Settings {
             SettingsView()
                 .environment(session)
+                .environment(session.pictures)
                 .tint(Palette.accent)
                 .preferredColorScheme(options.colorScheme)
         }

@@ -16,14 +16,18 @@ client ID it signs in to Gmail instead.
 ## Gmail
 
 1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create a
-   project and enable the Gmail API.
+   project and enable the Gmail API and the People API.
 2. Configure the OAuth consent screen, and add your own Google account as a test user.
 3. Create an OAuth client of type iOS with the bundle ID `com.maxig0d.quill`.
 4. Paste its client ID into `App/Configuration.swift`.
 
 The same client serves iPhone, iPad and Mac. Sign-in uses the system web sign-in sheet with
 PKCE, and the token is kept in the keychain. Quill asks for the `gmail.modify` scope, which
-covers reading, filing and sending.
+covers reading, filing and sending, and for read-only access to contacts, which gives senders
+their pictures.
+
+A sender's picture (`Core/Pictures`) is the person's own from the account's Google contacts,
+or else the logo of the site the mail came from, and their initials when there is neither.
 
 Mail access goes through the `MailService` protocol. `GmailMailService` lists the Inbox, Starred, Drafts, Trash and the newest
 100 threads, fetches only those whose history ID changed since the last refresh (40 per pass, to stay inside Gmail's 6,000 quota units a minute), and keeps

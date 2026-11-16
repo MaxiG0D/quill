@@ -24,6 +24,7 @@ struct SessionView: View {
             }
         }
         .animation(Motion.scene, value: session.phase)
+        .environment(session.pictures)
         .tint(Palette.accent)
         .task {
             await session.restore()

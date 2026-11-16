@@ -4,8 +4,16 @@ import Foundation
 struct GoogleClient: Hashable, Sendable {
     private static let suffix = ".apps.googleusercontent.com"
 
-    /// Reading, filing and sending mail, plus the name and address shown for the account.
-    static let scopes = ["https://www.googleapis.com/auth/gmail.modify", "openid", "email", "profile"]
+    /// Reading, filing and sending mail, the name and address shown for the account,
+    /// and the contacts whose pictures appear beside their mail.
+    static let scopes = [
+        "https://www.googleapis.com/auth/gmail.modify",
+        "openid",
+        "email",
+        "profile",
+        "https://www.googleapis.com/auth/contacts.readonly",
+        "https://www.googleapis.com/auth/contacts.other.readonly",
+    ]
 
     let id: String
 
