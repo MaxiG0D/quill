@@ -14,6 +14,12 @@ struct PushRelayTests {
         #expect(Self.relay(StubHTTP(), address: " https://relay.example/ ") != nil)
     }
 
+    @Test func thePushEnvironmentComesFromTheSigningProfile() {
+        let profile = "junk<key>aps-environment</key>\n\t<string>development</string><key>get-task-allow</key><true/>"
+        #expect(PushRelay.environment(inProfile: profile) == "development")
+        #expect(PushRelay.environment(inProfile: "<key>get-task-allow</key><true/>") == nil)
+    }
+
     @Test func registeringSendsTheDeviceAndTheAccountsTokens() async throws {
         let http = StubHTTP()
         await http.reply(to: "/devices", status: 204, json: "")

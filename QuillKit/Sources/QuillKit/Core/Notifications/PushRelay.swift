@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 /// Quill's push relay: the small server that watches the Gmail account and sends this
 /// device a notification the moment mail arrives. See `Relay/` in the repository.
@@ -60,14 +61,31 @@ struct PushRelay: Sendable {
         let deviceToken: String
     }
 
-    /// Which of Apple's push services holds this build's device token. Builds run from
-    /// Xcode use the development one.
-    private static var environment: String {
-        #if DEBUG
-        "development"
+    /// Which of Apple's push services holds this build's device token. That is decided by
+    /// how the app was signed, not by how it was compiled, so it is read from the signature.
+    static let environment: String = signedEnvironment() ?? "production"
+
+    private static func signedEnvironment() -> String? {
+        #if os(macOS)
+        guard let task = SecTaskCreateFromSelf(nil) else { return nil }
+        let name = "com.apple.developer.aps-environment" as CFString
+        return SecTaskCopyValueForEntitlement(task, name, nil) as? String
         #else
-        "production"
+        // iOS keeps the entitlements out of reach, but builds installed outside the App
+        // Store carry the profile that grants them. App Store builds carry none.
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url),
+              let profile = String(data: data, encoding: .isoLatin1) else { return nil }
+        return environment(inProfile: profile)
         #endif
+    }
+
+    /// The `aps-environment` value in a provisioning profile's text.
+    static func environment(inProfile profile: String) -> String? {
+        guard let key = profile.range(of: "<key>aps-environment</key>"),
+              let open = profile.range(of: "<string>", range: key.upperBound..<profile.endIndex),
+              let close = profile.range(of: "</string>", range: open.upperBound..<profile.endIndex) else { return nil }
+        return String(profile[open.upperBound..<close.lowerBound])
     }
 
     private static var platform: String {
