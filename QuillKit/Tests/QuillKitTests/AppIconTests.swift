@@ -12,7 +12,9 @@ struct AppIconTests {
         (AppIcon.terracotta, "AppIcon-Terracotta"),
         (.indigo, "AppIcon-Indigo"),
         (.oxblood, "AppIcon-Oxblood"),
-        (.paper, "AppIcon-Paper")
+        (.midnight, "AppIcon-Midnight"),
+        (.paper, "AppIcon-Paper"),
+        (.paperTerracotta, "AppIcon-PaperTerracotta")
     ])
     func alternateNamesMatchTheAssetCatalog(icon: AppIcon, expected: String) {
         #expect(icon.alternateName == expected)

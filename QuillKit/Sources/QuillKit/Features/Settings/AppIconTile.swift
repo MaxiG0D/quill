@@ -20,7 +20,6 @@ struct AppIconTile: View {
                     .padding(-4)
                     .opacity(isSelected ? 1 : 0)
             }
-            .frame(maxWidth: 72)
             .animation(Motion.quick, value: isSelected)
     }
 }

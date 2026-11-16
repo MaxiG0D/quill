@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// A row of Quill's icons. Tapping one makes it the app's icon.
+/// A grid of Quill's icons. Tapping one makes it the app's icon.
 struct AppIconPicker: View {
     @AppStorage(AppIcon.storageKey) private var selection = AppIcon.primary
 
+    private let columns = [GridItem(.adaptive(minimum: 56, maximum: 72), spacing: Spacing.m)]
+
     var body: some View {
-        HStack(spacing: Spacing.s) {
+        LazyVGrid(columns: columns, spacing: Spacing.m) {
             ForEach(AppIcon.allCases) { icon in
                 Button {
                     choose(icon)
@@ -17,7 +19,6 @@ struct AppIconPicker: View {
                 .accessibilityAddTraits(icon == selection ? .isSelected : [])
             }
         }
-        .frame(maxWidth: .infinity)
     }
 
     private func choose(_ icon: AppIcon) {

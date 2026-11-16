@@ -23,8 +23,18 @@
     },
     {
       "name": "Paper",
+      "light": { "top": "#FBF8F0", "bottom": "#EAE3D2", "nib": ["#3A3F46", "#24272C"], "shadow": "#6B5F45", "shadowOpacity": 0.28 },
+      "dark": { "top": "#22252A", "bottom": "#0D0E10", "nib": ["#F6F1E4", "#CFC8B6"], "shadow": "#000000", "shadowOpacity": 0.45 }
+    },
+    {
+      "name": "PaperTerracotta",
       "light": { "top": "#FBF8F0", "bottom": "#EAE3D2", "nib": ["#C4562A", "#A8431C"], "shadow": "#6B5F45", "shadowOpacity": 0.28 },
       "dark": { "top": "#1C1F24", "bottom": "#0C0D10", "nib": ["#F2A274", "#D0683A"], "shadow": "#000000", "shadowOpacity": 0.45 }
+    },
+    {
+      "name": "Midnight",
+      "light": { "top": "#1E2A4A", "bottom": "#0E1428", "nib": ["#F3D9A0", "#D9A95A"], "shadow": "#04060F", "shadowOpacity": 0.45 },
+      "dark": { "top": "#161B2B", "bottom": "#07090F", "nib": ["#F3D9A0", "#C9984A"], "shadow": "#000000", "shadowOpacity": 0.45 }
     }
   ],
   "tinted": { "top": "#000000", "bottom": "#000000", "nib": ["#FFFFFF", "#BDBDBD"], "shadow": "#000000", "shadowOpacity": 0.45, "flat": true }
