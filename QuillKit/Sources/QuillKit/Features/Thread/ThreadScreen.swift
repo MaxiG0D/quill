@@ -12,9 +12,6 @@ struct ThreadScreen: View {
             Palette.background.ignoresSafeArea()
             if let thread = store.thread(threadID) {
                 ThreadConversation(thread: thread)
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        ReplyBar(thread: thread)
-                    }
                     .toolbar {
                         ToolbarItemGroup(placement: .primaryAction) {
                             StarButton(thread: thread)
@@ -23,6 +20,13 @@ struct ThreadScreen: View {
                             }
                             .tint(Palette.accent)
                         }
+                        // The system places these: along the bottom, or in the side strip on a device that has one.
+                        #if os(iOS)
+                        ToolbarItemGroup(placement: .bottomBar) {
+                            ReplyActions(thread: thread)
+                                .tint(Palette.accent)
+                        }
+                        #endif
                     }
             }
         }

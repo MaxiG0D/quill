@@ -21,7 +21,8 @@ struct MessageWebView {
     /// device so a message opens without fetching them again, and it refuses cookies, so a
     /// sender cannot use it to follow the reader from one message to the next.
     private static let store = WKWebsiteDataStore(forIdentifier: UUID(uuid: (0x51, 0x75, 0x69, 0x6C, 0x6C, 0x4D, 0x41, 0x49, 0x4C, 0x50, 0x41, 0x47, 0x45, 0x53, 0x30, 0x31)))
-    private static var warm: WKWebView?
+    /// A view made ahead of time, with its web process already running.
+    private static var spare: WKWebView?
 
     private static var configuration: WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
@@ -32,11 +33,33 @@ struct MessageWebView {
 
     /// Starts the web engine ahead of the first designed message, which would otherwise wait for it.
     static func warmUp() async {
-        guard warm == nil else { return }
+        guard spare == nil else { return }
         await store.httpCookieStore.setCookiePolicy(.disallow)
-        let view = WKWebView(frame: .zero, configuration: configuration)
+        spare = makeSpare()
+    }
+
+    /// A view that shares the messages' store but is never shown.
+    static func makeHiddenView() -> WKWebView {
+        WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 800), configuration: configuration)
+    }
+
+    private static func makeSpare() -> WKWebView {
+        let view = MessageWKWebView(frame: .zero, configuration: configuration)
         view.loadHTMLString(HTMLDocument.page(for: ""), baseURL: nil)
-        warm = view
+        return view
+    }
+
+    /// Hands over the view made ahead of time, and starts on the next one.
+    private static func takeView() -> WKWebView {
+        let view = spare ?? MessageWKWebView(frame: .zero, configuration: configuration)
+        spare = nil
+        Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            if spare == nil {
+                spare = makeSpare()
+            }
+        }
+        return view
     }
 
     /// Removes every picture kept from the account's mail.
@@ -49,7 +72,7 @@ struct MessageWebView {
     }
 
     private func makeView(_ coordinator: Coordinator) -> WKWebView {
-        let view = MessageWKWebView(frame: .zero, configuration: Self.configuration)
+        let view = Self.takeView()
         view.navigationDelegate = coordinator
         #if canImport(UIKit)
         view.isOpaque = false

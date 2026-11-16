@@ -40,6 +40,9 @@ struct RootView: View {
         .onChange(of: scenePhase) {
             refreshOnReturn()
         }
+        .task(id: store.visibleThreads.first?.id) {
+            MessagePreloader.shared.prepare(store.visibleThreads)
+        }
         .task {
             await AppIcon.restore()
             await MessageWebView.warmUp()
