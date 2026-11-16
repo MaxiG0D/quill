@@ -15,6 +15,7 @@ final class ScreenshotTests: XCTestCase {
     func testSearch() { capture("search", appearance: "light") }
     func testCompose() { capture("compose", appearance: "light") }
     func testMailboxes() { capture("mailboxes", appearance: "light") }
+    func testSettings() { capture("settings", appearance: "light") }
     func testInboxZero() { capture("zero", appearance: "light") }
 
     private func capture(_ screen: String, appearance: String) {

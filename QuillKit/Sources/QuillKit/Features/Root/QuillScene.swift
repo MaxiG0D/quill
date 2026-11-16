@@ -30,6 +30,13 @@ public struct QuillScene: Scene {
                     .keyboardShortcut("n", modifiers: .command)
             }
         }
+        #if os(macOS)
+        Settings {
+            SettingsView()
+                .tint(Palette.accent)
+                .preferredColorScheme(options.colorScheme)
+        }
+        #endif
     }
 
     private func compose() {

@@ -4,7 +4,7 @@ import SwiftUI
 /// for example `-QuillScreen thread -QuillAppearance dark`.
 struct LaunchOptions {
     enum Screen: String {
-        case inbox, thread, search, compose, mailboxes, zero
+        case inbox, thread, search, compose, mailboxes, settings, zero
     }
 
     var screen: Screen?
@@ -39,7 +39,7 @@ struct LaunchOptions {
         case .search:
             store.searchQuery = "lease"
             store.search()
-        case .inbox, .compose, .mailboxes, .zero:
+        case .inbox, .compose, .mailboxes, .settings, .zero:
             break
         }
         return store
@@ -62,6 +62,10 @@ struct LaunchOptions {
             )
         case .mailboxes:
             router.isShowingMailboxes = true
+        case .settings:
+            // The phone layout reaches Settings through the mailboxes sheet.
+            router.isShowingMailboxes = true
+            router.isShowingSettings = true
         case .inbox, .zero, nil:
             break
         }

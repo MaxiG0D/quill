@@ -9,5 +9,6 @@ final class Router {
     /// The message being written. Setting it presents the composer.
     var draft: Draft?
     var isShowingMailboxes = false
+    var isShowingSettings = false
     var isSearching = false
 }

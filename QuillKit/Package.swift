@@ -8,7 +8,7 @@ let package = Package(
         .library(name: "QuillKit", targets: ["QuillKit"])
     ],
     targets: [
-        .target(name: "QuillKit"),
+        .target(name: "QuillKit", resources: [.process("Resources")]),
         .testTarget(name: "QuillKitTests", dependencies: ["QuillKit"])
     ],
     swiftLanguageModes: [.v6]
