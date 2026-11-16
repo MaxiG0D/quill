@@ -1,12 +1,26 @@
 import SwiftUI
 
-/// The first column of the wide layout: mailboxes, labels and the account.
+/// The first column of the wide layout: Compose on the Mac, then mailboxes, labels and the account.
 struct SidebarView: View {
     @Environment(MailStore.self) private var store
+    @Environment(Router.self) private var router
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
+                // iPad keeps Compose floating over the list, within the thumb's reach.
+                #if os(macOS)
+                Button(action: compose) {
+                    Label("Compose Email", systemImage: "square.and.pencil")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Palette.onFill)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .background(Palette.warmFill, in: .rect(cornerRadius: Radius.small))
+                }
+                .buttonStyle(.pressable)
+                .padding(.bottom, Spacing.s)
+                #endif
                 MailboxRows()
                 Text("Labels")
                     .textRole(.section)
@@ -39,5 +53,9 @@ struct SidebarView: View {
             }
         }
         .navigationTitle("")
+    }
+
+    private func compose() {
+        router.draft = Draft()
     }
 }
