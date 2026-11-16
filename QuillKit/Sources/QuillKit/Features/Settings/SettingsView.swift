@@ -41,6 +41,12 @@ struct SettingsView: View {
                     .card()
                     .padding(.bottom, Spacing.s)
             }
+            if session.canSignOut, let notifier = session.notifier {
+                heading("Notifications")
+                NotificationSwitch(notifier: notifier)
+                    .card()
+                    .padding(.bottom, Spacing.s)
+            }
             heading("App Icon")
             AppIconPicker()
                 .card()

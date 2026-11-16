@@ -32,6 +32,7 @@ final class MailStore {
 
     let calendar: Calendar
     private let service: any MailService
+    private let notifier: MailNotifier?
     private let clock: @Sendable () -> Date
     private var searchTask: Task<Void, Never>?
     private var isFetching = false
@@ -44,11 +45,13 @@ final class MailStore {
 
     init(
         service: any MailService,
+        notifier: MailNotifier? = nil,
         calendar: Calendar = .current,
         clock: @escaping @Sendable () -> Date = { .now },
         retryDelay: Duration = .seconds(30)
     ) {
         self.service = service
+        self.notifier = notifier
         self.calendar = calendar
         self.clock = clock
         self.retryDelay = retryDelay
@@ -157,6 +160,16 @@ final class MailStore {
         await fetch(isQuiet: isQuiet)
     }
 
+    /// Brings the mailbox up to date while no one is looking, keeping any failure to itself.
+    /// It starts from the mailbox as last seen when the app was opened by the system, not the person.
+    func refreshUnseen() async {
+        if phase == .idle, let cached = await service.cachedSnapshot() {
+            adopt(cached)
+        }
+        guard phase == .loaded else { return }
+        await fetch(isQuiet: true)
+    }
+
     private func fetch(isQuiet: Bool) async {
         guard !isFetching else { return }
         isFetching = true
@@ -171,6 +184,7 @@ final class MailStore {
             } else {
                 continueLoading(isWaitingLonger: !hasNews)
             }
+            await notifier?.announce(snapshot.threads, account: snapshot.account)
         } catch GmailError.rateLimited {
             // The service's allowance refills by itself, so this is never the person's
             // problem: whatever is on screen stays, and the fetch is tried again later.

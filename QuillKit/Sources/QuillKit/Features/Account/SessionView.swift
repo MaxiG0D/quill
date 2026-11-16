@@ -3,6 +3,7 @@ import SwiftUI
 /// Shows the mailbox when someone is signed in and the sign-in screen when no one is.
 struct SessionView: View {
     @Environment(AccountSession.self) private var session
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isShowingAlert = false
 
     var body: some View {
@@ -17,6 +18,7 @@ struct SessionView: View {
                 if let store = session.store {
                     RootView()
                         .environment(store)
+                        .environment(session.notifier)
                         .transition(.opacity)
                 }
             }
@@ -33,6 +35,11 @@ struct SessionView: View {
         }
         .onChange(of: session.alert) {
             isShowingAlert = session.alert != nil
+        }
+        .onChange(of: scenePhase) {
+            if scenePhase == .background {
+                BackgroundRefresh.schedule()
+            }
         }
     }
 

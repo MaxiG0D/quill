@@ -26,19 +26,28 @@ final class AccountSession {
     private let auth: GoogleAuth?
     private let http: any HTTPClient
     private var service: GmailMailService? = nil
+    /// New-mail notifications, for a real account only.
+    let notifier: MailNotifier?
+    private var restoration: Task<Void, Never>?
+    private var polling: Task<Void, Never>?
+    /// How often Quill looks for new mail while it is running.
+    private static let pollInterval = Duration.seconds(60)
 
     init(
         options: LaunchOptions = LaunchOptions(),
         googleClientID: String = "",
         http: any HTTPClient = URLSessionHTTPClient(),
-        tokens: any TokenStore = KeychainTokenStore()
+        tokens: any TokenStore = KeychainTokenStore(),
+        notifier: MailNotifier? = nil
     ) {
         self.http = http
         if options.screen == nil, let client = GoogleClient(id: googleClientID) {
             auth = GoogleAuth(client: client, http: http, tokens: tokens)
+            self.notifier = notifier ?? MailNotifier()
             phase = .launching
         } else {
             auth = nil
+            self.notifier = nil
             store = options.makeStore()
             phase = .ready
         }
@@ -49,8 +58,21 @@ final class AccountSession {
         auth != nil && phase == .ready
     }
 
-    /// Picks up an earlier sign-in at launch.
+    /// Picks up an earlier sign-in at launch. Callers that arrive together share one attempt.
     func restore() async {
+        if restoration == nil {
+            restoration = Task { await resume() }
+        }
+        await restoration?.value
+    }
+
+    /// Looks for new mail when the system wakes Quill in the background.
+    func checkMail() async {
+        await restore()
+        await store?.refreshUnseen()
+    }
+
+    private func resume() async {
         guard let auth, phase == .launching else { return }
         await auth.onSignedOut { [weak self] in
             await self?.close()
@@ -90,12 +112,24 @@ final class AccountSession {
     private func open(with auth: GoogleAuth) {
         let service = GmailMailService(api: GmailAPI(auth: auth, http: http))
         self.service = service
-        store = MailStore(service: service)
+        let store = MailStore(service: service, notifier: notifier)
+        self.store = store
         phase = .ready
+        polling?.cancel()
+        polling = Task { [weak store] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.pollInterval)
+                guard !Task.isCancelled, let store else { return }
+                await store.refreshUnseen()
+            }
+        }
     }
 
     /// Returns to the sign-in screen and removes the account's mail from the device.
     private func close() async {
+        polling?.cancel()
+        polling = nil
+        await notifier?.reset()
         await service?.erase()
         MessagePreloader.shared.forget()
         await MessageWebView.forget()

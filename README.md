@@ -32,8 +32,15 @@ offline. Archive, Trash, star and unread are written back to Gmail. Pins and sno
 no Gmail equivalent, so they stay on the device. `SampleMailService` remains for previews,
 tests and screenshots.
 
+New mail is announced with a local notification and the unread count sits on the app's icon
+(`Core/Notifications`). `MailNotifier` takes in every refreshed mailbox, and `NewMailLedger`
+makes sure a message is announced once and that nothing from before the first refresh is.
+Quill refreshes every minute while it runs, and on iPhone and iPad the system's background
+app refresh (`BackgroundRefresh`) gives it a turn while it is closed. Tapping a notification
+opens its thread (`NotificationTaps`).
+
 Not built yet: sending attachments, saving drafts to Gmail, downloading attachments,
-images embedded inside a message, push notifications, and more than the
+images embedded inside a message, server push for instant notifications, and more than the
 newest 100 threads outside search.
 
 ## Layout

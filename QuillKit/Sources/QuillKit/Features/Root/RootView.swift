@@ -5,10 +5,12 @@ import SwiftUI
 struct RootView: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
+    @Environment(MailNotifier.self) private var notifier: MailNotifier?
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var isShowingAlert = false
+    private var taps: NotificationTaps { .shared }
 
     var body: some View {
         @Bindable var router = router
@@ -40,6 +42,19 @@ struct RootView: View {
         .onChange(of: scenePhase) {
             refreshOnReturn()
         }
+        .onChange(of: taps.requestedThreadID, initial: true) {
+            openRequestedThread()
+        }
+        .onChange(of: store.phase) {
+            openRequestedThread()
+        }
+        .task(id: store.badge(for: .mailbox(.inbox))) {
+            // Reading or filing mail here changes the badge and clears its notifications.
+            await notifier?.reflect(store.threads)
+        }
+        .task {
+            await notifier?.prepare()
+        }
         .task(id: store.visibleThreads.first?.id) {
             MessagePreloader.shared.prepare(store.visibleThreads)
         }
@@ -63,6 +78,22 @@ struct RootView: View {
         guard scenePhase == .active, store.phase == .loaded else { return }
         Task {
             await store.refresh(isQuiet: true)
+        }
+    }
+
+    /// Opens the thread whose notification was tapped, in the Inbox, once the mailbox is loaded.
+    private func openRequestedThread() {
+        guard store.phase == .loaded, let id = taps.requestedThreadID else { return }
+        taps.requestedThreadID = nil
+        guard store.thread(id) != nil else { return }
+        router.isShowingMailboxes = false
+        router.isShowingSettings = false
+        store.show(.mailbox(.inbox))
+        if sizeClass == .compact {
+            router.path = [id]
+        } else {
+            router.path = []
+            store.select(id)
         }
     }
 

@@ -13,6 +13,7 @@ public struct QuillScene: Scene {
         self.options = options
         _session = State(initialValue: AccountSession(options: options, googleClientID: googleClientID))
         _router = State(initialValue: options.makeRouter())
+        NotificationTaps.shared.listen()
     }
 
     public var body: some Scene {
@@ -33,6 +34,12 @@ public struct QuillScene: Scene {
                     .disabled(session.store == nil)
             }
         }
+        #if os(iOS)
+        .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { [session] in
+            BackgroundRefresh.schedule()
+            await session.checkMail()
+        }
+        #endif
         #if os(macOS)
         Settings {
             SettingsView()
