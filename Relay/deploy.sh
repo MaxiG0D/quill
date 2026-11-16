@@ -30,6 +30,13 @@ g() { gcloud --project "$PROJECT" --quiet "$@"; }
 g services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
   pubsub.googleapis.com firestore.googleapis.com secretmanager.googleapis.com gmail.googleapis.com
 
+# Source deploys build as the project's default compute account, which new projects leave without build rights.
+NUMBER="$(g projects describe "$PROJECT" --format='value(projectNumber)')"
+for role in roles/cloudbuild.builds.builder roles/serviceusage.serviceUsageConsumer roles/logging.logWriter; do
+  g projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:$NUMBER-compute@developer.gserviceaccount.com" \
+    --role="$role" --condition=None > /dev/null
+done
+
 # Where the relay keeps each account's devices and place in the mailbox's history.
 g firestore databases describe --database="(default)" > /dev/null 2>&1 \
   || g firestore databases create --database="(default)" --location=nam5

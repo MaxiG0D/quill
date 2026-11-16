@@ -6,5 +6,5 @@ enum Configuration {
 
     /// The push relay's address, printed by `Relay/deploy.sh`. While it is empty, Quill
     /// finds new mail by checking for it instead of being told.
-    static let pushRelayURL = ""
+    static let pushRelayURL = "https://quill-relay-h5r5mrdnfa-nn.a.run.app"
 }
