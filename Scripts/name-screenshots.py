@@ -1,7 +1,7 @@
 """Renames the screenshots exported from an Xcode result bundle to the names the tests gave them.
 
 `xcresulttool export attachments` writes files with opaque names and a manifest.json
-that maps them back. Usage: python3 Scripts/name-screenshots.py screenshots
+that maps them back. Usage: python3 Scripts/name-screenshots.py build/screenshots
 """
 import json
 import pathlib

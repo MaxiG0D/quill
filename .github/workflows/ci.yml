@@ -79,17 +79,17 @@ jobs:
         run: |
           for device in iphone ipad mac; do
             if [ -d "build/$device.xcresult" ]; then
-              xcrun xcresulttool export attachments --path "build/$device.xcresult" --output-path "screenshots/$device" || true
+              xcrun xcresulttool export attachments --path "build/$device.xcresult" --output-path "build/screenshots/$device" || true
             fi
           done
-          python3 Scripts/name-screenshots.py screenshots || true
+          python3 Scripts/name-screenshots.py build/screenshots || true
 
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots
-          path: screenshots
+          path: build/screenshots
           if-no-files-found: ignore
 
       # Keeps a current picture of every screen in the repository, so a pull request
@@ -97,18 +97,20 @@ jobs:
       - name: Commit screenshots
         if: always() && github.ref != 'refs/heads/main'
         run: |
-          [ -d screenshots ] || exit 0
-          ls -R screenshots
+          # The export lives under build/ because the Mac file system ignores case,
+          # so a folder named "screenshots" would be the same folder as "Screenshots".
+          [ -d build/screenshots ] || exit 0
           rm -rf Screenshots
           for device in iphone ipad mac; do
-            [ -d "screenshots/$device" ] || continue
+            [ -d "build/screenshots/$device" ] || continue
             mkdir -p "Screenshots/$device"
-            for file in screenshots/"$device"/*.png; do
+            for file in build/screenshots/"$device"/*.png; do
               [ -e "$file" ] || continue
               sips -Z 1600 -s format jpeg -s formatOptions 80 "$file" --out "Screenshots/$device/$(basename "${file%.png}").jpg" > /dev/null
             done
           done
+          [ -d Screenshots ] || exit 0
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Screenshots
-          git diff --cached --quiet || { git commit -m "Update screenshots [skip ci]"; git push; }
+          git diff --cached --quiet || { git commit -m "Update screenshots [skip ci]"; git push origin "HEAD:$GITHUB_REF_NAME"; }
