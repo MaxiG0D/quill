@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// The compact layout's home: the current mailbox, with search and Compose at the foot.
+/// The compact layout's home: the current mailbox with Compose at the foot,
+/// and search a tap away in the toolbar.
 struct InboxScreen: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
@@ -28,15 +29,26 @@ struct InboxScreen: View {
                         .padding(.horizontal, Spacing.m)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                BottomSearchBar(isFocused: $isSearchFocused)
+                if router.isSearching {
+                    BottomSearchBar(isFocused: $isSearchFocused)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    ComposeButton(action: compose)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.horizontal, Spacing.m)
+                        .padding(.vertical, Spacing.xs)
+                        .transition(.scale(scale: 0.6, anchor: .trailing).combined(with: .opacity))
+                }
             }
             .background {
-                LinearGradient(
-                    colors: [Palette.background.opacity(0), Palette.background],
-                    startPoint: .top,
-                    endPoint: .center
-                )
-                .ignoresSafeArea()
+                if router.isSearching {
+                    LinearGradient(
+                        colors: [Palette.background.opacity(0), Palette.background],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                    .ignoresSafeArea()
+                }
             }
         }
         .navigationTitle(store.title)
@@ -57,14 +69,29 @@ struct InboxScreen: View {
                     .opacity(isTitleCovered ? 1 : 0)
                     .animation(Motion.quick, value: isTitleCovered)
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button("Search", systemImage: "magnifyingglass", action: beginSearch)
+                    .tint(Palette.accent)
                 FilterMenu()
             }
             .sharedBackgroundVisibility(.hidden)
         }
+        .onChange(of: router.isSearching) { _, searching in
+            guard searching else { return }
+            // The field joins the hierarchy in this update, so focus it on the next turn.
+            Task { isSearchFocused = true }
+        }
         .task {
             await store.load()
         }
+    }
+
+    private func beginSearch() {
+        withAnimation(Motion.scene) { router.isSearching = true }
+    }
+
+    private func compose() {
+        router.draft = Draft()
     }
 
     private func showMailboxes() {

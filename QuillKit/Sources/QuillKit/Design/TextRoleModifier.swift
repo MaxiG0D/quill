@@ -33,8 +33,8 @@ struct TextRoleModifier: ViewModifier {
         }
     }
     #else
-    private static let displayBase = 46.0
-    private static let titleBase = 34.0
+    private static let displayBase = 34.0
+    private static let titleBase = 28.0
 
     private var font: Font {
         switch role {
