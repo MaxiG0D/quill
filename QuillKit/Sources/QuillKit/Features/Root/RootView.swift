@@ -42,6 +42,7 @@ struct RootView: View {
         }
         .task {
             await AppIcon.restore()
+            MessageWebView.warmUp()
         }
         .sensoryFeedback(trigger: store.haptic) { _, cue in
             switch cue?.kind {
