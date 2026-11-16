@@ -14,15 +14,16 @@ struct SidebarView: View {
                 Button(action: compose) {
                     HStack(spacing: Spacing.s) {
                         Image(systemName: "square.and.pencil")
+                            .font(.title3)
                             .frame(width: 24)
                             .accessibilityHidden(true)
                         Text("Compose Email")
-                            .font(.body.weight(.medium))
+                            .font(.title3.weight(.medium))
                         Spacer(minLength: 0)
                     }
                     .foregroundStyle(Palette.warm)
                     .padding(.horizontal, Spacing.s)
-                    .frame(minHeight: Metrics.target)
+                    .frame(minHeight: Metrics.target + 8)
                     .background(Palette.warm.opacity(0.12), in: .rect(cornerRadius: Radius.small))
                     .contentShape(.rect)
                 }
