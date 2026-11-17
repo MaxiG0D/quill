@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1B2C3D40000000000000022 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = A1B2C3D40000000000000021 /* Sparkle */; };
 		A1B2C3D40000000000000001 /* QuillKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000000000002 /* QuillKit */; };
 /* End PBXBuildFile section */
 
@@ -60,6 +61,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B2C3D40000000000000001 /* QuillKit in Frameworks */,
+				A1B2C3D40000000000000022 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -113,6 +115,7 @@
 			name = Quill;
 			packageProductDependencies = (
 				A1B2C3D40000000000000002 /* QuillKit */,
+				A1B2C3D40000000000000021 /* Sparkle */,
 			);
 			productName = Quill;
 			productReference = A1B2C3D40000000000000006 /* Quill.app */;
@@ -171,6 +174,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A1B2C3D40000000000000019 /* XCLocalSwiftPackageReference "QuillKit" */,
+				A1B2C3D40000000000000020 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A1B2C3D4000000000000000F /* Products */;
@@ -435,10 +439,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		A1B2C3D40000000000000020 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.7.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		A1B2C3D40000000000000002 /* QuillKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = QuillKit;
+		};
+		A1B2C3D40000000000000021 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D40000000000000020 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

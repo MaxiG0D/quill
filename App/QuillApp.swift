@@ -9,7 +9,16 @@ struct QuillApp: App {
     @NSApplicationDelegateAdaptor(QuillAppDelegate.self) private var delegate
     #endif
 
+    #if os(macOS)
+    @StateObject private var updater = Updater()
+    #endif
+
     var body: some Scene {
-        QuillScene(googleClientID: Configuration.googleClientID, pushRelayURL: Configuration.pushRelayURL)
+        let scene = QuillScene(googleClientID: Configuration.googleClientID, pushRelayURL: Configuration.pushRelayURL)
+        #if os(macOS)
+        scene.commands { UpdateCommands(updater: updater) }
+        #else
+        scene
+        #endif
     }
 }

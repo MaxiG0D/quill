@@ -43,6 +43,17 @@ Quill refreshes every minute while it runs, and on iPhone and iPad the system's 
 app refresh (`BackgroundRefresh`) gives it a turn while it is closed. Tapping a notification
 opens its thread (`NotificationTaps`).
 
+## Mac updates
+
+The Mac app updates itself with [Sparkle](https://sparkle-project.org) (Quill menu, Check for
+Updates…). It reads `appcast.xml` from the latest GitHub release, so the repository has to be
+public for installed copies to see it. Updates are signed with an EdDSA key that lives only in
+the Keychain of the Mac that releases.
+
+1. `xcrun notarytool store-credentials quill-notary`, once.
+2. `Scripts/release-mac.sh setup`, once. Commit the public key it writes to `App/Info.plist`.
+3. `Scripts/release-mac.sh 0.2.0` for each release.
+
 ## Push
 
 `Relay/` is a small Node service for Google Cloud Run that makes notifications instant. Gmail

@@ -6,6 +6,12 @@
 	<array>
 		<string>com.maxig0d.quill.refresh</string>
 	</array>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/MaxiG0D/quill/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>wRWp2jYZVGnS3qHkM8SLcy9Oq0EFFSlG3PHKj3/SODY=</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
