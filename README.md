@@ -1,4 +1,58 @@
-# Quill
+<p align="center"><img src="docs/icon.png" width="128" alt="Quill icon"></p>
+
+<h1 align="center">Quill</h1>
+
+<p align="center">A native Gmail client for iPhone, iPad and Mac, built with SwiftUI.</p>
+
+<p align="center">
+  <a href="https://github.com/MaxiG0D/quill/releases/latest"><b>Download for Mac</b></a>
+  &nbsp;·&nbsp; macOS 26 &nbsp;·&nbsp; MIT
+</p>
+
+<p align="center"><img src="Screenshots/mac/inbox-light.jpg" width="820" alt="Quill on Mac"></p>
+
+<p align="center">
+  <img src="Screenshots/iphone/inbox-light.jpg" width="200" alt="Inbox">
+  <img src="Screenshots/iphone/thread-light.jpg" width="200" alt="Thread">
+  <img src="Screenshots/iphone/inbox-dark.jpg" width="200" alt="Inbox, dark">
+  <img src="Screenshots/iphone/compose-light.jpg" width="200" alt="Compose">
+</p>
+
+## Features
+
+- Gmail sign-in with PKCE; the token stays in the keychain
+- Inbox, Starred, Snoozed, Sent, Drafts, Archive, Trash and labels, all read and filed through Gmail
+- Pinned threads and snooze
+- Sender pictures from your Google contacts, then the site's logo, then initials
+- Instant new-mail notifications and an unread badge, through a small push relay
+- Offline reading from a local cache
+- Light and dark appearance, seven app icons
+- Mac updates itself with Sparkle
+
+## Install
+
+Download `Quill-<version>.zip` from the [latest release](https://github.com/MaxiG0D/quill/releases/latest), unzip it and move Quill to Applications. The build is signed and notarized. Later versions arrive from Quill, Check for Updates….
+
+iPhone and iPad: build from source.
+
+## Build from source
+
+Xcode 26 or later; the app targets iOS 26 and macOS 26.
+
+```sh
+git clone https://github.com/MaxiG0D/quill.git
+open quill/Quill.xcodeproj
+```
+
+Run the `Quill` scheme on a simulator, a device or My Mac. Without a Google client ID the app opens a sample mailbox. To sign in to Gmail, add your own client ID as described below.
+
+## License
+
+[MIT](LICENSE)
+
+---
+
+# Development
 
 A native mail client for iPhone, iPad and Mac, built with SwiftUI.
 
