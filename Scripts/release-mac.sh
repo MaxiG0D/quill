@@ -6,6 +6,9 @@
 #   Scripts/release-mac.sh 0.2.0      builds 0.2.0, notarizes it, and publishes a GitHub
 #                                     release holding Quill-0.2.0.zip and appcast.xml
 #
+# Environment, used by Quill Release.app: QUILL_NOTES_FILE=<markdown> replaces the generated
+# release notes; QUILL_DRY_RUN=1 builds and exports but notarizes and publishes nothing.
+#
 # Needs a Developer ID Application certificate, `gh` signed in, and a notarytool profile:
 #   xcrun notarytool store-credentials quill-notary
 set -euo pipefail
@@ -37,6 +40,7 @@ KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" App/Info.plist)
 [ -n "$KEY" ] || { echo "Run Scripts/release-mac.sh setup first." >&2; exit 1; }
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "Commit your changes first." >&2; exit 1; }
 
+echo "==> Building $VERSION (build $BUILD)"
 rm -rf "$OUT/Quill.xcarchive" "$OUT/export" "$OUT/updates"
 mkdir -p "$OUT/updates"
 
@@ -60,26 +64,39 @@ cat > "$OUT/ExportOptions.plist" <<PLIST
 </plist>
 PLIST
 
+echo "==> Exporting"
 xcodebuild -exportArchive -archivePath "$OUT/Quill.xcarchive" -exportPath "$OUT/export" \
   -exportOptionsPlist "$OUT/ExportOptions.plist" -allowProvisioningUpdates | tail -n 5
 
+if [ "${QUILL_DRY_RUN:-}" = "1" ]; then
+  echo "Release archive: $OUT/export/Quill.app"
+  echo "Dry run: nothing was notarized or published."
+  exit 0
+fi
+
 ZIP="$OUT/updates/Quill-$VERSION.zip"
+echo "==> Notarizing"
 ditto -c -k --keepParent "$OUT/export/Quill.app" "$ZIP"
 xcrun notarytool submit "$ZIP" --keychain-profile "$PROFILE" --wait
 xcrun stapler staple "$OUT/export/Quill.app"
 rm "$ZIP"
 ditto -c -k --keepParent "$OUT/export/Quill.app" "$ZIP"
 
+echo "==> Signing the update"
 "$SPARKLE_BIN/generate_appcast" "$OUT/updates" \
   --download-url-prefix "https://github.com/$REPO/releases/download/v$VERSION/" \
   --maximum-versions 1 --maximum-deltas 0
 
+echo "==> Publishing the release"
+NOTES=(--generate-notes)
+[ -z "${QUILL_NOTES_FILE:-}" ] || NOTES=(--notes-file "$QUILL_NOTES_FILE")
 gh release create "v$VERSION" "$ZIP" "$OUT/updates/appcast.xml" --repo "$REPO" \
-  --title "Quill $VERSION" --generate-notes
+  --title "Quill $VERSION" "${NOTES[@]}"
 echo "Quill $VERSION is out. Installed copies find it on their next check."
 
 # SCREENSHOTS=1 also retakes the README images from this build's sources, ready to commit.
 if [ "${SCREENSHOTS:-}" = "1" ]; then
+  echo "==> Retaking the README images"
   Scripts/screenshots.sh
   echo "README images updated; review and commit them."
 fi

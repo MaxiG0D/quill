@@ -5,6 +5,7 @@
 #   Scripts/screenshots.sh mac        docs/screenshots/hero.png and mac-dark.png
 #   Scripts/screenshots.sh iphone     docs/screenshots/iphone.png
 #   Scripts/screenshots.sh social     docs/social-preview.png (needs the Mac shot, taken if missing)
+#   Add --commit to commit the changed images and push them to main.
 #
 # iPhone: the app runs in an iOS simulator and `simctl io` takes the pictures.
 # Mac: the app runs with -QuillSnapshot, which sizes the window to 1400x900 points and
@@ -20,7 +21,11 @@ cd "$(dirname "$0")/.."
 SIM_NAME="${SCREENSHOTS_SIMULATOR:-Harmony iPhone 18 Pro}"
 WORK="build/screenshots"
 mkdir -p "$WORK" docs/screenshots
-TARGETS=("$@")
+COMMIT=""
+TARGETS=()
+for arg in "$@"; do
+  if [ "$arg" = "--commit" ]; then COMMIT=1; else TARGETS+=("$arg"); fi
+done
 [ ${#TARGETS[@]} -gt 0 ] || TARGETS=(mac iphone social)
 
 die() { echo "screenshots.sh: $*" >&2; exit 1; }
@@ -45,7 +50,7 @@ build_frame() {
 
 shoot_mac() {
   local screen="$1" appearance="$2" out="$3"
-  echo "building Quill for Mac…"
+  echo "==> Taking the Mac shot ($screen, $appearance)"
   xcodebuild build -project Quill.xcodeproj -scheme Quill -destination 'platform=macOS' \
     -derivedDataPath build/shots CODE_SIGNING_ALLOWED=NO -quiet >"$WORK/mac-build.log" 2>&1 \
     || { tail -n 20 "$WORK/mac-build.log" >&2; die "Mac build failed (log: $WORK/mac-build.log)"; }
@@ -87,7 +92,7 @@ if [[ " ${TARGETS[*]} " == *" iphone "* ]]; then
   [ -x "$WORK/frame" ] || build_frame
   SIM_UDID=$(xcrun simctl list devices available | awk -v n="$SIM_NAME" 'index($0, n " (") { match($0, /[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}/); print substr($0, RSTART, RLENGTH); exit }')
   [ -n "$SIM_UDID" ] || die "no simulator named '$SIM_NAME'. Install an iOS runtime in Xcode, or set SCREENSHOTS_SIMULATOR to an existing simulator's name. This script never creates simulators."
-  echo "building Quill for $SIM_NAME…"
+  echo "==> Taking the iPhone shots on $SIM_NAME"
   xcodebuild build -project Quill.xcodeproj -scheme Quill -destination "platform=iOS Simulator,id=$SIM_UDID" \
     -derivedDataPath build/shots-ios CODE_SIGNING_ALLOWED=NO -quiet >"$WORK/ios-build.log" 2>&1 \
     || { tail -n 20 "$WORK/ios-build.log" >&2; die "iOS build failed (log: $WORK/ios-build.log)"; }
@@ -113,4 +118,17 @@ compose light
 LIST
   "$WORK/frame" iphone docs/screenshots/iphone.png "${shots[@]}"
   wrote docs/screenshots/iphone.png
+fi
+
+if [ -n "$COMMIT" ]; then
+  echo "==> Committing the images"
+  git add docs/screenshots docs/social-preview.png
+  if git diff --cached --quiet; then
+    echo "The images did not change."
+  else
+    git commit -q -m "Retake README screenshots" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+    git pull --rebase -q origin main
+    git push -q origin HEAD:main
+    echo "Pushed $(git rev-parse --short HEAD) to main."
+  fi
 fi
