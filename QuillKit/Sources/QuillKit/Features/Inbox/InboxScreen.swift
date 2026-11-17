@@ -87,6 +87,7 @@ struct InboxScreen: View {
         .navigationTitle(store.title)
         .toolbarTitleDisplayMode(.inline)
         .hidesNavigationBar(router.isSearching)
+        .clearsNavigationBar(isLifted)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 // The same mark that opens the sidebar in the wide layout, and it opens from the same edge.
@@ -99,9 +100,9 @@ struct InboxScreen: View {
                         .foregroundStyle(Palette.label)
                 }
                 .buttonStyle(.pressable)
-                .opacity(isTitleCovered ? 1 : 0)
-                .allowsHitTesting(isTitleCovered)
-                .animation(Motion.quick, value: isTitleCovered)
+                .opacity(showsBarTitle ? 1 : 0)
+                .allowsHitTesting(showsBarTitle)
+                .animation(Motion.quick, value: showsBarTitle)
             }
             ToolbarItem(placement: .primaryAction) {
                 FilterMenu()
@@ -126,6 +127,16 @@ struct InboxScreen: View {
     /// the bar left empty. The status bar's share of the inset stays clear.
     private var liftedTopMargin: Double? {
         hasRail ? max(Spacing.s, topInset - Self.emptyBarHeight) : nil
+    }
+
+    private var isLifted: Bool {
+        liftedTopMargin != nil
+    }
+
+    /// The small title belongs to a bar with a backdrop. A lifted mailbox scrolls
+    /// through a clear band, where the title would sit on top of the mail.
+    private var showsBarTitle: Bool {
+        isTitleCovered && !isLifted
     }
 
     private func beginSearch() {

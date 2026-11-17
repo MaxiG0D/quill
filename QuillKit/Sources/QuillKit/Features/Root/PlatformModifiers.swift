@@ -22,6 +22,18 @@ extension View {
         #endif
     }
 
+    /// Removes the navigation bar's backdrop and the blur at the top scroll edge, for
+    /// content that is laid out inside the bar's band and must stay crisp there.
+    @ViewBuilder
+    func clearsNavigationBar(_ isClear: Bool) -> some View {
+        #if os(iOS)
+        self.toolbarBackgroundVisibility(isClear ? .hidden : .automatic, for: .navigationBar)
+            .scrollEdgeEffectHidden(isClear, for: .top)
+        #else
+        self
+        #endif
+    }
+
     /// Turns off capitalization and correction for addresses and search terms.
     @ViewBuilder
     func plainTextEntry() -> some View {
