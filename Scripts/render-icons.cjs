@@ -4,7 +4,7 @@
 // For each icon it writes:
 //   Design/Icon/<Name>-light.svg and -dark.svg          the vector sources, for reference
 //   App/Assets.xcassets/AppIcon[-<Name>].appiconset     light, dark, tinted and macOS sizes
-//   QuillKit/Sources/QuillKit/Resources/Icons.xcassets  the previews the icon picker shows
+//   QuillKit/Sources/QuillKit/Resources/Icons.xcassets  the previews the icon picker shows and the Mac Dock pictures
 //
 // The primary icon's set is named AppIcon. The others are alternate icons, named
 // AppIcon-<Name>, which is the name `AppIcon.alternateName` passes to the system.
@@ -123,7 +123,13 @@ async function main() {
     rmSync(preview, { recursive: true, force: true });
     mkdirSync(preview, { recursive: true });
     writeJSON(`${preview}/Contents.json`, previewContents);
+    // The Mac Dock picture, which follows the system appearance while the app runs.
+    const dock = `${kitAssets}/DockIcon-${icon.name}.imageset`;
+    rmSync(dock, { recursive: true, force: true });
+    mkdirSync(dock, { recursive: true });
+    writeJSON(`${dock}/Contents.json`, previewContents);
     for (const mode of ["light", "dark"]) {
+      writeFileSync(`${dock}/${mode}.png`, await render(svg(icon[mode], 230), 1024, { inset: 100 }));
       writeFileSync(`Design/Icon/${icon.name}-${mode}.svg`, svg(icon[mode]));
       writeFileSync(`${preview}/${mode}.png`, await render(svg(icon[mode]), previewSize));
     }
