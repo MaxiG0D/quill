@@ -14,6 +14,8 @@ enum Palette {
     /// The preview line of mail that has been read.
     static let tertiaryLabel = Color(light: 0x737B77, dark: 0x7A8580)
     static let accent = Color(light: 0x0B6E69, dark: 0x4CC2B5)
+    /// Web addresses in message text.
+    static let link = Color(light: 0x0A5FD6, dark: 0x6AA9FF)
     static let accentFill = Color(light: 0x0B6E69, dark: 0x0F7A71)
     static let accentTint = Color(light: 0xDCECE8, dark: 0x14302C)
     static let warm = Color(light: 0xB8501F, dark: 0xF2A274)

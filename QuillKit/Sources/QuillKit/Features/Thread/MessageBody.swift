@@ -11,7 +11,7 @@ struct MessageBody: View {
     private var text: some View {
         Text(LinkedText.make(message.body))
             .textRole(.reading)
-            .tint(Palette.accent)
+            .tint(Palette.link)
             .lineSpacing(5)
             .foregroundStyle(Palette.label)
             .textSelection(.enabled)

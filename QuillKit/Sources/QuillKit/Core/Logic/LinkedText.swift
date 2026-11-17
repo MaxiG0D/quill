@@ -15,6 +15,7 @@ enum LinkedText {
                   let textRange = Range(match.range, in: text),
                   let target = Range(textRange, in: result) else { continue }
             result[target].link = url
+            result[target].underlineStyle = .single
         }
         return result
     }
