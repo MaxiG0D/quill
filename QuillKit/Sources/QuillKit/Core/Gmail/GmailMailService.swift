@@ -96,9 +96,9 @@ actor GmailMailService: MailService {
 
         var next = MailArchive(account: account, labels: mapper.labels)
         // Read again, because a label may have been opened while Gmail was answering.
-        let current = watchedLabels().filter(existing.contains)
-        next.watched = current
-        self.watched = current
+        let stillWatched = watchedLabels().filter(existing.contains)
+        next.watched = stillWatched
+        self.watched = stillWatched
         let listed = Set(references.map(\.id))
         next.pinned = (old?.pinned ?? []).intersection(listed)
         next.snoozed = (old?.snoozed ?? [:]).filter { listed.contains($0.key) }
