@@ -6,6 +6,7 @@ import SwiftUI
 struct InboxScreen: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     @FocusState private var isSearchFocused: Bool
     @State private var isTitleCovered = false
@@ -124,9 +125,10 @@ struct InboxScreen: View {
     }
 
     /// With the bar's buttons in the side strip, the mailbox moves up into the band
-    /// the bar left empty. The status bar's share of the inset stays clear.
+    /// the bar left empty. The status bar's share of the inset stays clear. A phone on
+    /// its side has a strip too, but keeps its buttons in the bar, so it is left alone.
     private var liftedTopMargin: Double? {
-        hasRail ? max(Spacing.s, topInset - Self.emptyBarHeight) : nil
+        hasRail && verticalSizeClass != .compact ? max(Spacing.s, topInset - Self.emptyBarHeight) : nil
     }
 
     private var isLifted: Bool {
