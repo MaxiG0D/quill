@@ -26,6 +26,12 @@ import AppKit
 /// Receives what the system only tells an app delegate: the device's push token, and
 /// pushes that arrive while Quill is running.
 public final class QuillAppDelegate: NSObject, NSApplicationDelegate {
+    public func applicationDidFinishLaunching(_ notification: Notification) {
+        if let path = LaunchOptions().snapshotPath {
+            WindowSnapshot.prepare(reportingTo: path)
+        }
+    }
+
     public func application(_ application: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         PushDevice.shared.received(deviceToken)
     }

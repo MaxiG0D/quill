@@ -77,3 +77,9 @@ ditto -c -k --keepParent "$OUT/export/Quill.app" "$ZIP"
 gh release create "v$VERSION" "$ZIP" "$OUT/updates/appcast.xml" --repo "$REPO" \
   --title "Quill $VERSION" --generate-notes
 echo "Quill $VERSION is out. Installed copies find it on their next check."
+
+# SCREENSHOTS=1 also retakes the README images from this build's sources, ready to commit.
+if [ "${SCREENSHOTS:-}" = "1" ]; then
+  Scripts/screenshots.sh
+  echo "README images updated; review and commit them."
+fi

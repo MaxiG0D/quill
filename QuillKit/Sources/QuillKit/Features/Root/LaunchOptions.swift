@@ -9,9 +9,12 @@ struct LaunchOptions {
 
     var screen: Screen?
     var colorScheme: ColorScheme?
+    /// Mac only: a file the app writes its window number to once the window is ready to capture. Used by Scripts/screenshots.sh.
+    var snapshotPath: String?
 
     init(defaults: UserDefaults = .standard) {
         screen = defaults.string(forKey: "QuillScreen").flatMap(Screen.init)
+        snapshotPath = defaults.string(forKey: "QuillSnapshot")
         colorScheme =
             switch defaults.string(forKey: "QuillAppearance") {
             case "dark": .dark

@@ -144,6 +144,10 @@ Every color, type role, spacing step and radius comes from the Tokens page of th
 and lives in `Design/`. Views use `Palette`, `Spacing`, `Radius`, `Motion` and
 `.textRole(_:)` instead of literal values.
 
+## Screenshots
+
+`Scripts/screenshots.sh` retakes `docs/screenshots/` and `docs/social-preview.png` from the sample mailbox (`mac`, `iphone` or `social` for just one). It runs the app in the existing Harmony iPhone simulator and captures the Mac window with `screencapture`, which needs Screen Recording allowed for your terminal.
+
 ## Testing
 
 ```sh
