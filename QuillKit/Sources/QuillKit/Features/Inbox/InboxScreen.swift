@@ -10,9 +10,12 @@ struct InboxScreen: View {
     @FocusState private var isSearchFocused: Bool
     @State private var isTitleCovered = false
     @State private var trailingInset = 0.0
+    @State private var topInset = 0.0
 
     /// The narrowest side strip that can hold the actions.
     private static let railMinimum = 56.0
+    /// The height of the bar whose buttons move into the side strip, leaving its band empty.
+    private static let emptyBarHeight = 44.0
 
     var body: some View {
         ZStack {
@@ -20,7 +23,7 @@ struct InboxScreen: View {
                 SearchResultsList()
                     .transition(.opacity)
             } else {
-                ThreadList(isTitleCovered: $isTitleCovered)
+                ThreadList(isTitleCovered: $isTitleCovered, topMargin: liftedTopMargin)
                     .transition(.opacity)
             }
         }
@@ -76,6 +79,11 @@ struct InboxScreen: View {
         } action: { inset in
             trailingInset = inset
         }
+        .onGeometryChange(for: Double.self) { proxy in
+            proxy.safeAreaInsets.top
+        } action: { inset in
+            topInset = inset
+        }
         .navigationTitle(store.title)
         .toolbarTitleDisplayMode(.inline)
         .hidesNavigationBar(router.isSearching)
@@ -112,6 +120,12 @@ struct InboxScreen: View {
 
     private var hasRail: Bool {
         trailingInset >= Self.railMinimum
+    }
+
+    /// With the bar's buttons in the side strip, the mailbox moves up into the band
+    /// the bar left empty. The status bar's share of the inset stays clear.
+    private var liftedTopMargin: Double? {
+        hasRail ? max(Spacing.s, topInset - Self.emptyBarHeight) : nil
     }
 
     private func beginSearch() {

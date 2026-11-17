@@ -7,6 +7,9 @@ struct ThreadList: View {
 
     /// Set once the large title has scrolled under the navigation bar.
     @Binding var isTitleCovered: Bool
+    /// The space to leave above the title, measured from the top of the screen.
+    /// Without one, the list starts below the navigation bar as usual.
+    var topMargin: Double?
 
     var body: some View {
         List {
@@ -46,7 +49,8 @@ struct ThreadList: View {
         }
         .cardListStyle()
         .scrollContentBackground(.hidden)
-        .contentMargins(.top, 0, for: .scrollContent)
+        .contentMargins(.top, topMargin ?? 0, for: .scrollContent)
+        .ignoresSafeArea(.container, edges: topMargin == nil ? [] : .top)
         .overlay {
             if isEmpty {
                 InboxZero()
