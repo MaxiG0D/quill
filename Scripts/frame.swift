@@ -1,7 +1,7 @@
 // Frames raw screenshots for the README and the social preview. No dependencies beyond
 // the system frameworks. Built and run by Scripts/screenshots.sh:
 //
-//   frame hero    <mac.png> <out.png>
+//   frame hero    <mac.png> <out.png> [height]
 //   frame iphone  <out.png> <phone1.png> <phone2.png> <phone3.png>
 //   frame social  <mac.png> <icon.png> <out.png>
 import AppKit
@@ -75,7 +75,7 @@ switch args.dropFirst().first {
 case "hero":
     // The Mac window's own corners are transparent already, so it is not clipped again.
     let mac = load(args[2])
-    let width = 1600, height = 915
+    let width = 1600, height = args.count > 4 ? Int(args[4])! : 915
     let w: CGFloat = 1240
     let h = w * CGFloat(mac.height) / CGFloat(mac.width)
     let out = canvas(width, height) { c in

@@ -2,7 +2,7 @@
 # Regenerates the README images and the social preview from the sample mailbox.
 #
 #   Scripts/screenshots.sh            everything
-#   Scripts/screenshots.sh mac        docs/screenshots/hero.png
+#   Scripts/screenshots.sh mac        docs/screenshots/hero.png and mac-dark.png
 #   Scripts/screenshots.sh iphone     docs/screenshots/iphone.png
 #   Scripts/screenshots.sh social     docs/social-preview.png (needs the Mac shot, taken if missing)
 #
@@ -71,6 +71,11 @@ if [[ " ${TARGETS[*]} " == *" mac "* || " ${TARGETS[*]} " == *" social "* ]]; th
   if [[ " ${TARGETS[*]} " == *" mac "* ]]; then
     "$WORK/frame" hero "$WORK/mac-thread-light.png" docs/screenshots/hero.png
     wrote docs/screenshots/hero.png
+  fi
+  if [[ " ${TARGETS[*]} " == *" mac "* ]]; then
+    shoot_mac thread dark "$WORK/mac-thread-dark.png"
+    "$WORK/frame" hero "$WORK/mac-thread-dark.png" docs/screenshots/mac-dark.png 1000
+    wrote docs/screenshots/mac-dark.png
   fi
   if [[ " ${TARGETS[*]} " == *" social "* ]]; then
     "$WORK/frame" social "$WORK/mac-thread-light.png" App/Assets.xcassets/AppIcon.appiconset/mac-1024.png docs/social-preview.png
