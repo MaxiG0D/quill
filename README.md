@@ -54,19 +54,6 @@ Run the `Quill` scheme on a simulator, a device or My Mac. Without a Google clie
 
 # Development
 
-A native mail client for iPhone, iPad and Mac, built with SwiftUI.
-
-## Requirements
-
-Xcode 26 or later. The app targets iOS 26 and macOS 26.
-
-## Running
-
-Open `Quill.xcodeproj` and run the `Quill` scheme on a simulator, a device or My Mac.
-
-Out of the box the app opens the sample mailbox from the design mockups. With a Google
-client ID it signs in to Gmail instead.
-
 ## Gmail
 
 1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create a
