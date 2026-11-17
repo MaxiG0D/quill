@@ -124,3 +124,14 @@ struct SignInCodeTests {
         #expect(SignInCode(digits: "1234").display == "1234")
     }
 }
+
+@Suite("LinkedText")
+struct LinkedTextTests {
+    @Test func linksAddressesAndLeavesTheRest() {
+        let text = LinkedText.make("Visit https://example.com/a?b=1 or mail me@example.com now")
+        let urls = text.runs.compactMap(\.link).map(\.absoluteString)
+        #expect(urls.contains("https://example.com/a?b=1"))
+        #expect(urls.contains("mailto:me@example.com"))
+        #expect(String(text.characters) == "Visit https://example.com/a?b=1 or mail me@example.com now")
+    }
+}

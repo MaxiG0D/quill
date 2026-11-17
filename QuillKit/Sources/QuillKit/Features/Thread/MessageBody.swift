@@ -9,8 +9,9 @@ struct MessageBody: View {
     /// The message as text, with anything it quotes behind a toggle.
     @ViewBuilder
     private var text: some View {
-        Text(message.body)
+        Text(LinkedText.make(message.body))
             .textRole(.reading)
+            .tint(Palette.accent)
             .lineSpacing(5)
             .foregroundStyle(Palette.label)
             .textSelection(.enabled)
@@ -19,7 +20,7 @@ struct MessageBody: View {
         if let quoted = message.quoted {
             QuotedTextToggle(isExpanded: $showsQuoted)
             if showsQuoted {
-                Text(quoted)
+                Text(LinkedText.make(quoted))
                     .font(.callout)
                     .lineSpacing(3)
                     .foregroundStyle(Palette.secondaryLabel)
