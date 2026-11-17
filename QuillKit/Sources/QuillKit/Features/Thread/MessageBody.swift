@@ -45,7 +45,7 @@ struct MessageBody: View {
             if let html = message.html {
                 HTMLMessageView(html: html)
             } else {
-                text
+                text.tint(Palette.link)
             }
 
             ForEach(message.attachments) { attachment in
@@ -55,6 +55,5 @@ struct MessageBody: View {
                 .frame(maxWidth: 340)
             }
         }
-        .tint(Palette.link)
     }
 }
