@@ -34,7 +34,7 @@ struct NotificationTests {
         let threads = [Self.thread("t1", [Self.message("m1", after: 10, body: "Hi Max,\nLunch on Friday?")])]
 
         let first = ledger.collect(from: threads, account: Self.me, now: Self.start)
-        #expect(first == [NewMail(threadID: "t1", messageID: "m1", sender: "Priya Raman", subject: "Subject t1", preview: "Lunch on Friday?")])
+        #expect(first == [NewMail(threadID: "t1", messageID: "m1", sender: "Priya Raman", address: "priya@example.com", subject: "Subject t1", preview: "Lunch on Friday?")])
         #expect(ledger.collect(from: threads, account: Self.me, now: Self.start).isEmpty)
     }
 

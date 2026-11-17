@@ -36,6 +36,7 @@ struct NewMailLedger: Codable, Equatable, Sendable {
                     threadID: thread.id,
                     messageID: incoming.id,
                     sender: incoming.sender.displayName,
+                    address: incoming.sender.email,
                     subject: thread.subject,
                     preview: String(incoming.preview.prefix(240))
                 )

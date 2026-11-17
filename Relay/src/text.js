@@ -40,6 +40,14 @@ export function senderName(from) {
   return name || match[2];
 }
 
+/** The lowercased address in a From header, or "" when there is none. */
+export function senderAddress(from) {
+  const decoded = decodeHeader(from ?? "").trim();
+  const match = decoded.match(/<([^>]*)>\s*$/);
+  const address = (match ? match[1] : decoded).trim().toLowerCase();
+  return /^[^\s@<>]+@[^\s@<>]+$/.test(address) ? address : "";
+}
+
 export function header(message, name) {
   const found = message.payload?.headers?.find((item) => item.name.toLowerCase() === name.toLowerCase());
   return found?.value;

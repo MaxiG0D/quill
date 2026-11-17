@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, verify } from "node:crypto";
 import { test } from "node:test";
 import { addedToInbox, isWaiting, payload } from "../src/newMail.js";
-import { decodeEntities, decodeHeader, senderName } from "../src/text.js";
+import { decodeEntities, decodeHeader, senderAddress, senderName } from "../src/text.js";
 
 test("history yields each message added to the Inbox once, oldest first", () => {
   const history = [
@@ -36,14 +36,23 @@ test("a payload shows the sender, subject and summary, and names the thread", ()
     },
   };
   assert.deepEqual(payload(message, 3), {
+    sender: "news@hollis.example",
     aps: {
       alert: { title: "Hollis Library — News", subtitle: "Café hours", body: "The renewal is attached. Don't wait" },
       sound: "default",
       badge: 3,
       "thread-id": "t1",
       "content-available": 1,
+      "mutable-content": 1,
     },
   });
+});
+
+test("a sender's address", () => {
+  assert.equal(senderAddress('"Okafor, Dan" <Dan@Example.com>'), "dan@example.com");
+  assert.equal(senderAddress("priya@example.com"), "priya@example.com");
+  assert.equal(senderAddress("undisclosed-recipients:;"), "");
+  assert.equal(senderAddress(undefined), "");
 });
 
 test("sender names", () => {

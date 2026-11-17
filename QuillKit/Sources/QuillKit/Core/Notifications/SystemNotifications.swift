@@ -1,3 +1,4 @@
+import QuillPictures
 import UserNotifications
 
 /// Notifications through the system's notification center.
@@ -29,7 +30,11 @@ struct SystemNotifications: NotificationPosting {
             content.sound = .default
             content.threadIdentifier = item.threadID
             // The message ID keeps a message from being shown twice.
-            let request = UNNotificationRequest(identifier: item.messageID, content: content, trigger: nil)
+            var shown: UNNotificationContent = content
+            if !item.address.isEmpty, let picture = await NotificationPicture.data(for: item.address) {
+                shown = CommunicationNotification.decorate(content, sender: item.sender, address: item.address, picture: picture)
+            }
+            let request = UNNotificationRequest(identifier: item.messageID, content: shown, trigger: nil)
             try? await center.add(request)
         }
     }

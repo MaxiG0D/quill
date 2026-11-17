@@ -1,4 +1,4 @@
-import { decodeEntities, decodeHeader, header, senderName } from "./text.js";
+import { decodeEntities, decodeHeader, header, senderAddress, senderName } from "./text.js";
 
 /** The most notifications one delivery from Gmail turns into. After a gap, the newest are enough. */
 export const burstLimit = 6;
@@ -38,13 +38,17 @@ export function isWaiting(message) {
 /**
  * The APNs payload for a message. The thread ID groups a conversation's notifications
  * and tells Quill what to open, and `content-available` lets Quill fetch the mail ahead
- * of the tap.
+ * of the tap. `mutable-content` and `sender` let Quill's notification extension put the
+ * sender's picture on the alert before it shows; without a picture the alert is unchanged.
  */
 export function payload(message, badge) {
+  const from = header(message, "From");
+  const sender = senderAddress(from);
   return {
+    ...(sender && { sender }),
     aps: {
       alert: {
-        title: senderName(header(message, "From")),
+        title: senderName(from),
         subtitle: decodeHeader(header(message, "Subject") ?? ""),
         body: decodeEntities(message.snippet ?? "").trim(),
       },
@@ -52,6 +56,7 @@ export function payload(message, badge) {
       badge,
       "thread-id": message.threadId,
       "content-available": 1,
+      "mutable-content": 1,
     },
   };
 }

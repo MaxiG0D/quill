@@ -1,5 +1,6 @@
 import ImageIO
 import Observation
+import QuillPictures
 import SwiftUI
 
 /// Finds a picture for each sender: the person's own from the account's Google contacts,
@@ -41,6 +42,7 @@ final class SenderPictures {
             let photos = await api.contactPhotos()
             guard !Task.isCancelled, !photos.isEmpty else { return }
             people = photos
+            PictureDirectory.save(photos)
             // Anyone looked up before now may have a picture after all.
             settled.subtract(photos.keys)
             revision += 1
@@ -54,6 +56,7 @@ final class SenderPictures {
         logoFetches.values.forEach { $0.cancel() }
         logoFetches = [:]
         people = [:]
+        PictureDirectory.clear()
         settled = []
         logos = [:]
         found = [:]
