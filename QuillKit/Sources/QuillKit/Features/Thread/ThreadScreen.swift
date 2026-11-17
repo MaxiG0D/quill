@@ -20,14 +20,13 @@ struct ThreadScreen: View {
                             .tint(Palette.accent)
                             MoveMenu(thread: thread, onFiled: close)
                                 .tint(Palette.accent)
-                            LabelMenu(thread: thread)
-                                .tint(Palette.accent)
                             Button("Delete", systemImage: "trash") {
                                 file(thread.id, trash: true)
                             }
                             .tint(Palette.destructive)
                             Menu("More", systemImage: "ellipsis") {
-                                ThreadActions(thread: thread, hasMenus: false, onFiled: close)
+                                ThreadActions(thread: thread, hasMenus: false, hasTriage: false, onFiled: close)
+                                LabelMenu(thread: thread)
                             }
                             .tint(Palette.accent)
                         }

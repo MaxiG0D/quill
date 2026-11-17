@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The wide layout's toolbar: a triage group with Move and Label, and a respond group.
+/// The wide layout's toolbar: a triage group with Archive, Move and Delete, and a respond group.
 struct SplitToolbar: ToolbarContent {
     let thread: MailThread?
     let store: MailStore
@@ -11,13 +11,13 @@ struct SplitToolbar: ToolbarContent {
             Button("Archive", systemImage: "archivebox", action: archive)
                 .keyboardShortcut("e", modifiers: .command)
             MoveMenu(thread: thread)
-            LabelMenu(thread: thread)
             Button("Delete", systemImage: "trash", action: trash)
                 .tint(Palette.destructive)
                 .keyboardShortcut(.delete, modifiers: .command)
             Menu("More", systemImage: "ellipsis") {
                 if let thread {
-                    ThreadActions(thread: thread, hasMenus: false)
+                    ThreadActions(thread: thread, hasMenus: false, hasTriage: false)
+                    LabelMenu(thread: thread)
                 }
             }
         }

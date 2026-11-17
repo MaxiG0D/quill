@@ -7,6 +7,8 @@ struct ThreadActions: View {
     let thread: MailThread
     /// False where Label and Move already have buttons of their own.
     var hasMenus = true
+    /// False where Archive and Delete already have buttons of their own.
+    var hasTriage = true
     /// Called after an action removes the thread from the current list.
     var onFiled: () -> Void = {}
 
@@ -33,17 +35,17 @@ struct ThreadActions: View {
                 }
             }
         }
-        Divider()
+        if hasMenus || hasTriage { Divider() }
         if hasMenus {
             LabelMenu(thread: thread)
             MoveMenu(thread: thread, onFiled: onFiled)
         }
-        if thread.folder != .archive {
+        if hasTriage, thread.folder != .archive {
             Button("Archive", systemImage: "archivebox") {
                 move(to: .archive)
             }
         }
-        if thread.folder != .trash {
+        if hasTriage, thread.folder != .trash {
             Button("Delete", systemImage: "trash", role: .destructive) {
                 move(to: .trash)
             }
