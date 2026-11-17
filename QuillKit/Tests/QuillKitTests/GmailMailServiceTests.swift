@@ -98,6 +98,29 @@ struct GmailMailServiceTests {
         #expect(snapshot.isComplete)
     }
 
+    @Test func anOpenedLabelsOlderMailIsListedByName() async throws {
+        // t1 is under House but too old to be among the newest threads.
+        let http = await GmailFixture.mailbox()
+        await http.reply(to: "/threads?", json: #"{"threads":[{"id":"t2","historyId":"200"}]}"#)
+        await http.reply(to: "labelIds=Label_1", json: #"{"threads":[{"id":"t1","historyId":"100"}]}"#)
+        let service = GmailFixture.service(http: http)
+        #expect(try await service.snapshot().threads.map(\.id) == ["t2"])
+
+        #expect(await service.watch(.label("Label_1")))
+        #expect(await service.watch(.label("Label_1")) == false)
+        #expect(await service.watch(.mailbox(.inbox)) == false)
+        let snapshot = try await service.snapshot()
+        #expect(snapshot.threads.map(\.id) == ["t2", "t1"])
+        #expect(snapshot.threads.last?.labelIDs == ["Label_1"])
+
+        // A label deleted in Gmail is no longer asked for.
+        #expect(await service.watch(.label("Label_9")))
+        _ = try await service.snapshot()
+        let asked = await http.requests.compactMap { $0.url?.absoluteString }
+        #expect(asked.contains { $0.contains("Label_9") } == false)
+        #expect(asked.contains { $0.contains("labelIds=Label_1") })
+    }
+
     @Test func aSpentAllowanceDeliversTheMailboxInPasses() async throws {
         let quota = #"{"error":{"code":403,"message":"Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user' of service 'gmail.googleapis.com'.","errors":[{"domain":"usageLimits","reason":"rateLimitExceeded"}],"status":"PERMISSION_DENIED"}}"#
         let http = await GmailFixture.mailbox()

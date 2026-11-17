@@ -73,7 +73,7 @@ struct ThreadList: View {
     }
 
     private var isEmpty: Bool {
-        store.phase == .loaded && store.sections.isEmpty
+        store.isSettled && store.sections.isEmpty
     }
 
     private func showMailboxes() {

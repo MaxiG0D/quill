@@ -36,6 +36,8 @@ final class MailStore {
     private let clock: @Sendable () -> Date
     private var searchTask: Task<Void, Never>?
     private var isFetching = false
+    /// Set when a mailbox was opened mid-fetch and needs a fetch of its own afterwards.
+    private var isFetchQueued = false
     private var continuation: Task<Void, Never>?
     /// The wait before asking again for a mailbox that is still arriving. It doubles each
     /// time the service has nothing new, up to eight times its starting length.
@@ -175,6 +177,14 @@ final class MailStore {
         guard !isFetching else { return }
         isFetching = true
         defer { isFetching = false }
+        await fetchOnce(isQuiet: isQuiet)
+        while isFetchQueued {
+            isFetchQueued = false
+            await fetchOnce(isQuiet: true)
+        }
+    }
+
+    private func fetchOnce(isQuiet: Bool) async {
         do {
             let snapshot = try await service.snapshot()
             let hasNews = snapshot.threads != threads
@@ -194,6 +204,7 @@ final class MailStore {
             continueLoading(isWaitingLonger: true)
         } catch {
             Self.log.error("Mail could not be loaded: \(String(describing: error), privacy: .public)")
+            syncProgress = nil
             if threads.isEmpty && phase != .loaded {
                 phase = .failed(Self.describe(error))
             } else if !isQuiet {
@@ -373,6 +384,26 @@ final class MailStore {
         selectedThreadID = nil
         endSearch()
         haptic = HapticCue(kind: .selection)
+        Task { await bringIn(selection) }
+    }
+
+    /// Asks for a label's or mailbox's older mail the first time it is opened.
+    private func bringIn(_ selection: MailboxSelection) async {
+        guard await service.watch(selection) else { return }
+        if isFetching {
+            isFetchQueued = true
+        }
+        guard phase == .loaded else { return }
+        // Shows that mail is on its way, so the mailbox does not read as empty meanwhile.
+        syncProgress = syncProgress ?? 0
+        if !isFetching {
+            await fetch(isQuiet: true)
+        }
+    }
+
+    /// False while mail is still arriving, when an empty list does not mean an empty mailbox.
+    var isSettled: Bool {
+        phase == .loaded && syncProgress == nil
     }
 
     func select(_ id: MailThread.ID?) {

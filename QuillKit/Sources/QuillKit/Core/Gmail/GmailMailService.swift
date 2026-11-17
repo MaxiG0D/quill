@@ -11,11 +11,17 @@ actor GmailMailService: MailService {
     private var hasReadFile = false
     /// How much of the listed mailbox was up to date after the last refresh.
     private var progress = 0.0
+    /// Gmail labels opened on this device, most recent first. Nil until read from the archive.
+    private var watched: [String]?
 
     /// How many threads are listed from the Inbox, and from the newest mail anywhere.
     private static let recentLimit = 100
     /// How many threads are listed from Starred, Drafts and Trash.
     private static let sideLimit = 25
+    /// How many threads are listed from each label the person has opened.
+    private static let labelLimit = 50
+    /// How many opened labels are kept up to date. The least recently opened drop off.
+    private static let watchLimit = 20
     private static let searchLimit = 25
     /// How many threads one refresh fetches. A full thread costs up to 60 of the 6,000
     /// quota units Gmail allows an account each minute, so this leaves room to spare.
@@ -61,9 +67,16 @@ actor GmailMailService: MailService {
         let account = Contact(name: user.name ?? "", email: user.email.lowercased(), tone: .teal, photoURL: user.photoURL)
         let mapper = GmailMapper(account: account, labels: GmailMapper.labels(from: try await gmailLabels))
 
+        // Mail under a label can be far older than the newest hundred threads, so every
+        // label the person has opened is asked for by name. Gmail rejects a label it no
+        // longer has, so those that were deleted are dropped first.
+        let existing = Set(mapper.labels.map(\.id)).union(Self.watchableSystemLabels)
+        let watched = watchedLabels().filter(existing.contains)
+        let labelled = try await labelReferences(watched)
+
         var seen = Set<String>()
         // In the order they are fetched when Gmail's allowance cannot cover them all at once.
-        let references = try await (inbox + starred + drafts + recent + trashed).filter { seen.insert($0.id).inserted }
+        let references = try await (inbox + labelled + starred + drafts + recent + trashed).filter { seen.insert($0.id).inserted }
 
         // Another account's archive is of no use here.
         var old = stored()
@@ -82,6 +95,10 @@ actor GmailMailService: MailService {
         }
 
         var next = MailArchive(account: account, labels: mapper.labels)
+        // Read again, because a label may have been opened while Gmail was answering.
+        let current = watchedLabels().filter(existing.contains)
+        next.watched = current
+        self.watched = current
         let listed = Set(references.map(\.id))
         next.pinned = (old?.pinned ?? []).intersection(listed)
         next.snoozed = (old?.snoozed ?? [:]).filter { listed.contains($0.key) }
@@ -179,8 +196,22 @@ actor GmailMailService: MailService {
         }
     }
 
+    func watch(_ selection: MailboxSelection) async -> Bool {
+        guard let label = Self.gmailLabel(for: selection) else { return false }
+        var labels = watchedLabels()
+        guard labels.first != label else { return false }
+        let isNew = !labels.contains(label)
+        labels.removeAll { $0 == label }
+        labels.insert(label, at: 0)
+        let kept = Array(labels.prefix(Self.watchLimit))
+        watched = kept
+        update { $0.watched = kept }
+        return isNew
+    }
+
     /// Removes everything kept on the device for this account.
     func erase() {
+        watched = []
         archive = nil
         hasReadFile = true
         file?.erase()
@@ -215,6 +246,43 @@ actor GmailMailService: MailService {
             try await api.modifyMessage(latest, adding: [label])
         } else {
             try await api.modifyThread(id, adding: [label])
+        }
+    }
+
+    /// Mailboxes that Gmail keeps as a label and that reach further back than the newest mail.
+    private static let watchableSystemLabels: Set<String> = ["SENT"]
+
+    /// The Gmail label whose mail a selection shows, when it has to be asked for by name.
+    /// The other mailboxes are already listed on every refresh.
+    private static func gmailLabel(for selection: MailboxSelection) -> String? {
+        switch selection {
+        case .label(let id): id
+        case .mailbox(.sent): "SENT"
+        case .mailbox: nil
+        }
+    }
+
+    private func watchedLabels() -> [String] {
+        if let watched { return watched }
+        let kept = stored()?.watched ?? []
+        watched = kept
+        return kept
+    }
+
+    /// The newest threads under each label, in the order the labels are given.
+    private func labelReferences(_ labels: [String]) async throws -> [GmailResource.ThreadReference] {
+        let api = api
+        return try await withThrowingTaskGroup(of: (Int, [GmailResource.ThreadReference]).self) { group in
+            for (index, label) in labels.enumerated() {
+                group.addTask {
+                    (index, try await api.threadReferences(labelIDs: [label], limit: Self.labelLimit))
+                }
+            }
+            var lists = [[GmailResource.ThreadReference]](repeating: [], count: labels.count)
+            for try await (index, list) in group {
+                lists[index] = list
+            }
+            return lists.flatMap { $0 }
         }
     }
 

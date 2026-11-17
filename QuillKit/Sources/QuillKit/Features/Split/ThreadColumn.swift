@@ -107,7 +107,7 @@ struct ThreadColumn: View {
         if isSearching {
             store.searchResults.isEmpty && !store.isSearching
         } else {
-            store.phase == .loaded && store.sections.isEmpty
+            store.isSettled && store.sections.isEmpty
         }
     }
 

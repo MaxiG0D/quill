@@ -17,6 +17,9 @@ struct MailArchive: Codable, Sendable {
     var anchors: [MailThread.ID: ReplyAnchor] = [:]
     var pinned: Set<MailThread.ID> = []
     var snoozed: [MailThread.ID: Date] = [:]
+    /// Gmail labels whose own mail is listed on every refresh, most recently opened first.
+    /// Older archives carry none.
+    var watched: [String]?
 
     var snapshot: MailSnapshot {
         MailSnapshot(account: account, labels: labels, threads: threads)
