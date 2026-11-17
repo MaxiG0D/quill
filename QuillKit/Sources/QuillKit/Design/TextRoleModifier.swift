@@ -15,7 +15,7 @@ struct TextRoleModifier: ViewModifier {
 
     #if os(macOS)
     private static let displayBase = 26.0
-    private static let titleBase = 38.0
+    private static let titleBase = 28.0
 
     // macOS has no Dynamic Type, and its text styles run small, so sizes are set directly.
     private var font: Font {
