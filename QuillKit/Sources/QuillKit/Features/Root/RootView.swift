@@ -10,6 +10,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var isShowingAlert = false
+    @State private var isFindingRequested = false
     private var taps: NotificationTaps { .shared }
 
     var body: some View {
@@ -46,6 +47,9 @@ struct RootView: View {
             openRequestedThread()
         }
         .onChange(of: store.phase) {
+            openRequestedThread()
+        }
+        .onChange(of: store.threads) {
             openRequestedThread()
         }
         .task(id: store.badge(for: .mailbox(.inbox))) {
@@ -85,10 +89,14 @@ struct RootView: View {
     }
 
     /// Opens the thread whose notification was tapped, in the Inbox, once the mailbox is loaded.
+    /// A new message is not in the mailbox as last seen, so the tap waits for a refresh to bring it.
     private func openRequestedThread() {
         guard store.phase == .loaded, let id = taps.requestedThreadID else { return }
+        guard store.thread(id) != nil else {
+            findRequestedThread(id)
+            return
+        }
         taps.requestedThreadID = nil
-        guard store.thread(id) != nil else { return }
         router.isShowingMailboxes = false
         router.isShowingSettings = false
         store.show(.mailbox(.inbox))
@@ -97,6 +105,26 @@ struct RootView: View {
         } else {
             router.path = []
             store.select(id)
+        }
+    }
+
+    /// Refreshes until the tapped thread arrives, then gives up quietly.
+    private func findRequestedThread(_ id: MailThread.ID) {
+        guard !isFindingRequested else { return }
+        isFindingRequested = true
+        Task {
+            for _ in 0..<5 where store.thread(id) == nil {
+                await store.refresh(isQuiet: true)
+                if store.thread(id) == nil {
+                    try? await Task.sleep(for: .seconds(1.5))
+                }
+            }
+            isFindingRequested = false
+            if store.thread(id) == nil, taps.requestedThreadID == id {
+                taps.requestedThreadID = nil
+            } else {
+                openRequestedThread()
+            }
         }
     }
 
