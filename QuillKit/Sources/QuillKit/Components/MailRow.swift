@@ -12,7 +12,7 @@ struct MailRow: View {
     var excerpt: String?
 
     var body: some View {
-        HStack(alignment: .center, spacing: Spacing.s) {
+        HStack(alignment: .top, spacing: Spacing.s) {
             if let sender = thread.sender {
                 MonogramAvatar(sender, size: avatarSize)
             }

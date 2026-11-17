@@ -63,7 +63,7 @@ struct LaunchOptions {
         case .mailboxes:
             router.isShowingMailboxes = true
         case .settings:
-            // The phone layout reaches Settings through the mailboxes sheet.
+            // The phone layout reaches Settings through the mailboxes drawer.
             router.isShowingMailboxes = true
             router.isShowingSettings = true
         case .inbox, .zero, nil:

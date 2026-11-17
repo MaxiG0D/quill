@@ -81,7 +81,7 @@ struct InboxScreen: View {
         .hidesNavigationBar(router.isSearching)
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                // The same mark that opens the sidebar in the wide layout.
+                // The same mark that opens the sidebar in the wide layout, and it opens from the same edge.
                 Button("Mailboxes", systemImage: "sidebar.leading", action: showMailboxes)
             }
             ToolbarItem(placement: .principal) {

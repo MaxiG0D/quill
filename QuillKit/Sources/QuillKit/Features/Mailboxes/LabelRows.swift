@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// The account's labels as rows, shared by the sidebar and the Mailboxes sheet.
+/// The account's labels as rows, shared by the sidebar and the mailboxes drawer.
 struct LabelRows: View {
     @Environment(MailStore.self) private var store
 
-    var isCard = false
     var onSelect: () -> Void = {}
 
     var body: some View {
@@ -13,15 +12,9 @@ struct LabelRows: View {
                 title: label.name,
                 icon: .swatch(label.tone),
                 count: store.badge(for: .label(label.id)),
-                isSelected: store.selection == .label(label.id),
-                isCard: isCard
+                isSelected: store.selection == .label(label.id)
             ) {
                 select(.label(label.id))
-            }
-            if isCard && label != store.labels.last {
-                Divider()
-                    .overlay(Palette.separator)
-                    .padding(.leading, 60)
             }
         }
     }

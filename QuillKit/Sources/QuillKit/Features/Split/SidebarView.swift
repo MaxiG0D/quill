@@ -1,9 +1,13 @@
 import SwiftUI
 
-/// The first column of the wide layout: Compose on the Mac, then mailboxes, labels and the account.
+/// The first column of the wide layout and the phone's drawer: Compose on the Mac, then
+/// mailboxes, labels and the account.
 struct SidebarView: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
+
+    /// Runs after a mailbox or label is chosen, so a drawer can close.
+    var onSelect: () -> Void = {}
 
     var body: some View {
         ScrollView {
@@ -30,7 +34,7 @@ struct SidebarView: View {
                 .buttonStyle(.pressable)
                 .padding(.bottom, Spacing.xs)
                 #endif
-                MailboxRows()
+                MailboxRows(onSelect: onSelect)
                 Text("Labels")
                     .textRole(.section)
                     .foregroundStyle(Palette.label)
@@ -38,7 +42,7 @@ struct SidebarView: View {
                     .padding(.top, Spacing.l)
                     .padding(.bottom, Spacing.xxs)
                     .accessibilityAddTraits(.isHeader)
-                LabelRows()
+                LabelRows(onSelect: onSelect)
             }
             .padding(.horizontal, Spacing.s)
             .padding(.vertical, Spacing.xs)

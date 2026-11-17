@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A mailbox or label in the sidebar and the Mailboxes sheet.
+/// A mailbox or label in the sidebar and the mailboxes drawer.
 struct SidebarRow: View {
     enum Icon {
         case symbol(String)
@@ -11,13 +11,11 @@ struct SidebarRow: View {
     let icon: Icon
     var count: Int?
     let isSelected: Bool
-    /// The roomier form used inside the Mailboxes sheet's cards.
-    var isCard = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: isCard ? Spacing.m : Spacing.s) {
+            HStack(spacing: Spacing.s) {
                 iconView
                     .frame(width: 24)
                 Text(title)
@@ -30,9 +28,9 @@ struct SidebarRow: View {
                     countView(count)
                 }
             }
-            .padding(.horizontal, isCard ? Spacing.l : Spacing.s)
-            .frame(minHeight: isCard ? 54 : Metrics.target)
-            .background(isSelected ? Palette.accentTint : .clear, in: .rect(cornerRadius: isCard ? 0 : Radius.small))
+            .padding(.horizontal, Spacing.s)
+            .frame(minHeight: Metrics.target)
+            .background(isSelected ? Palette.accentTint : .clear, in: .rect(cornerRadius: Radius.small))
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -45,7 +43,7 @@ struct SidebarRow: View {
         switch icon {
         case .symbol(let name):
             Image(systemName: name)
-                .foregroundStyle(isCard || isSelected ? Palette.accent : Palette.secondaryLabel)
+                .foregroundStyle(isSelected ? Palette.accent : Palette.secondaryLabel)
                 .accessibilityHidden(true)
         case .swatch(let tone):
             RoundedRectangle(cornerRadius: 4)
@@ -57,7 +55,7 @@ struct SidebarRow: View {
 
     @ViewBuilder
     private func countView(_ count: Int) -> some View {
-        if isSelected && !isCard {
+        if isSelected {
             Text(count, format: .number)
                 .textRole(.meta)
                 .fontWeight(.bold)
@@ -68,8 +66,7 @@ struct SidebarRow: View {
         } else {
             Text(count, format: .number)
                 .font(.callout.monospacedDigit())
-                .fontWeight(isSelected ? .bold : .regular)
-                .foregroundStyle(isSelected ? Palette.accent : Palette.secondaryLabel)
+                .foregroundStyle(Palette.secondaryLabel)
         }
     }
 }
