@@ -14,11 +14,18 @@ struct ThreadScreen: View {
                 ThreadConversation(thread: thread)
                     .toolbar {
                         ToolbarItemGroup(placement: .primaryAction) {
-                            StarButton(thread: thread)
-                            LabelMenu(thread: thread)
-                                .tint(Palette.accent)
+                            Button("Archive", systemImage: "archivebox") {
+                                file(thread.id, trash: false)
+                            }
+                            .tint(Palette.accent)
                             MoveMenu(thread: thread, onFiled: close)
                                 .tint(Palette.accent)
+                            LabelMenu(thread: thread)
+                                .tint(Palette.accent)
+                            Button("Delete", systemImage: "trash") {
+                                file(thread.id, trash: true)
+                            }
+                            .tint(Palette.destructive)
                             Menu("More", systemImage: "ellipsis") {
                                 ThreadActions(thread: thread, hasMenus: false, onFiled: close)
                             }
@@ -39,6 +46,13 @@ struct ThreadScreen: View {
         .task(id: threadID) {
             store.markRead(threadID)
         }
+    }
+
+    private func file(_ id: MailThread.ID, trash: Bool) {
+        withAnimation(Motion.list) {
+            if trash { store.trash(id) } else { store.archive(id) }
+        }
+        close()
     }
 
     private func close() {
