@@ -22,6 +22,8 @@ private struct MailboxesDrawer: ViewModifier {
                             .accessibilityHidden(true)
                             .transition(.opacity)
                         SidebarView(onSelect: close)
+                            // Starts the mailboxes level with the mailbox title behind them.
+                            .contentMargins(.top, Spacing.xxl, for: .scrollContent)
                             .frame(maxWidth: Self.width)
                             .background(.regularMaterial, ignoresSafeAreaEdges: .all)
                             .offset(x: pull)
