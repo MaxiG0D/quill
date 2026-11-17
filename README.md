@@ -85,7 +85,7 @@ the Keychain of the Mac that releases.
 
 1. `xcrun notarytool store-credentials quill-notary`, once.
 2. `Scripts/release-mac.sh setup`, once. Commit the public key it writes to `App/Info.plist`.
-3. `Scripts/release-mac.sh 0.2.0` for each release.
+3. `Scripts/release-mac.sh 0.2.0` for each release, or open **Quill Release.app** (build it once with `Scripts/build-release-app.sh`): it picks the version, takes the notes, publishes, and can retake the screenshots too.
 
 ## Push
 
@@ -146,7 +146,7 @@ and lives in `Design/`. Views use `Palette`, `Spacing`, `Radius`, `Motion` and
 
 ## Screenshots
 
-`Scripts/screenshots.sh` retakes `docs/screenshots/` (hero, dark Mac, iPhone row) and `docs/social-preview.png` from the sample mailbox (`mac`, `iphone` or `social` for just one). It runs the app in the existing Harmony iPhone simulator and captures the Mac window with `screencapture`, which needs Screen Recording allowed for your terminal.
+`Scripts/screenshots.sh` retakes `docs/screenshots/` (hero, dark Mac, iPhone row) and `docs/social-preview.png` from the sample mailbox (`mac`, `iphone` or `social` for just one). It runs the app in the existing Harmony iPhone simulator and captures the Mac window with `screencapture`, which needs Screen Recording allowed for your terminal. Quill Release.app has a Screenshots tab for the same thing, with an option to commit and push the images.
 
 ## Testing
 
