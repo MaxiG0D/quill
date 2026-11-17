@@ -24,9 +24,16 @@ final class NotificationTaps: NSObject, UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping @Sendable () -> Void
     ) {
-        let threadID = response.notification.request.content.threadIdentifier
+        let content = response.notification.request.content
+        let threadID = content.threadIdentifier
+        let code = content.userInfo["code"] as? String
+        let isCopy = response.actionIdentifier == CodeCopying.action
         Task { @MainActor in
-            request(threadID)
+            if isCopy, let code {
+                CodeCopying.copy(code)
+            } else {
+                request(threadID)
+            }
             completionHandler()
         }
     }

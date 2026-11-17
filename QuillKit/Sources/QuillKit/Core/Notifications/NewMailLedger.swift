@@ -38,7 +38,8 @@ struct NewMailLedger: Codable, Equatable, Sendable {
                     sender: incoming.sender.displayName,
                     address: incoming.sender.email,
                     subject: thread.subject,
-                    preview: String(incoming.preview.prefix(240))
+                    preview: String(incoming.preview.prefix(240)),
+                    code: SignInCode.find(in: "\(thread.subject) \(incoming.preview)")?.digits
                 )
             )
         }

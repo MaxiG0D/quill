@@ -1,3 +1,4 @@
+import { display, signInCode } from "./code.js";
 import { decodeEntities, decodeHeader, header, senderAddress, senderName } from "./text.js";
 
 /** The most notifications one delivery from Gmail turns into. After a gap, the newest are enough. */
@@ -44,14 +45,19 @@ export function isWaiting(message) {
 export function payload(message, badge) {
   const from = header(message, "From");
   const sender = senderAddress(from);
+  const subject = decodeHeader(header(message, "Subject") ?? "");
+  const snippet = decodeEntities(message.snippet ?? "").trim();
+  const code = signInCode(`${subject} ${snippet}`);
+  // A sign-in code is the whole alert, with a Copy action to take it without opening Quill.
+  const alert = code
+    ? { title: senderName(from), body: display(code) }
+    : { title: senderName(from), subtitle: subject, body: snippet };
   return {
     ...(sender && { sender }),
+    ...(code && { code }),
     aps: {
-      alert: {
-        title: senderName(from),
-        subtitle: decodeHeader(header(message, "Subject") ?? ""),
-        body: decodeEntities(message.snippet ?? "").trim(),
-      },
+      alert,
+      ...(code && { category: "SIGN_IN_CODE" }),
       sound: "default",
       badge,
       "thread-id": message.threadId,

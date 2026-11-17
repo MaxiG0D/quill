@@ -138,3 +138,15 @@ test("a token Apple does not recognise is tried in its other push service", asyn
     sandbox.close();
   }
 });
+
+test("a sign-in code becomes the whole alert, with the Copy category", () => {
+  const message = {
+    threadId: "t2",
+    snippet: "Your verification code is 482913. It expires in 10 minutes.",
+    payload: { headers: [{ name: "From", value: "Acme <no-reply@acme.example>" }, { name: "Subject", value: "Sign in" }] },
+  };
+  const { aps, code } = payload(message, 1);
+  assert.equal(code, "482913");
+  assert.deepEqual(aps.alert, { title: "Acme", body: "482 913" });
+  assert.equal(aps.category, "SIGN_IN_CODE");
+});

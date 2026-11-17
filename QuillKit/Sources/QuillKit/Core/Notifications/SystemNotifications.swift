@@ -25,8 +25,14 @@ struct SystemNotifications: NotificationPosting {
         for item in mail {
             let content = UNMutableNotificationContent()
             content.title = item.sender
-            content.subtitle = item.subject
-            content.body = item.preview
+            if let digits = item.code {
+                content.body = SignInCode(digits: digits).display
+                content.categoryIdentifier = CodeCopying.category
+                content.userInfo["code"] = digits
+            } else {
+                content.subtitle = item.subject
+                content.body = item.preview
+            }
             content.sound = .default
             content.threadIdentifier = item.threadID
             // The message ID keeps a message from being shown twice.

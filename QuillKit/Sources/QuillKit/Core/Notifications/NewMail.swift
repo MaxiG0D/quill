@@ -7,4 +7,6 @@ struct NewMail: Hashable, Sendable {
     var address = ""
     let subject: String
     let preview: String
+    /// The sign-in code the message carries, as digits.
+    var code: String?
 }

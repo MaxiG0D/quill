@@ -15,6 +15,7 @@ public struct QuillScene: Scene {
         _session = State(initialValue: AccountSession(options: options, googleClientID: googleClientID, pushRelayURL: pushRelayURL))
         _router = State(initialValue: options.makeRouter())
         NotificationTaps.shared.listen()
+        CodeCopying.register()
     }
 
     public var body: some Scene {

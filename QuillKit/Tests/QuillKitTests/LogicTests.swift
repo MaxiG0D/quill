@@ -91,3 +91,36 @@ struct LogicTests {
         #expect(SnoozeOption.laterToday.date(from: Fixture.now, calendar: calendar) == Fixture.now.addingTimeInterval(3 * 3600))
     }
 }
+
+struct SignInCodeTests {
+    @Test(arguments: [
+        ("Your verification code is 482913", "482913"),
+        ("482 913 is your Quill code", "482913"),
+        ("Use 1234 as your one-time passcode", "1234"),
+        ("Login code: 48291356. Do not share it.", "48291356"),
+        ("Security code 482-913 expires in 10 minutes", "482913"),
+        ("Your tracking number is 123456789012 and your code is 5521", "5521")
+    ])
+    func findsTheCode(text: String, digits: String) {
+        #expect(SignInCode.find(in: text)?.digits == digits)
+    }
+
+    @Test(arguments: [
+        "Your code is 2024",
+        "Order number 482913 has shipped",
+        "Invoice #482913 is due. Pay your account within 30 days",
+        "Total $482913 charged to your card",
+        "Call 555-1234 to verify your visit",
+        "Your package arrives 2024-11-17",
+        "Welcome to Quill"
+    ])
+    func ignoresEverythingElse(text: String) {
+        #expect(SignInCode.find(in: text) == nil)
+    }
+
+    @Test func showsCodesInGroups() {
+        #expect(SignInCode(digits: "482913").display == "482 913")
+        #expect(SignInCode(digits: "48291356").display == "4829 1356")
+        #expect(SignInCode(digits: "1234").display == "1234")
+    }
+}

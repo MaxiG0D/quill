@@ -38,6 +38,10 @@ struct MessageBody: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
+            if let code = SignInCode.find(in: message.body.isEmpty ? message.snippet ?? "" : message.body) {
+                SignInCodeChip(code: code)
+                    .padding(.bottom, Spacing.xs)
+            }
             if let html = message.html {
                 HTMLMessageView(html: html)
             } else {
