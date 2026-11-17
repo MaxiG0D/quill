@@ -5,7 +5,6 @@ import SwiftUI
 struct MailboxesSheet: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         @Bindable var router = router
@@ -21,7 +20,7 @@ struct MailboxesSheet: View {
                     SettingsButton()
                     SheetCloseButton(action: close)
                 }
-                .padding(.top, Spacing.xl)
+                .padding(.top, Spacing.s)
 
                 VStack(spacing: 0) {
                     MailboxRows(isCard: true, onSelect: close)
@@ -46,12 +45,11 @@ struct MailboxesSheet: View {
             .padding(.bottom, Spacing.xl)
         }
         .background(Palette.background)
-        .presentationDragIndicator(.visible)
         .settingsSheet(isPresented: $router.isShowingSettings)
     }
 
     private func close() {
-        dismiss()
+        router.isShowingMailboxes = false
     }
 }
 
