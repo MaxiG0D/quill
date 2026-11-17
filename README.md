@@ -1,50 +1,40 @@
-<p align="center"><img src="docs/icon.png" width="128" alt="Quill icon"></p>
+# Quill
 
-<h1 align="center">Quill</h1>
+A native Gmail client for iPhone, iPad and Mac, built with SwiftUI. Free and open source.
 
-<p align="center">A native Gmail client for iPhone, iPad and Mac, built with SwiftUI.</p>
+![Quill on the Mac: inbox with an open thread](docs/screenshots/hero.png)
 
-<p align="center">
-  <a href="https://github.com/MaxiG0D/quill/releases/latest"><b>Download for Mac</b></a>
-  &nbsp;·&nbsp; macOS 26 &nbsp;·&nbsp; MIT
-</p>
-
-<p align="center"><img src="Screenshots/mac/inbox-light.jpg" width="820" alt="Quill on Mac"></p>
-
-<p align="center">
-  <img src="Screenshots/iphone/inbox-light.jpg" width="200" alt="Inbox">
-  <img src="Screenshots/iphone/thread-light.jpg" width="200" alt="Thread">
-  <img src="Screenshots/iphone/inbox-dark.jpg" width="200" alt="Inbox, dark">
-  <img src="Screenshots/iphone/compose-light.jpg" width="200" alt="Compose">
-</p>
-
-## Features
-
-- Gmail sign-in with PKCE; the token stays in the keychain
-- Inbox, Starred, Snoozed, Sent, Drafts, Archive, Trash and labels, all read and filed through Gmail
-- Pinned threads and snooze
-- Sender pictures from your Google contacts, then the site's logo, then initials
-- Instant new-mail notifications and an unread badge, through a small push relay
-- Offline reading from a local cache
-- Light and dark appearance, seven app icons
-- Mac updates itself with Sparkle
+![Quill on iPhone: inbox, thread in dark appearance, and compose](docs/screenshots/iphone.png)
 
 ## Install
 
-Download `Quill-<version>.zip` from the [latest release](https://github.com/MaxiG0D/quill/releases/latest), unzip it and move Quill to Applications. The build is signed and notarized. Later versions arrive from Quill, Check for Updates….
+1. Download `Quill-<version>.zip` from the [latest release](https://github.com/MaxiG0D/Quill/releases/latest) and unzip it.
+2. Move **Quill.app** to your Applications folder and open it.
+3. Sign in with your Google account.
 
-iPhone and iPad: build from source.
+Quill is signed with a Developer ID and notarized by Apple, so it opens without security warnings.
+It updates itself (powered by [Sparkle](https://sparkle-project.org)); check manually from the Quill menu, Check for Updates….
+
+Requires macOS 26 or later. iPhone and iPad: build from source.
+
+## Features
+
+- Inbox, Starred, Snoozed, Sent, Drafts, Archive, Trash and your labels, read and filed through Gmail
+- Pinned threads and snooze
+- Sender pictures from your Google contacts, then the site's logo, then initials
+- New-mail notifications that arrive instantly, with an unread badge
+- Offline reading from a local cache
+- Light and dark appearance, seven app icons
+- Sign-in with PKCE; the token stays in the keychain
 
 ## Build from source
-
-Xcode 26 or later; the app targets iOS 26 and macOS 26.
 
 ```sh
 git clone https://github.com/MaxiG0D/quill.git
 open quill/Quill.xcodeproj
 ```
 
-Run the `Quill` scheme on a simulator, a device or My Mac. Without a Google client ID the app opens a sample mailbox. To sign in to Gmail, add your own client ID as described below.
+Run the `Quill` scheme on a simulator, a device or My Mac. Requires Xcode 26 or later. Without a Google client ID the app opens a sample mailbox; to sign in to Gmail, add your own client ID as described under [Gmail](#gmail).
 
 ## License
 
