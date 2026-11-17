@@ -31,7 +31,7 @@ struct MailRow: View {
                 HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
                     HighlightedText(text: thread.subject, query: query)
                         .textRole(.subject(unread: thread.isUnread))
-                        .foregroundStyle(Palette.label)
+                        .foregroundStyle(thread.isUnread ? Palette.label : Palette.secondaryLabel)
                         .lineLimit(1)
                     Spacer(minLength: Spacing.xs)
                     if thread.hasAttachments {
@@ -46,7 +46,7 @@ struct MailRow: View {
                 }
                 HighlightedText(text: excerpt ?? thread.preview, query: query)
                     .textRole(.preview)
-                    .foregroundStyle(Palette.secondaryLabel)
+                    .foregroundStyle(thread.isUnread ? Palette.secondaryLabel : Palette.tertiaryLabel)
                     .lineLimit(1)
             }
             .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
@@ -54,6 +54,7 @@ struct MailRow: View {
         .alignmentGuide(.listRowSeparatorTrailing) { $0[.trailing] + Spacing.m }
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
+        .accessibilityValue(thread.isUnread ? "Unread" : "")
     }
 }
 

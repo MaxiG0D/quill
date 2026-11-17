@@ -17,6 +17,7 @@ struct MessageHeader: View {
                 HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
                     Text(message.sender.displayName)
                         .textRole(.sender(unread: isExpanded))
+                        .fontWeight(isExpanded ? .bold : .semibold)
                         .foregroundStyle(Palette.label)
                         .lineLimit(1)
                     Spacer(minLength: Spacing.xs)

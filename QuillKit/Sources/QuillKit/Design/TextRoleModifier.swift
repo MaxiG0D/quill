@@ -24,7 +24,7 @@ struct TextRoleModifier: ViewModifier {
         case .title: .system(size: titleSize, weight: .semibold, design: .serif)
         case .section: .system(size: 17, weight: .semibold, design: .serif)
         case .count: .system(size: 18, design: .serif).italic()
-        case .sender(let unread): .system(size: 13, weight: unread ? .bold : .semibold)
+        case .sender(let unread): .system(size: 13, weight: unread ? .bold : .regular)
         case .subject(let unread): .system(size: 13, weight: unread ? .semibold : .regular)
         case .preview: .system(size: 12)
         case .meta: .system(size: 11).monospacedDigit()
@@ -42,7 +42,7 @@ struct TextRoleModifier: ViewModifier {
         case .title: .system(size: titleSize, weight: .semibold, design: .serif)
         case .section: .system(.title3, design: .serif, weight: .semibold)
         case .count: .system(.title2, design: .serif).italic()
-        case .sender(let unread): .callout.weight(unread ? .bold : .semibold)
+        case .sender(let unread): .callout.weight(unread ? .bold : .regular)
         case .subject(let unread): .subheadline.weight(unread ? .semibold : .regular)
         case .preview: .footnote
         case .meta: .caption.monospacedDigit()

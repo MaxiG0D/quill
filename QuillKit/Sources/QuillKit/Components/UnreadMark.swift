@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The small rotated square that marks unread mail.
 struct UnreadMark: View {
-    @ScaledMetric(relativeTo: .callout) private var size = 9.0
+    @ScaledMetric(relativeTo: .callout) private var size = 10.0
 
     var body: some View {
         RoundedRectangle(cornerRadius: 2)

@@ -27,13 +27,14 @@ struct PinnedCard: View {
                     }
                     Text(thread.subject)
                         .textRole(.sender(unread: false))
-                        .foregroundStyle(Palette.label)
+                        .fontWeight(thread.isUnread ? .semibold : .regular)
+                        .foregroundStyle(thread.isUnread ? Palette.label : Palette.secondaryLabel)
                         .lineLimit(1)
                 }
             }
             Text(thread.preview)
                 .font(.subheadline)
-                .foregroundStyle(Palette.secondaryLabel)
+                .foregroundStyle(thread.isUnread ? Palette.secondaryLabel : Palette.tertiaryLabel)
                 .lineLimit(2)
             if !accessories.isEmpty {
                 HStack(spacing: Spacing.xs) {
@@ -48,6 +49,7 @@ struct PinnedCard: View {
         }
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
+        .accessibilityValue(thread.isUnread ? "Unread" : "")
     }
 
     private var accessories: [String] {

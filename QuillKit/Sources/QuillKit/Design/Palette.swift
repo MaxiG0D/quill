@@ -11,6 +11,8 @@ enum Palette {
     static let separator = Color(light: 0xE1E4DE, dark: 0x27312E)
     static let label = Color(light: 0x151918, dark: 0xEDF1EF)
     static let secondaryLabel = Color(light: 0x5D6561, dark: 0x94A09B)
+    /// The preview line of mail that has been read.
+    static let tertiaryLabel = Color(light: 0x737B77, dark: 0x7A8580)
     static let accent = Color(light: 0x0B6E69, dark: 0x4CC2B5)
     static let accentFill = Color(light: 0x0B6E69, dark: 0x0F7A71)
     static let accentTint = Color(light: 0xDCECE8, dark: 0x14302C)
