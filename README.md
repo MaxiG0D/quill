@@ -4,6 +4,8 @@ A native Gmail client for iPhone, iPad and Mac, built with SwiftUI. Free and ope
 
 ![Quill on the Mac: inbox with an open thread](docs/screenshots/hero.png)
 
+![Quill on the Mac, dark appearance](docs/screenshots/mac-dark.png)
+
 ![Quill on iPhone: inbox, thread in dark appearance, and compose](docs/screenshots/iphone.png)
 
 ## Install
