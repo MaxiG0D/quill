@@ -13,12 +13,14 @@ struct AccountRow: View {
                     Text(account.name)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Palette.label)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Text(account.email)
                     .font(account.name.isEmpty ? .body : .subheadline)
                     .foregroundStyle(account.name.isEmpty ? Palette.label : Palette.secondaryLabel)
+                    .lineLimit(1)
             }
-            .lineLimit(1)
             Spacer(minLength: Spacing.s)
             Button("Sign Out", role: .destructive, action: signOut)
                 .buttonStyle(.bordered)

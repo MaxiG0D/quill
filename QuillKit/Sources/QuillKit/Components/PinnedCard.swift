@@ -21,9 +21,11 @@ struct PinnedCard: View {
                         Text(thread.sender?.displayName ?? "")
                             .textRole(.sender(unread: thread.isUnread))
                             .foregroundStyle(Palette.label)
-                            .lineLimit(1)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: Spacing.xs)
                         ThreadStatus(thread: thread)
+                            .fixedSize()
                     }
                     Text(thread.subject)
                         .textRole(.sender(unread: false))

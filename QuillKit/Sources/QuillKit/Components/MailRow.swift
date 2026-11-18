@@ -31,9 +31,11 @@ struct MailRow: View {
                     Text(thread.sender?.displayName ?? "")
                         .textRole(.sender(unread: thread.isUnread))
                         .foregroundStyle(Palette.label)
-                        .lineLimit(1)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: Spacing.xs)
                     ThreadStatus(thread: thread)
+                        .fixedSize()
                 }
                 HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
                     HighlightedText(text: thread.subject, query: query)
