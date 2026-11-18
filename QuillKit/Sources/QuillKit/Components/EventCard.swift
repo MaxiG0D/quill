@@ -3,11 +3,13 @@ import SwiftUI
 /// An event found in a message, at the top of it, with a button that adds it to the calendar.
 struct EventCard: View {
     let event: MailEvent
-    let title: String
+    let details: EventDetails
     let messageID: String
 
     @State private var state: AddState = .ready
     @State private var added = 0
+    @State private var calendars: [EventCalendar.Choice] = []
+    @State private var picksCalendar = false
 
     private enum AddState {
         case ready, adding, added, denied
@@ -42,7 +44,7 @@ struct EventCard: View {
         switch state {
         case .ready, .adding:
             Button {
-                Task { await add() }
+                Task { await chooseCalendar() }
             } label: {
                 Label("Add", systemImage: "plus")
                     .foregroundStyle(Palette.onFill)
@@ -51,6 +53,13 @@ struct EventCard: View {
             .buttonStyle(.plain)
             .disabled(state == .adding)
             .accessibilityLabel("Add to Calendar")
+            .popover(isPresented: $picksCalendar) {
+                CalendarPicker(calendars: calendars) { calendar in
+                    picksCalendar = false
+                    Task { await add(to: calendar) }
+                }
+                .presentationCompactAdaptation(.popover)
+            }
         case .added:
             Button {
                 EventCalendar.open(event)
@@ -74,9 +83,25 @@ struct EventCard: View {
         }
     }
 
-    private func add() async {
+    /// Asks which calendar to use, unless there is only one.
+    private func chooseCalendar() async {
         state = .adding
-        switch await EventCalendar.add(event, title: title, messageID: messageID) {
+        guard let choices = await EventCalendar.choices(), !choices.isEmpty else {
+            withAnimation(Motion.quick) { state = .denied }
+            return
+        }
+        if choices.count == 1 {
+            await add(to: choices[0])
+        } else {
+            calendars = choices
+            state = .ready
+            picksCalendar = true
+        }
+    }
+
+    private func add(to calendar: EventCalendar.Choice) async {
+        state = .adding
+        switch await EventCalendar.add(event, details: details, to: calendar, messageID: messageID) {
         case .added:
             withAnimation(Motion.quick) { state = .added }
             added += 1
@@ -85,6 +110,46 @@ struct EventCard: View {
         case .failed:
             state = .ready
         }
+    }
+}
+
+/// The calendars to add to, each with its color.
+private struct CalendarPicker: View {
+    let calendars: [EventCalendar.Choice]
+    let pick: (EventCalendar.Choice) -> Void
+
+    var body: some View {
+        if calendars.count > 8 {
+            ScrollView { list }
+                .frame(width: 260, height: 360)
+        } else {
+            list.frame(width: 260)
+        }
+    }
+
+    private var list: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(calendars) { calendar in
+                Button {
+                    pick(calendar)
+                } label: {
+                    HStack(spacing: Spacing.s) {
+                        Circle()
+                            .fill(Color(.sRGB, red: calendar.red, green: calendar.green, blue: calendar.blue))
+                            .frame(width: 10, height: 10)
+                        Text(calendar.title)
+                            .foregroundStyle(Palette.label)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s - 2)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, Spacing.xs)
     }
 }
 

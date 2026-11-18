@@ -47,7 +47,11 @@ struct MessageBody: View {
             if let event = MailEventCache.event(in: message, subject: subject), event.isUpcoming(at: .now) {
                 EventCard(
                     event: event,
-                    title: EventCalendar.title(subject: subject, sender: message.sender.displayName),
+                    details: EventDetails.make(
+                        title: EventCalendar.title(subject: subject, sender: message.sender.displayName),
+                        sender: message.sender.displayName,
+                        text: message.body.isEmpty ? message.snippet ?? "" : message.body
+                    ),
                     messageID: message.id
                 )
                 .padding(.bottom, Spacing.xs)

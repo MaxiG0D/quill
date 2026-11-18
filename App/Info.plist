@@ -10,6 +10,8 @@
 	<array>
 		<string>INSendMessageIntent</string>
 	</array>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Quill adds events from your mail to the calendar you pick.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Quill adds events from your mail to your calendar.</string>
 	<key>NSSupportsLiveActivities</key>

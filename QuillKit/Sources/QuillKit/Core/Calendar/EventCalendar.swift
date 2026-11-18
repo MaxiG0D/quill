@@ -1,3 +1,4 @@
+import CoreGraphics
 import EventKit
 import Foundation
 #if canImport(UIKit)
@@ -37,27 +38,84 @@ enum EventCalendar {
         UserDefaults.standard.stringArray(forKey: addedKey)?.contains(messageID) ?? false
     }
 
+    /// A calendar the user can add to.
+    struct Choice: Identifiable, Hashable, Sendable {
+        let id: String
+        let title: String
+        let red: Double
+        let green: Double
+        let blue: Double
+    }
+
+    private static let lastCalendarKey = "calendar.lastUsed"
+
+    /// The calendars the user can add to, the last one used first, then the default.
+    /// Nil when the user has not allowed Quill to see them.
     @MainActor
-    static func add(_ event: MailEvent, title: String, messageID: String) async -> Outcome {
-        let outcome = await save(start: event.start, end: event.calendarEnd, title: title)
+    static func choices() async -> [Choice]? {
+        guard let found = await writableCalendars() else { return nil }
+        let (all, defaultID) = found
+        let last = UserDefaults.standard.string(forKey: lastCalendarKey)
+        func rank(_ choice: Choice) -> Int {
+            choice.id == last ? 0 : choice.id == defaultID ? 1 : 2
+        }
+        return all.enumerated()
+            .sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }
+            .map(\.element)
+    }
+
+    @MainActor
+    static func add(_ event: MailEvent, details: EventDetails, to calendar: Choice?, messageID: String) async -> Outcome {
+        let outcome = await save(start: event.start, end: event.calendarEnd, details: details, calendarID: calendar?.id)
         if case .added = outcome {
             var added = UserDefaults.standard.stringArray(forKey: addedKey) ?? []
             added.append(messageID)
             UserDefaults.standard.set(Array(added.suffix(500)), forKey: addedKey)
+            if let calendar { UserDefaults.standard.set(calendar.id, forKey: lastCalendarKey) }
         }
         return outcome
     }
 
-    /// Writes the event with write-only access, so Quill never reads the calendar.
-    private static func save(start: Date, end: Date, title: String) async -> Outcome {
+    private static func writableCalendars() async -> ([Choice], String?)? {
+        let store = EKEventStore()
+        guard (try? await store.requestFullAccessToEvents()) == true else { return nil }
+        let calendars = store.calendars(for: .event).filter(\.allowsContentModifications)
+        let titles = calendars.map(\.title)
+        let choices = calendars.map { calendar in
+            // Two calendars named "Calendar" read apart by their account.
+            let shared = titles.filter { $0 == calendar.title }.count > 1
+            let title = shared ? "\(calendar.title) · \(calendar.source?.title ?? "")" : calendar.title
+            let rgb = calendar.cgColor
+                .flatMap { $0.converted(to: CGColorSpace(name: CGColorSpace.sRGB)!, intent: .defaultIntent, options: nil) }?
+                .components ?? [0.5, 0.5, 0.5]
+            return Choice(
+                id: calendar.calendarIdentifier,
+                title: title,
+                red: Double(rgb[0]),
+                green: Double(rgb.count > 2 ? rgb[1] : rgb[0]),
+                blue: Double(rgb.count > 2 ? rgb[2] : rgb[0])
+            )
+        }
+        return (choices, store.defaultCalendarForNewEvents?.calendarIdentifier)
+    }
+
+    private static func save(start: Date, end: Date, details: EventDetails, calendarID: String?) async -> Outcome {
         let store = EKEventStore()
         do {
-            guard try await store.requestWriteOnlyAccessToEvents() else { return .denied }
+            let allowed: Bool
+            if calendarID == nil {
+                allowed = try await store.requestWriteOnlyAccessToEvents()
+            } else {
+                allowed = try await store.requestFullAccessToEvents()
+            }
+            guard allowed else { return .denied }
             let item = EKEvent(eventStore: store)
-            item.title = title
+            item.title = details.title
+            item.location = details.location
+            item.notes = details.notes
             item.startDate = start
             item.endDate = end
-            item.calendar = store.defaultCalendarForNewEvents
+            item.calendar = calendarID.flatMap { store.calendar(withIdentifier: $0) } ?? store.defaultCalendarForNewEvents
             try store.save(item, span: .thisEvent)
             return .added
         } catch {

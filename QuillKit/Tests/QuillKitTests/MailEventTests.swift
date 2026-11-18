@@ -82,4 +82,25 @@ struct MailEventTests {
         #expect(EventCalendar.title(subject: "Rappel de rendez-vous", sender: "Clinique Dentaire") == "Clinique Dentaire")
         #expect(EventCalendar.title(subject: "Re: Dinner at Mia's", sender: "Sam") == "Dinner at Mia's")
     }
+
+    @Test func readsTheClinicAddressAndPhone() {
+        let text = """
+        Au plaisir de vous voir!
+
+        Clinique Dentaire Rive-Sud Boucherville
+        450-449-0353
+
+        500 Rue d'Avaugour, Bureau 2010
+        Boucherville, Quebec, canada
+        J4B 0G6
+        """
+        let details = EventDetails.make(title: "Clinique Dentaire Rive-Sud Boucherville", sender: "Clinique Dentaire Rive-Sud Boucherville", text: text)
+        #expect(details.location == "500 Rue d'Avaugour, Bureau 2010, Boucherville, Quebec, canada, J4B 0G6")
+        #expect(details.notes?.contains("450") == true)
+        #expect(details.notes?.contains("Clinique") == false)
+    }
+
+    @Test func readsOneLineAddresses() {
+        #expect(EventDetails.address(in: "Find us at\n120 Main St, Springfield, IL 62701\nSee you") == "120 Main St, Springfield, IL 62701")
+    }
 }
