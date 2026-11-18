@@ -176,3 +176,15 @@ private extension MailThread {
         return thread
     }
 }
+
+@Suite("Live Activity setting", .serialized)
+struct LiveActivitySettingTests {
+    @Test func isOnUntilThePersonTurnsItOff() {
+        UserDefaults.standard.removeObject(forKey: LiveActivitySetting.key)
+        #expect(LiveActivitySetting.isOn)
+        LiveActivitySetting.isOn = false
+        #expect(!LiveActivitySetting.isOn)
+        UserDefaults.standard.removeObject(forKey: LiveActivitySetting.key)
+        #expect(LiveActivitySetting.isOn)
+    }
+}

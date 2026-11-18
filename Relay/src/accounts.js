@@ -23,7 +23,7 @@ export class Accounts {
       {
         refreshToken,
         devices: {
-          [deviceToken]: { environment, platform, activityStartToken, updatedAt: FieldValue.serverTimestamp() },
+          [deviceToken]: { environment, platform, activityStartToken: activityStartToken ?? FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() },
         },
       },
       { merge: true },

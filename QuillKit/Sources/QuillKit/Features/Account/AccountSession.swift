@@ -175,12 +175,24 @@ final class AccountSession {
     private func startPush() async {
         guard let relay, notifier?.isEnabled == true, let token = await PushDevice.shared.token() else { return }
         do {
-            try await relay.register(token, activityStartToken: PushDevice.shared.activityStartToken)
+            try await relay.register(
+                token,
+                activityStartToken: LiveActivitySetting.isOn ? PushDevice.shared.activityStartToken : nil
+            )
             notifier?.setPushed(true)
         } catch {
             Self.log.info("Push relay did not take this device: \(String(describing: error), privacy: .public)")
             notifier?.setPushed(false)
         }
+    }
+
+    /// The Live Activity switch changed: end any activity that is up when it is off, and
+    /// tell the relay whether it may start one.
+    func liveActivityChanged() async {
+        if !LiveActivitySetting.isOn {
+            await LiveActivitySetting.onTurnedOff?()
+        }
+        await startPush()
     }
 
     /// Has the push relay send this account's devices a made-up sign-in code.

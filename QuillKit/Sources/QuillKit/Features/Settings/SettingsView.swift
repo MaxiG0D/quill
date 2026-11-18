@@ -45,6 +45,9 @@ struct SettingsView: View {
                 heading("Notifications")
                 VStack(alignment: .leading, spacing: Spacing.m) {
                     NotificationSwitch(notifier: notifier)
+                    #if os(iOS)
+                    LiveActivitySwitch()
+                    #endif
                     #if DEBUG
                     TestCodeButton()
                     #endif

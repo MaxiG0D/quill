@@ -41,17 +41,19 @@ enum LiveActivities {
         }
         Task { await expireAll() }
         note("launched, enabled: \(ActivityAuthorizationInfo().areActivitiesEnabled)")
-        #if DEBUG
         Task { @MainActor in
+            LiveActivitySetting.onTurnedOff = { await endAll() }
+            #if DEBUG
             LiveActivityTest.start = { startTest() }
+            #endif
         }
-        #endif
     }
 
     #if DEBUG
     /// Starts an activity straight from the app, to tell the widget apart from the push.
     @MainActor
     private static func startTest() -> String? {
+        guard LiveActivitySetting.isOn else { return nil }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return "Live Activities are off for Quill." }
         let state = SignInCodeAttributes.ContentState(sender: "GitHub", code: "482913", display: "482 913", subject: "Your GitHub verification code", expiresAt: Date.now.addingTimeInterval(600).timeIntervalSince1970)
         do {
@@ -77,6 +79,13 @@ enum LiveActivities {
         )
         await activity.update(content, alertConfiguration: alert)
         note("expanded \(id.prefix(6))")
+    }
+
+    /// Ends every sign-in code activity, when the person turns them off.
+    private static func endAll() async {
+        for activity in Activity<SignInCodeAttributes>.activities {
+            await activity.end(ActivityContent(state: activity.content.state, staleDate: nil), dismissalPolicy: .immediate)
+        }
     }
 
     private static func expireAll() async {
