@@ -1,5 +1,4 @@
 import ActivityKit
-import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -10,13 +9,14 @@ struct QuillActivityBundle: WidgetBundle {
     }
 }
 
-/// A sign-in code, with a Copy button, for as long as it is worth showing.
+/// A sign-in code at a glance, for as long as it is worth showing. Copy is on the alert.
 struct SignInCodeLiveActivity: Widget {
     private let teal = Color(red: 0x0B / 255, green: 0x6E / 255, blue: 0x69 / 255)
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SignInCodeAttributes.self) { context in
             HStack(spacing: 12) {
+                monogram(context.state.sender)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(context.state.sender)
                         .font(.subheadline)
@@ -30,8 +30,6 @@ struct SignInCodeLiveActivity: Widget {
                         .minimumScaleFactor(0.6)
                     detail(context.state)
                 }
-                Spacer(minLength: 8)
-                copyButton(context.state)
             }
             .padding(16)
             .opacity(context.isStale ? 0.5 : 1)
@@ -44,9 +42,6 @@ struct SignInCodeLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.display)
                         .font(.system(size: 30, weight: .semibold, design: .rounded).monospacedDigit())
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    copyButton(context.state)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     detail(context.state)
@@ -92,17 +87,5 @@ struct SignInCodeLiveActivity: Widget {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-    }
-
-    private func copyButton(_ state: SignInCodeAttributes.ContentState) -> some View {
-        Button(intent: CopyCodeIntent(code: state.code)) {
-            Image(systemName: "doc.on.doc")
-                .font(.headline)
-                .frame(width: 44, height: 44)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.white)
-        .background(teal, in: .circle)
-        .accessibilityLabel("Copy code")
     }
 }

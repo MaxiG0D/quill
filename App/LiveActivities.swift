@@ -21,7 +21,6 @@ enum LiveActivities {
     private static let watched = OSAllocatedUnfairLock(initialState: Set<String>())
 
     static func start() {
-        CodeDismissal.send = { code in await QuillScene.dismissCode(code) }
         Task {
             for await token in Activity<SignInCodeAttributes>.pushToStartTokenUpdates {
                 let hex = token.map { String(format: "%02x", $0) }.joined()
@@ -33,7 +32,6 @@ enum LiveActivities {
             for await activity in Activity<SignInCodeAttributes>.activityUpdates {
                 let id = activity.id
                 note("activity \(id.prefix(6)) appeared")
-                Task { await announce(id: id) }
                 Task { await expire(id: id) }
                 Task { await reportToken(id: id) }
             }
@@ -77,19 +75,6 @@ enum LiveActivities {
         }
     }
     #endif
-
-    /// Expands the Dynamic Island for a moment, so a new code is hard to miss.
-    private static func announce(id: String) async {
-        guard let activity = Activity<SignInCodeAttributes>.activities.first(where: { $0.id == id }) else { return }
-        let content = activity.content
-        let alert = AlertConfiguration(
-            title: "\(content.state.sender)",
-            body: "\(content.state.display)",
-            sound: .default
-        )
-        await activity.update(content, alertConfiguration: alert)
-        note("expanded \(id.prefix(6))")
-    }
 
     /// Gives the push relay an activity's update token, so copying its code on another
     /// device can end it here. Each activity is watched once.
