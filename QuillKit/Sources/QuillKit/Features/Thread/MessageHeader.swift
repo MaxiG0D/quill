@@ -20,7 +20,10 @@ struct MessageHeader: View {
                         .fontWeight(isExpanded ? .bold : .semibold)
                         .foregroundStyle(Palette.label)
                         .lineLimit(isExpanded ? 3 : 1)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .fixedSize(horizontal: false, vertical: isExpanded)
+                        .allowsTightening(true)
+                        .minimumScaleFactor(isExpanded ? 1 : 0.85)
+                        .layoutPriority(1)
                     Spacer(minLength: Spacing.xs)
                     if isDetailed && isStarred && isExpanded {
                         Image(systemName: "star.fill")

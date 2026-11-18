@@ -13,8 +13,10 @@ struct AccountRow: View {
                     Text(account.name)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Palette.label)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(1)
+                        .allowsTightening(true)
+                        .minimumScaleFactor(0.85)
+                        .layoutPriority(1)
                 }
                 Text(account.email)
                     .font(account.name.isEmpty ? .body : .subheadline)
