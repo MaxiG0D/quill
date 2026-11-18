@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// An event found in a message, at the top of it, with a button that adds it to the calendar.
@@ -10,6 +11,7 @@ struct EventCard: View {
     @State private var added = 0
     @State private var calendars: [EventCalendar.Choice] = []
     @State private var picksCalendar = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private enum AddState {
         case ready, adding, added, denied
@@ -34,8 +36,22 @@ struct EventCard: View {
         .frame(maxWidth: 440, alignment: .leading)
         .background(Palette.accentTint, in: .rect(cornerRadius: Radius.medium))
         .sensoryFeedback(.success, trigger: added)
-        .onAppear {
-            if EventCalendar.isAdded(messageID) { state = .added }
+        .onAppear(perform: refresh)
+        .onChange(of: scenePhase) {
+            if scenePhase == .active { refresh() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: EventCalendar.changed).receive(on: RunLoop.main)) { _ in
+            refresh()
+        }
+    }
+
+    /// Follows the calendar: an event deleted there brings Add back.
+    private func refresh() {
+        guard state != .adding else { return }
+        if EventCalendar.isAdded(messageID) {
+            state = .added
+        } else if state == .added {
+            withAnimation(Motion.quick) { state = .ready }
         }
     }
 

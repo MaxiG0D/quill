@@ -10,12 +10,20 @@ import AppKit
 /// Adds events found in mail to the user's calendar, and remembers which messages it added.
 enum EventCalendar {
     enum Outcome: Sendable {
-        case added
+        /// Carries the calendar's identifier for the new event, when it gives one.
+        case added(String?)
         case denied
         case failed
     }
 
-    private static let addedKey = "calendar.addedMessages"
+    /// Message ids mapped to the identifiers of the events added from them.
+    private static let addedKey = "calendar.addedEvents"
+
+    /// Kept alive so the app hears about edits made in Calendar.
+    @MainActor private static let watcher = EKEventStore()
+
+    /// Posted when anything changes in the user's calendars, on any thread.
+    static let changed = Notification.Name.EKEventStoreChanged
 
     /// The calendar title for an event: the sender for reminders such as "Rappel de rendez-vous",
     /// the subject otherwise.
@@ -33,9 +41,17 @@ enum EventCalendar {
         return trimmed
     }
 
+    /// Whether the event from this message is still in the calendar. Forgets events the user
+    /// deleted there; without access to read the calendar it trusts what it remembers.
     @MainActor
     static func isAdded(_ messageID: String) -> Bool {
-        UserDefaults.standard.stringArray(forKey: addedKey)?.contains(messageID) ?? false
+        var added = UserDefaults.standard.dictionary(forKey: addedKey) as? [String: String] ?? [:]
+        guard let eventID = added[messageID] else { return false }
+        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess, !eventID.isEmpty else { return true }
+        if watcher.event(withIdentifier: eventID) != nil { return true }
+        added[messageID] = nil
+        UserDefaults.standard.set(added, forKey: addedKey)
+        return false
     }
 
     /// A calendar the user can add to.
@@ -67,10 +83,12 @@ enum EventCalendar {
     @MainActor
     static func add(_ event: MailEvent, details: EventDetails, to calendar: Choice?, messageID: String) async -> Outcome {
         let outcome = await save(start: event.start, end: event.calendarEnd, details: details, calendarID: calendar?.id)
-        if case .added = outcome {
-            var added = UserDefaults.standard.stringArray(forKey: addedKey) ?? []
-            added.append(messageID)
-            UserDefaults.standard.set(Array(added.suffix(500)), forKey: addedKey)
+        if case .added(let eventID) = outcome {
+            var added = UserDefaults.standard.dictionary(forKey: addedKey) as? [String: String] ?? [:]
+            added[messageID] = eventID ?? ""
+            UserDefaults.standard.set(added, forKey: addedKey)
+            // A store made before access was granted sees no events until reset.
+            watcher.reset()
             if let calendar { UserDefaults.standard.set(calendar.id, forKey: lastCalendarKey) }
         }
         return outcome
@@ -117,7 +135,7 @@ enum EventCalendar {
             item.endDate = end
             item.calendar = calendarID.flatMap { store.calendar(withIdentifier: $0) } ?? store.defaultCalendarForNewEvents
             try store.save(item, span: .thisEvent)
-            return .added
+            return .added(item.eventIdentifier)
         } catch {
             return .failed
         }
