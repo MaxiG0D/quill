@@ -5,38 +5,41 @@ import UIKit
 
 /// Keeps Quill's sign-in code Live Activities going: it reports the token that lets the
 /// push relay start one while the app is closed, and ends each one once its code is stale.
-@MainActor
 enum LiveActivities {
     static func start() {
         Task {
             for await token in Activity<SignInCodeAttributes>.pushToStartTokenUpdates {
-                QuillScene.setActivityStartToken(token.map { String(format: "%02x", $0) }.joined())
+                let hex = token.map { String(format: "%02x", $0) }.joined()
+                await MainActor.run { QuillScene.setActivityStartToken(hex) }
             }
         }
         Task {
             for await activity in Activity<SignInCodeAttributes>.activityUpdates {
-                expire(activity)
+                Task { await expire(activity) }
             }
         }
-        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
-            Task { @MainActor in
-                Activity<SignInCodeAttributes>.activities.forEach(expire)
-            }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: nil
+        ) { _ in
+            Task { await expireAll() }
         }
-        Activity<SignInCodeAttributes>.activities.forEach(expire)
+        Task { await expireAll() }
+    }
+
+    private static func expireAll() async {
+        for activity in Activity<SignInCodeAttributes>.activities {
+            Task { await expire(activity) }
+        }
     }
 
     /// Ends the activity when its code goes stale, or right away if it already has.
-    private static func expire(_ activity: Activity<SignInCodeAttributes>) {
-        Task {
-            if let stale = activity.content.staleDate {
-                let wait = stale.timeIntervalSinceNow
-                if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
-            }
-            if activity.content.staleDate != nil {
-                await activity.end(nil, dismissalPolicy: .immediate)
-            }
-        }
+    private static func expire(_ activity: Activity<SignInCodeAttributes>) async {
+        guard let stale = activity.content.staleDate else { return }
+        let wait = stale.timeIntervalSinceNow
+        if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+        await activity.end(nil, dismissalPolicy: .immediate)
     }
 }
 #endif
