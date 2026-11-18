@@ -29,6 +29,9 @@ enum CodeDismissal {
 /// The Copy button. It runs in the app, copies the code, and ends the activity.
 struct CopyCodeIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Copy"
+    /// iOS drops a clipboard write from an app that is only woken in the background, so Copy
+    /// brings Quill to the front for a moment, without changing what it shows.
+    static let openAppWhenRun = true
 
     @Parameter(title: "Code") var code: String
 
@@ -41,6 +44,7 @@ struct CopyCodeIntent: LiveActivityIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         UIPasteboard.general.string = code
+        let wrote = UIPasteboard.general.hasStrings && UIPasteboard.general.string == code
         let activities = Activity<SignInCodeAttributes>.activities
         for activity in activities {
             await activity.end(ActivityContent(state: activity.content.state, staleDate: nil), dismissalPolicy: .immediate)
@@ -48,7 +52,7 @@ struct CopyCodeIntent: LiveActivityIntent {
         await CodeDismissal.send?(code)
         #if DEBUG
         var trail = UserDefaults.standard.stringArray(forKey: "liveActivityTrace") ?? []
-        trail.append("\(Date.now.formatted(date: .omitted, time: .standard)) copy: ending \(activities.count)")
+        trail.append("\(Date.now.formatted(date: .omitted, time: .standard)) copy: ending \(activities.count), wrote \(wrote ? "ok" : "failed")")
         UserDefaults.standard.set(Array(trail.suffix(6)), forKey: "liveActivityTrace")
         #endif
         return .result()
