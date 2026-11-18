@@ -116,8 +116,8 @@ export class Relay {
     const message = {
       id: `test-${Date.now()}`,
       threadId: "test",
-      snippet: `Your verification code is ${code}.`,
-      payload: { headers: [{ name: "From", value: `${sender} <test@quill.invalid>` }, { name: "Subject", value: "Test code" }] },
+      snippet: `Your ${sender} verification code is ${code}.`,
+      payload: { headers: [{ name: "From", value: `${sender} <test@quill.invalid>` }, { name: "Subject", value: `Your ${sender} verification code` }] },
     };
     await this.#send(email, account, [message], undefined);
   }

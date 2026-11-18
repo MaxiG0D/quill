@@ -28,6 +28,7 @@ struct SignInCodeLiveActivity: Widget {
                     Text(context.state.display)
                         .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
                         .minimumScaleFactor(0.6)
+                    detail(context.state)
                 }
                 Spacer(minLength: 8)
                 copyButton(context.state)
@@ -46,6 +47,9 @@ struct SignInCodeLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     copyButton(context.state)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    detail(context.state)
                 }
             } compactLeading: {
                 Image(systemName: "key.fill")
@@ -68,6 +72,26 @@ struct SignInCodeLiveActivity: Widget {
             .frame(width: 44, height: 44)
             .background(teal.opacity(0.18), in: .circle)
             .accessibilityHidden(true)
+    }
+
+    /// What the email is about and how long the code lasts, in one quiet line.
+    @ViewBuilder
+    private func detail(_ state: SignInCodeAttributes.ContentState) -> some View {
+        HStack(spacing: 6) {
+            if let subject = state.subject, !subject.isEmpty {
+                Text(subject)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if let expiry = state.expiresAt.map({ Date(timeIntervalSince1970: $0) }), expiry > .now {
+                Text(expiry, style: .timer)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 52, alignment: .trailing)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 
     private func copyButton(_ state: SignInCodeAttributes.ContentState) -> some View {

@@ -86,7 +86,7 @@ export function signInActivity(message, now = Date.now()) {
       event: "start",
       "attributes-type": "SignInCodeAttributes",
       attributes: {},
-      "content-state": { sender: senderName(from), code, display: display(code) },
+      "content-state": { sender: senderName(from), code, display: display(code), ...(subject && { subject }), expiresAt: seconds + codeLifetime },
       "stale-date": seconds + codeLifetime,
       // Apple asks for an alert on a start push, since the app is not running to make one.
       alert: { title: senderName(from), body: display(code) },

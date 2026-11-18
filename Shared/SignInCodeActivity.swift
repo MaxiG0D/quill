@@ -13,6 +13,10 @@ struct SignInCodeAttributes: ActivityAttributes {
         var code: String
         /// The code in groups that are easy to read.
         var display: String
+        /// What the email is about, when it says. Optional, so an older push still decodes.
+        var subject: String? = nil
+        /// When the code stops being worth showing, in seconds since 1970.
+        var expiresAt: Double? = nil
     }
 }
 

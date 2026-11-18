@@ -159,7 +159,7 @@ test("a message with a sign-in code starts a Live Activity that goes stale after
   const { aps } = signInActivity(message, 1_000_000);
   assert.equal(aps.event, "start");
   assert.equal(aps["attributes-type"], "SignInCodeAttributes");
-  assert.deepEqual(aps["content-state"], { sender: "Acme", code: "482913", display: "482 913" });
+  assert.deepEqual(aps["content-state"], { sender: "Acme", code: "482913", display: "482 913", subject: "Sign in", expiresAt: 1000 + 600 });
   assert.equal(aps["stale-date"], 1000 + 600);
   assert.equal(signInActivity({ snippet: "Lunch?", payload: { headers: [] } }), null);
 });
