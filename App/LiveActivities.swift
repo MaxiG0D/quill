@@ -27,7 +27,30 @@ enum LiveActivities {
             Task { await expireAll() }
         }
         Task { await expireAll() }
+        #if DEBUG
+        Task { @MainActor in
+            LiveActivityTest.start = { startTest() }
+        }
+        #endif
     }
+
+    #if DEBUG
+    /// Starts an activity straight from the app, to tell the widget apart from the push.
+    @MainActor
+    private static func startTest() -> String? {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return "Live Activities are off for Quill." }
+        let state = SignInCodeAttributes.ContentState(sender: "Quill", code: "482913", display: "482 913")
+        do {
+            _ = try Activity.request(
+                attributes: SignInCodeAttributes(),
+                content: .init(state: state, staleDate: .now.addingTimeInterval(600))
+            )
+            return nil
+        } catch {
+            return String(describing: error)
+        }
+    }
+    #endif
 
     private static func expireAll() async {
         for id in Activity<SignInCodeAttributes>.activities.map(\.id) {

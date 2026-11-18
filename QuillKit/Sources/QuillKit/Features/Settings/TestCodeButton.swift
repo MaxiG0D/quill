@@ -1,6 +1,12 @@
 #if DEBUG
 import SwiftUI
 
+/// Lets the app target start a Live Activity on this device without the relay, for the Test Code button.
+public enum LiveActivityTest {
+    /// Starts one, and returns what went wrong, or nil when it started.
+    @MainActor public static var start: (@MainActor () -> String?)?
+}
+
 /// Debug builds only: sends this account's devices a made-up sign-in code through the push
 /// relay, so the alert and the Live Activity can be tried without waiting for an email.
 struct TestCodeButton: View {
@@ -11,7 +17,9 @@ struct TestCodeButton: View {
     var body: some View {
         Button {
             Task {
-                failed = await !session.sendTestCode()
+                let localError = LiveActivityTest.start?()
+                let pushed = await session.sendTestCode()
+                failed = !pushed || localError != nil
                 attempts += 1
             }
         } label: {
