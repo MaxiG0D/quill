@@ -18,7 +18,11 @@ struct ThreadConversation: View {
                     .padding(.horizontal, Spacing.xxs)
                     .padding(.bottom, Spacing.xs)
                 ForEach(thread.messages) { message in
-                    ThreadMessageCard(message: message, isExpanded: expansion.contains(message)) {
+                    ThreadMessageCard(
+                        message: message,
+                        subject: thread.subject,
+                        isExpanded: expansion.contains(message)
+                    ) {
                         toggle(message)
                     }
                 }

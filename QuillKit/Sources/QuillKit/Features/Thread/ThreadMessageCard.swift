@@ -3,6 +3,7 @@ import SwiftUI
 /// One message in a conversation. Collapsed it is a single line, expanded it shows everything.
 struct ThreadMessageCard: View {
     let message: Message
+    var subject = ""
     let isExpanded: Bool
     let toggle: () -> Void
 
@@ -14,7 +15,7 @@ struct ThreadMessageCard: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                MessageBody(message: message)
+                MessageBody(message: message, subject: subject)
                     .transition(.opacity)
             }
         }

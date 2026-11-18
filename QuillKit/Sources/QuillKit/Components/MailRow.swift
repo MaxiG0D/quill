@@ -11,6 +11,13 @@ struct MailRow: View {
     /// Replaces the preview line, for search excerpts.
     var excerpt: String?
 
+    private var upcomingEvent: MailEvent? {
+        guard let latest = thread.latest,
+              let event = MailEventCache.event(in: latest, subject: thread.subject),
+              event.isUpcoming(at: store.now) else { return nil }
+        return event
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: Spacing.s) {
             if let sender = thread.sender {
@@ -40,7 +47,9 @@ struct MailRow: View {
                             .foregroundStyle(Palette.secondaryLabel)
                             .accessibilityLabel("Has attachment")
                     }
-                    if let label = store.labels(for: thread).first {
+                    if let event = upcomingEvent {
+                        EventChip(event: event, now: store.now)
+                    } else if let label = store.labels(for: thread).first {
                         LabelChip(label)
                     }
                 }

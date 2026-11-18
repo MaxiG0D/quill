@@ -32,7 +32,7 @@ struct ThreadDocument: View {
                     .buttonStyle(.plain)
                     Divider().overlay(Palette.separator)
                     if expansion.contains(message) {
-                        MessageBody(message: message)
+                        MessageBody(message: message, subject: thread.subject)
                             .padding(.vertical, Spacing.xl)
                             .transition(.opacity)
                     }
