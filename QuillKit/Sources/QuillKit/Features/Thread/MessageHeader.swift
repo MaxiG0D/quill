@@ -19,7 +19,8 @@ struct MessageHeader: View {
                         .textRole(.sender(unread: isExpanded))
                         .fontWeight(isExpanded ? .bold : .semibold)
                         .foregroundStyle(Palette.label)
-                        .lineLimit(1)
+                        .lineLimit(isExpanded ? 3 : 1)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: Spacing.xs)
                     if isDetailed && isStarred && isExpanded {
                         Image(systemName: "star.fill")
@@ -30,6 +31,8 @@ struct MessageHeader: View {
                     Text(date)
                         .textRole(.meta)
                         .foregroundStyle(Palette.secondaryLabel)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 if !isExpanded {
                     Text(message.preview)
