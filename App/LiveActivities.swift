@@ -15,7 +15,8 @@ enum LiveActivities {
         }
         Task {
             for await activity in Activity<SignInCodeAttributes>.activityUpdates {
-                Task { await expire(id: activity.id) }
+                let id = activity.id
+                Task { await expire(id: id) }
             }
         }
         NotificationCenter.default.addObserver(
