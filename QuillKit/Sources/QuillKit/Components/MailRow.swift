@@ -51,9 +51,7 @@ struct MailRow: View {
                             .foregroundStyle(Palette.secondaryLabel)
                             .accessibilityLabel("Has attachment")
                     }
-                    if let event = upcomingEvent {
-                        EventChip(event: event, now: store.now)
-                    } else if let label = store.labels(for: thread).first {
+                    if let label = store.labels(for: thread).first {
                         LabelChip(label)
                     }
                 }
@@ -61,6 +59,10 @@ struct MailRow: View {
                     .textRole(.preview)
                     .foregroundStyle(thread.isUnread ? Palette.secondaryLabel : Palette.tertiaryLabel)
                     .lineLimit(1)
+                if let event = upcomingEvent {
+                    EventChip(event: event, now: store.now)
+                        .padding(.top, Spacing.xxs)
+                }
             }
             .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         }
