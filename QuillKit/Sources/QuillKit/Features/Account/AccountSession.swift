@@ -143,6 +143,9 @@ final class AccountSession {
         PushDevice.shared.onPush = { [weak self] in
             await self?.checkMail()
         }
+        PushDevice.shared.onActivityToken = { [weak self] in
+            await self?.startPush()
+        }
         Task {
             await startPush()
         }
@@ -168,7 +171,7 @@ final class AccountSession {
     private func startPush() async {
         guard let relay, notifier?.isEnabled == true, let token = await PushDevice.shared.token() else { return }
         do {
-            try await relay.register(token)
+            try await relay.register(token, activityStartToken: PushDevice.shared.activityStartToken)
             notifier?.setPushed(true)
         } catch {
             Self.log.info("Push relay did not take this device: \(String(describing: error), privacy: .public)")

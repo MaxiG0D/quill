@@ -1,5 +1,5 @@
 import { GoogleError, Mailbox, SignedOut, accessToken, tokenInfo } from "./google.js";
-import { addedToInbox, burstLimit, isWaiting, payload } from "./newMail.js";
+import { addedToInbox, burstLimit, isWaiting, payload, signInActivity } from "./newMail.js";
 
 /** A request the relay turns away, with the HTTP status to answer with. */
 export class Refused extends Error {
@@ -30,7 +30,7 @@ export class Relay {
   }
 
   /** Registers a device for the account a Quill access token belongs to. */
-  async register(bearer, { deviceToken, environment, platform, refreshToken }) {
+  async register(bearer, { deviceToken, environment, platform, refreshToken, activityStartToken }) {
     if (!/^[0-9a-f]{64,200}$/i.test(deviceToken ?? "") || !refreshToken) {
       throw new Refused(400, "A device token and a refresh token are required.");
     }
@@ -45,6 +45,7 @@ export class Relay {
         environment: environment === "development" ? "development" : "production",
         platform: platform === "macos" ? "macos" : "ios",
         refreshToken,
+        activityStartToken: /^[0-9a-f]{64,400}$/i.test(activityStartToken ?? "") ? activityStartToken.toLowerCase() : undefined,
       });
       await this.#watch(email, mailbox, await this.#accounts.get(email), true);
     });
@@ -139,6 +140,24 @@ export class Relay {
         }
       }
       if (delivered) console.log(`Sent ${delivered} to ${name}.`);
+      await this.#startActivity(email, deviceToken, device, name, messages);
+    }
+  }
+
+  /** Puts the newest sign-in code on the device's Lock Screen and Dynamic Island. */
+  async #startActivity(email, deviceToken, device, name, messages) {
+    const activity = device.activityStartToken && signInActivity(messages.at(-1));
+    if (!activity) return;
+    try {
+      const { outcome } = await this.#apns.send({
+        deviceToken: device.activityStartToken,
+        environment: device.environment,
+        payload: activity,
+        pushType: "liveactivity",
+      });
+      if (outcome === "gone") await this.#accounts.clearActivityStartToken(email, deviceToken);
+    } catch (error) {
+      console.error(`Live Activity failed for ${name}: ${error.message}`);
     }
   }
 

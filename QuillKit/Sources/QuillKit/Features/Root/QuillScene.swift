@@ -18,6 +18,14 @@ public struct QuillScene: Scene {
         CodeCopying.register()
     }
 
+    /// Hands over the token that lets the push relay start a Live Activity while Quill is closed.
+    @MainActor
+    public static func setActivityStartToken(_ token: String) {
+        Task {
+            await PushDevice.shared.receivedActivityStartToken(token)
+        }
+    }
+
     public var body: some Scene {
         WindowGroup {
             SessionView()

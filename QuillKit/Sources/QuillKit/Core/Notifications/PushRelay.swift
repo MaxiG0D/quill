@@ -21,13 +21,14 @@ struct PushRelay: Sendable {
     }
 
     /// Starts notifications to a device, or keeps them going. Called on every launch.
-    func register(_ deviceToken: String) async throws {
+    func register(_ deviceToken: String, activityStartToken: String? = nil) async throws {
         let credentials = try await auth.credentials()
         let registration = Registration(
             deviceToken: deviceToken,
             environment: Self.environment,
             platform: Self.platform,
-            refreshToken: credentials.refreshToken
+            refreshToken: credentials.refreshToken,
+            activityStartToken: activityStartToken
         )
         try await send("POST", registration, accessToken: credentials.accessToken)
     }
@@ -55,6 +56,7 @@ struct PushRelay: Sendable {
         let environment: String
         let platform: String
         let refreshToken: String
+        let activityStartToken: String?
     }
 
     private struct Removal: Encodable {

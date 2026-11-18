@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, verify } from "node:crypto";
 import { test } from "node:test";
-import { addedToInbox, isWaiting, payload } from "../src/newMail.js";
+import { addedToInbox, isWaiting, payload, signInActivity } from "../src/newMail.js";
 import { decodeEntities, decodeHeader, senderAddress, senderName } from "../src/text.js";
 
 test("history yields each message added to the Inbox once, oldest first", () => {
@@ -149,4 +149,17 @@ test("a sign-in code becomes the whole alert, with the Copy category", () => {
   assert.equal(code, "482913");
   assert.deepEqual(aps.alert, { title: "Acme", body: "482 913" });
   assert.equal(aps.category, "SIGN_IN_CODE");
+});
+
+test("a message with a sign-in code starts a Live Activity that goes stale after ten minutes", () => {
+  const message = {
+    snippet: "Your verification code is 482913.",
+    payload: { headers: [{ name: "From", value: "Acme <no-reply@acme.example>" }, { name: "Subject", value: "Sign in" }] },
+  };
+  const { aps } = signInActivity(message, 1_000_000);
+  assert.equal(aps.event, "start");
+  assert.equal(aps["attributes-type"], "SignInCodeAttributes");
+  assert.deepEqual(aps["content-state"], { sender: "Acme", code: "482913", display: "482 913" });
+  assert.equal(aps["stale-date"], 1000 + 600);
+  assert.equal(signInActivity({ snippet: "Lunch?", payload: { headers: [] } }), null);
 });

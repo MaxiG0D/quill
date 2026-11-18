@@ -66,3 +66,28 @@ export function payload(message, badge) {
     },
   };
 }
+
+/** How long a sign-in code stays worth showing, in seconds. */
+export const codeLifetime = 10 * 60;
+
+/**
+ * The push that starts a Live Activity for a message carrying a sign-in code, or null when
+ * it carries none. It starts silently: the alert already announced the message.
+ */
+export function signInActivity(message, now = Date.now()) {
+  const from = header(message, "From");
+  const subject = decodeHeader(header(message, "Subject") ?? "");
+  const code = signInCode(`${subject} ${decodeEntities(message.snippet ?? "")}`);
+  if (!code) return null;
+  const seconds = Math.floor(now / 1000);
+  return {
+    aps: {
+      timestamp: seconds,
+      event: "start",
+      "attributes-type": "SignInCodeAttributes",
+      attributes: {},
+      "content-state": { sender: senderName(from), code, display: display(code) },
+      "stale-date": seconds + codeLifetime,
+    },
+  };
+}

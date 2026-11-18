@@ -13,6 +13,12 @@ struct QuillApp: App {
     @StateObject private var updater = Updater()
     #endif
 
+    init() {
+        #if os(iOS)
+        LiveActivities.start()
+        #endif
+    }
+
     var body: some Scene {
         let scene = QuillScene(googleClientID: Configuration.googleClientID, pushRelayURL: Configuration.pushRelayURL)
         #if os(macOS)

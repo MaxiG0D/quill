@@ -18,11 +18,13 @@ export class Accounts {
   }
 
   /** Adds or refreshes a device, and takes the newest refresh token. */
-  async addDevice(email, { deviceToken, environment, platform, refreshToken }) {
+  async addDevice(email, { deviceToken, environment, platform, refreshToken, activityStartToken }) {
     await this.#collection.doc(email).set(
       {
         refreshToken,
-        devices: { [deviceToken]: { environment, platform, updatedAt: FieldValue.serverTimestamp() } },
+        devices: {
+          [deviceToken]: { environment, platform, activityStartToken, updatedAt: FieldValue.serverTimestamp() },
+        },
       },
       { merge: true },
     );
@@ -31,6 +33,13 @@ export class Accounts {
   /** Corrects which of Apple's push services a device's token belongs to. */
   async setEnvironment(email, deviceToken, environment) {
     await this.#collection.doc(email).set({ devices: { [deviceToken]: { environment } } }, { merge: true });
+  }
+
+  /** Forgets a device's Live Activity token, once Apple says it no longer works. */
+  async clearActivityStartToken(email, deviceToken) {
+    await this.#collection
+      .doc(email)
+      .set({ devices: { [deviceToken]: { activityStartToken: FieldValue.delete() } } }, { merge: true });
   }
 
   /** Removes a device. Resolves to how many the account has left. */
