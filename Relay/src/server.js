@@ -10,6 +10,8 @@ import { Refused, Relay } from "./relay.js";
 //
 //   POST   /devices   Quill registers a device. Bearer: the account's Google access token.
 //   DELETE /devices   Quill removes a device on sign-out.
+//   POST   /activities Quill reports a Live Activity's update token and code. Bearer: as above.
+//   POST   /dismiss   A code was copied: ends its Live Activities on every device. Bearer: as above.
 //   POST   /test-code Sends the account's devices a made-up sign-in code. Bearer: as above.
 //   POST   /gmail     Pub/Sub delivers Gmail's notice that a mailbox changed.
 
@@ -54,6 +56,14 @@ async function route(request) {
   }
   if (pathname === "/devices" && request.method === "DELETE") {
     await relay.unregister(bearer(request), await body(request));
+    return 204;
+  }
+  if (pathname === "/activities" && request.method === "POST") {
+    await relay.registerActivity(bearer(request), await body(request));
+    return 204;
+  }
+  if (pathname === "/dismiss" && request.method === "POST") {
+    await relay.dismiss(bearer(request), await body(request));
     return 204;
   }
   if (pathname === "/test-code" && request.method === "POST") {

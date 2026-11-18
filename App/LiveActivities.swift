@@ -1,5 +1,6 @@
 #if os(iOS)
 import ActivityKit
+import os
 import QuillKit
 import UIKit
 
@@ -16,7 +17,11 @@ enum LiveActivities {
         #endif
     }
 
+    /// The activities whose update token is already being watched.
+    private static let watched = OSAllocatedUnfairLock(initialState: Set<String>())
+
     static func start() {
+        CodeDismissal.send = { code in await QuillScene.dismissCode(code) }
         Task {
             for await token in Activity<SignInCodeAttributes>.pushToStartTokenUpdates {
                 let hex = token.map { String(format: "%02x", $0) }.joined()
@@ -30,6 +35,7 @@ enum LiveActivities {
                 note("activity \(id.prefix(6)) appeared")
                 Task { await announce(id: id) }
                 Task { await expire(id: id) }
+                Task { await reportToken(id: id) }
             }
         }
         NotificationCenter.default.addObserver(
@@ -40,6 +46,9 @@ enum LiveActivities {
             Task { await expireAll() }
         }
         Task { await expireAll() }
+        for id in Activity<SignInCodeAttributes>.activities.map(\.id) {
+            Task { await reportToken(id: id) }
+        }
         note("launched, enabled: \(ActivityAuthorizationInfo().areActivitiesEnabled)")
         Task { @MainActor in
             LiveActivitySetting.onTurnedOff = { await endAll() }
@@ -59,7 +68,8 @@ enum LiveActivities {
         do {
             _ = try Activity.request(
                 attributes: SignInCodeAttributes(),
-                content: .init(state: state, staleDate: .now.addingTimeInterval(600))
+                content: .init(state: state, staleDate: .now.addingTimeInterval(600)),
+                pushType: .token
             )
             return nil
         } catch {
@@ -79,6 +89,19 @@ enum LiveActivities {
         )
         await activity.update(content, alertConfiguration: alert)
         note("expanded \(id.prefix(6))")
+    }
+
+    /// Gives the push relay an activity's update token, so copying its code on another
+    /// device can end it here. Each activity is watched once.
+    private static func reportToken(id: String) async {
+        guard watched.withLock({ $0.insert(id).inserted }),
+              let activity = Activity<SignInCodeAttributes>.activities.first(where: { $0.id == id }) else { return }
+        let code = activity.content.state.code
+        for await token in activity.pushTokenUpdates {
+            let hex = token.map { String(format: "%02x", $0) }.joined()
+            note("activity token \(hex.count / 2) bytes")
+            await QuillScene.registerActivity(token: hex, code: code)
+        }
     }
 
     /// Ends every sign-in code activity, when the person turns them off.

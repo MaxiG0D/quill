@@ -31,6 +31,7 @@ final class NotificationTaps: NSObject, UNUserNotificationCenterDelegate {
         Task { @MainActor in
             if isCopy, let code {
                 CodeCopying.copy(code)
+                await CodeCopying.dismissEverywhere(code)
             } else {
                 request(threadID)
             }

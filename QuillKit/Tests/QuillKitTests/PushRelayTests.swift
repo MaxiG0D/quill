@@ -53,4 +53,35 @@ struct PushRelayTests {
             try await relay.register("abc123")
         }
     }
+
+    @Test func anActivityIsReportedWithItsTokenAndCode() async throws {
+        let http = StubHTTP()
+        await http.reply(to: "/activities", status: 204, json: "")
+        try await #require(Self.relay(http)).registerActivity(deviceToken: "dev1", activityToken: "act1", code: "482913")
+
+        let request = try #require(await http.requests.first)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.absoluteString == "https://relay.example/activities")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer access")
+        let body = try JSONDecoder().decode([String: String].self, from: request.httpBody ?? Data())
+        #expect(body == ["deviceToken": "dev1", "activityToken": "act1", "code": "482913"])
+    }
+
+    @Test func aCopiedCodeIsDismissedEverywhere() async throws {
+        let http = StubHTTP()
+        await http.reply(to: "/dismiss", status: 204, json: "")
+        try await #require(Self.relay(http)).dismissCode("482913")
+
+        #expect(await http.log() == ["POST /dismiss"])
+        #expect(await http.body(at: 0) == #"{"code":"482913"}"#)
+    }
+
+    @Test func aFailedDismissalIsThrownForTheCallerToIgnore() async throws {
+        let http = StubHTTP()
+        await http.reply(to: "/dismiss", status: 500, json: "{}")
+        let relay = try #require(Self.relay(http))
+        await #expect(throws: URLError.self) {
+            try await relay.dismissCode("482913")
+        }
+    }
 }

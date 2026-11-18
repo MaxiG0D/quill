@@ -26,6 +26,24 @@ public struct QuillScene: Scene {
         }
     }
 
+    /// Reports a Live Activity's update token, so a Copy on another device can end it.
+    @MainActor
+    public static func registerActivity(token: String, code: String) async {
+        for _ in 0..<20 {
+            if let handler = PushDevice.shared.onActivityRegistered {
+                await handler(token, code)
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+    }
+
+    /// A sign-in code was copied: ends its Live Activities on every device. Failures are silent.
+    @MainActor
+    public static func dismissCode(_ code: String) async {
+        await CodeCopying.dismissEverywhere(code)
+    }
+
     public var body: some Scene {
         WindowGroup {
             SessionView()

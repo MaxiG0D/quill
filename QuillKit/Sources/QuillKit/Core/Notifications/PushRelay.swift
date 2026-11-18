@@ -33,6 +33,24 @@ struct PushRelay: Sendable {
         try await send("POST", registration, accessToken: credentials.accessToken)
     }
 
+    /// Tells the relay about a Live Activity's update token, so that copying its code on
+    /// another device can end it here.
+    func registerActivity(deviceToken: String, activityToken: String, code: String) async throws {
+        let credentials = try await auth.credentials()
+        try await send(
+            "POST",
+            Activity(deviceToken: deviceToken, activityToken: activityToken, code: code),
+            to: "activities",
+            accessToken: credentials.accessToken
+        )
+    }
+
+    /// Tells the relay a code was copied, so every device's Live Activity for it ends.
+    func dismissCode(_ code: String) async throws {
+        let credentials = try await auth.credentials()
+        try await send("POST", Dismissal(code: code), to: "dismiss", accessToken: credentials.accessToken)
+    }
+
     /// Asks the relay to send this account's devices a made-up sign-in code, for trying the alert.
     func sendTestCode() async throws {
         let credentials = try await auth.credentials()
@@ -49,8 +67,13 @@ struct PushRelay: Sendable {
         try await send("DELETE", Removal(deviceToken: deviceToken), accessToken: credentials.accessToken)
     }
 
-    private func send(_ method: String, _ body: some Encodable, accessToken: String) async throws {
-        var request = URLRequest(url: devices)
+    private func send(
+        _ method: String,
+        _ body: some Encodable,
+        to path: String? = nil,
+        accessToken: String
+    ) async throws {
+        var request = URLRequest(url: path.map { devices.deletingLastPathComponent().appending(path: $0) } ?? devices)
         request.httpMethod = method
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -67,6 +90,16 @@ struct PushRelay: Sendable {
         let platform: String
         let refreshToken: String
         let activityStartToken: String?
+    }
+
+    private struct Activity: Encodable {
+        let deviceToken: String
+        let activityToken: String
+        let code: String
+    }
+
+    private struct Dismissal: Encodable {
+        let code: String
     }
 
     private struct Removal: Encodable {

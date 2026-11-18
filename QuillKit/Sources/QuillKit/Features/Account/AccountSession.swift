@@ -150,6 +150,13 @@ final class AccountSession {
         PushDevice.shared.onActivityToken = { [weak self] in
             await self?.startPush()
         }
+        PushDevice.shared.onActivityRegistered = { [weak self] activityToken, code in
+            guard let relay = self?.relay, let token = await PushDevice.shared.token() else { return }
+            try? await relay.registerActivity(deviceToken: token, activityToken: activityToken, code: code)
+        }
+        PushDevice.shared.onCodeCopied = { [weak self] code in
+            try? await self?.relay?.dismissCode(code)
+        }
         Task {
             await startPush()
         }

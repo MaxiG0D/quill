@@ -20,6 +20,10 @@ final class PushDevice {
     private(set) var activityStartToken: String?
     /// Run when the activity token arrives or changes, so the relay gets it.
     var onActivityToken: (@MainActor () async -> Void)?
+    /// Run when a Live Activity reports its update token (iOS only), so the relay can end it later.
+    var onActivityRegistered: (@MainActor (_ activityToken: String, _ code: String) async -> Void)?
+    /// Run when a code was copied, so the relay ends its Live Activities everywhere.
+    var onCodeCopied: (@MainActor (_ code: String) async -> Void)?
     private var waiters: [CheckedContinuation<String?, Never>] = []
 
     /// The device's push token, asking the system the first time. Nil when it has none to give.

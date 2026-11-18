@@ -51,6 +51,55 @@ export class Relay {
     });
   }
 
+  /** Remembers a Live Activity of this account, so a Copy elsewhere can end it. */
+  async registerActivity(bearer, { deviceToken, activityToken, code }) {
+    if (!/^[0-9a-f]{64,400}$/i.test(activityToken ?? "") || !/^\d{3,12}$/.test(code ?? "")) {
+      throw new Refused(400, "An activity token and a code are required.");
+    }
+    const email = await this.#identify(bearer);
+    return this.#inOrder(email, async () => {
+      const account = await this.#accounts.get(email);
+      const device = account?.devices?.[(deviceToken ?? "").toLowerCase()];
+      if (!device) throw new Refused(404, "That device is not registered.");
+      await this.#accounts.addActivity(email, {
+        activityToken: activityToken.toLowerCase(),
+        deviceToken: deviceToken.toLowerCase(),
+        code,
+        environment: device.environment,
+      });
+    });
+  }
+
+  /** Ends every Live Activity of this account that shows `code`, because it was copied. */
+  async dismiss(bearer, { code }) {
+    if (!/^\d{3,12}$/.test(code ?? "")) throw new Refused(400, "A code is required.");
+    const email = await this.#identify(bearer);
+    const activities = await this.#accounts.takeActivities(email, code);
+    let ended = 0;
+    const seconds = Math.floor(Date.now() / 1000);
+    for (const [activityToken, activity] of activities) {
+      try {
+        await this.#apns.send({
+          deviceToken: activityToken,
+          environment: activity.environment,
+          payload: {
+            aps: {
+              timestamp: seconds,
+              event: "end",
+              "dismissal-date": seconds,
+              "content-state": { sender: "", code, display: "", subject: null, expiresAt: null },
+            },
+          },
+          pushType: "liveactivity",
+        });
+        ended += 1;
+      } catch (error) {
+        console.error(`Ending a Live Activity failed: ${error.message}`);
+      }
+    }
+    console.log(`Dismissed ${ended} Live Activities for code.`);
+  }
+
   /** Forgets a device, and the whole account once its last device is gone. */
   async unregister(bearer, { deviceToken }) {
     const email = await this.#identify(bearer);

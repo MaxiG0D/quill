@@ -20,6 +20,12 @@ struct SignInCodeAttributes: ActivityAttributes {
     }
 }
 
+/// How the Copy button tells the push relay that a code was copied, so its Live Activity
+/// ends on the other devices too. The app sets it when it launches; the widget never runs it.
+enum CodeDismissal {
+    nonisolated(unsafe) static var send: (@Sendable (String) async -> Void)?
+}
+
 /// The Copy button. It runs in the app, copies the code, and ends the activity.
 struct CopyCodeIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Copy"
@@ -39,6 +45,7 @@ struct CopyCodeIntent: LiveActivityIntent {
         for activity in activities {
             await activity.end(ActivityContent(state: activity.content.state, staleDate: nil), dismissalPolicy: .immediate)
         }
+        await CodeDismissal.send?(code)
         #if DEBUG
         var trail = UserDefaults.standard.stringArray(forKey: "liveActivityTrace") ?? []
         trail.append("\(Date.now.formatted(date: .omitted, time: .standard)) copy: ending \(activities.count)")

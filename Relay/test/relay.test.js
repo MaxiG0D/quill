@@ -22,6 +22,16 @@ class MemoryAccounts {
     delete account.devices[deviceToken];
     return Object.keys(account.devices).length;
   }
+  async addActivity(email, { activityToken, deviceToken, code, environment }) {
+    const account = this.data.get(email);
+    account.activities = { ...account.activities, [activityToken]: { deviceToken, code, environment } };
+  }
+  async takeActivities(email, code) {
+    const account = this.data.get(email);
+    const taken = Object.entries(account?.activities ?? {}).filter(([, activity]) => activity.code === code);
+    for (const [token] of taken) delete account.activities[token];
+    return taken;
+  }
   async setEnvironment(email, deviceToken, environment) {
     this.data.get(email).devices[deviceToken].environment = environment;
   }
@@ -208,4 +218,48 @@ test("a test code reaches the caller's devices as an alert and a Live Activity",
   await plain.testCode("bearer");
   assert.equal(other.sent.length, 1);
   assert.equal(other.sent[0].payload.aps.category, "SIGN_IN_CODE");
+});
+
+test("copying a code ends its Live Activities on every device, and only that code's", async () => {
+  stubGoogle(google);
+  const apns = new RecordingAPNs();
+  const accounts = new MemoryAccounts();
+  const relay = new Relay({ config, accounts, apns });
+  const duo = "ab".repeat(32);
+  const pad = "ef".repeat(32);
+  await relay.register("bearer", { deviceToken: duo, environment: "development", platform: "ios", refreshToken: "refresh" });
+  await relay.register("bearer", { deviceToken: pad, environment: "production", platform: "ios", refreshToken: "refresh" });
+  const one = "11".repeat(32);
+  const two = "22".repeat(32);
+  const other = "33".repeat(32);
+  await relay.registerActivity("bearer", { deviceToken: duo, activityToken: one.toUpperCase(), code: "482913" });
+  await relay.registerActivity("bearer", { deviceToken: pad, activityToken: two, code: "482913" });
+  await relay.registerActivity("bearer", { deviceToken: pad, activityToken: other, code: "111111" });
+
+  await relay.dismiss("bearer", { code: "482913" });
+
+  assert.deepEqual(apns.sent.map((push) => [push.deviceToken, push.environment, push.pushType]), [
+    [one, "development", "liveactivity"],
+    [two, "production", "liveactivity"],
+  ]);
+  const { aps } = apns.sent[0].payload;
+  assert.equal(aps.event, "end");
+  assert.equal(aps["dismissal-date"], aps.timestamp);
+  assert.equal(aps["content-state"].code, "482913");
+  // The ended ones are forgotten, the other code's is kept.
+  assert.deepEqual(Object.keys((await accounts.get("max@example.com")).activities), [other]);
+  await relay.dismiss("bearer", { code: "482913" });
+  assert.equal(apns.sent.length, 2);
+});
+
+test("an activity is accepted only from a registered device, with a token and a code", async () => {
+  stubGoogle(google);
+  const relay = new Relay({ config, accounts: new MemoryAccounts(), apns: new RecordingAPNs() });
+  await relay.register("bearer", { deviceToken: device, environment: "production", platform: "ios", refreshToken: "refresh" });
+  const token = "11".repeat(32);
+  await assert.rejects(relay.registerActivity("bearer", { deviceToken: "cd".repeat(32), activityToken: token, code: "482913" }), (error) => error.status === 404);
+  await assert.rejects(relay.registerActivity("bearer", { deviceToken: device, activityToken: "nope", code: "482913" }), (error) => error.status === 400);
+  await assert.rejects(relay.registerActivity("bearer", { deviceToken: device, activityToken: token, code: "abc" }), (error) => error.status === 400);
+  await assert.rejects(relay.dismiss("bearer", { code: "" }), (error) => error.status === 400);
+  await assert.rejects(relay.dismiss(undefined, { code: "482913" }), (error) => error.status === 401);
 });
