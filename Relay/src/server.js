@@ -5,18 +5,24 @@ import { APNs } from "./apns.js";
 import { loadConfig } from "./config.js";
 import { SignedOut } from "./google.js";
 import { Refused, Relay } from "./relay.js";
+import { cloudTasks } from "./tasks.js";
 
 // Quill's push relay.
 //
 //   POST   /devices   Quill registers a device. Bearer: the account's Google access token.
 //   DELETE /devices   Quill removes a device on sign-out.
 //   POST   /activities Quill reports a Live Activity's update token and code. Bearer: as above.
-//   POST   /dismiss   A code was copied: ends its Live Activities on every device. Bearer: as above.
+//   POST   /dismiss   A code was copied or closed: ends its Live Activities on every device. Bearer: as above.
+//   POST   /expire    Cloud Tasks ends a code's Live Activities a minute after it arrived.
 //   POST   /test-code Sends the account's devices a made-up sign-in code. Bearer: as above.
 //   POST   /gmail     Pub/Sub delivers Gmail's notice that a mailbox changed.
 
 const config = loadConfig();
-const relay = new Relay({ config, accounts: new Accounts(), apns: new APNs(config.apns) });
+const later =
+  config.tasksQueue && config.relayURL
+    ? cloudTasks({ queue: config.tasksQueue, relayURL: config.relayURL, serviceAccount: config.pubsubServiceAccount, audience: config.pubsubAudience })
+    : undefined;
+const relay = new Relay({ config, accounts: new Accounts(), apns: new APNs(config.apns), later });
 const verifier = new OAuth2Client();
 
 function bearer(request) {
@@ -37,7 +43,7 @@ async function body(request) {
   }
 }
 
-/** Checks that a delivery really comes from this project's Pub/Sub subscription. */
+/** Checks that a delivery really comes from this project's Pub/Sub subscription, or its Cloud Tasks queue. */
 async function verifyPubSub(request) {
   try {
     const ticket = await verifier.verifyIdToken({ idToken: bearer(request) ?? "", audience: config.pubsubAudience });
@@ -64,6 +70,11 @@ async function route(request) {
   }
   if (pathname === "/dismiss" && request.method === "POST") {
     await relay.dismiss(bearer(request), await body(request));
+    return 204;
+  }
+  if (pathname === "/expire" && request.method === "POST") {
+    await verifyPubSub(request);
+    await relay.expire(await body(request));
     return 204;
   }
   if (pathname === "/test-code" && request.method === "POST") {

@@ -151,7 +151,7 @@ test("a sign-in code becomes the whole alert, with the Copy category", () => {
   assert.equal(aps.category, "SIGN_IN_CODE");
 });
 
-test("a message with a sign-in code starts a Live Activity that goes stale after ten minutes", () => {
+test("a message with a sign-in code starts a Live Activity that goes stale after a minute", () => {
   const message = {
     snippet: "Your verification code is 482913.",
     payload: { headers: [{ name: "From", value: "Acme <no-reply@acme.example>" }, { name: "Subject", value: "Sign in" }] },
@@ -159,8 +159,8 @@ test("a message with a sign-in code starts a Live Activity that goes stale after
   const { aps } = signInActivity(message, 1_000_000);
   assert.equal(aps.event, "start");
   assert.equal(aps["attributes-type"], "SignInCodeAttributes");
-  assert.deepEqual(aps["content-state"], { sender: "Acme", code: "482913", display: "482 913", subject: "Sign in", expiresAt: 1000 + 600 });
-  assert.equal(aps["stale-date"], 1000 + 600);
+  assert.deepEqual(aps["content-state"], { sender: "Acme", code: "482913", display: "482 913", subject: "Sign in", expiresAt: 1000 + 60 });
+  assert.equal(aps["stale-date"], 1000 + 60);
   assert.equal(signInActivity({ snippet: "Lunch?", payload: { headers: [] } }), null);
 });
 

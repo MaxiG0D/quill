@@ -5,7 +5,7 @@ import QuillKit
 import UIKit
 
 /// Keeps Quill's sign-in code Live Activities going: it reports the token that lets the
-/// push relay start one while the app is closed, and ends each one once its code is stale.
+/// push relay start one while the app is closed, and ends each one once its minute is up.
 enum LiveActivities {
     /// Debug builds keep a short trail of what Live Activities did, for the Test Code row to show.
     private static func note(_ line: String) {
@@ -21,6 +21,7 @@ enum LiveActivities {
     private static let watched = OSAllocatedUnfairLock(initialState: Set<String>())
 
     static func start() {
+        CodeDismissal.send = { code in await QuillScene.dismissCode(code) }
         Task {
             for await token in Activity<SignInCodeAttributes>.pushToStartTokenUpdates {
                 let hex = token.map { String(format: "%02x", $0) }.joined()
@@ -62,11 +63,11 @@ enum LiveActivities {
     private static func startTest() -> String? {
         guard LiveActivitySetting.isOn else { return nil }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return "Live Activities are off for Quill." }
-        let state = SignInCodeAttributes.ContentState(sender: "GitHub", code: "482913", display: "482 913", subject: "Your GitHub verification code", expiresAt: Date.now.addingTimeInterval(600).timeIntervalSince1970)
+        let state = SignInCodeAttributes.ContentState(sender: "GitHub", code: "482913", display: "482 913", subject: "Your GitHub verification code", expiresAt: Date.now.addingTimeInterval(60).timeIntervalSince1970)
         do {
             _ = try Activity.request(
                 attributes: SignInCodeAttributes(),
-                content: .init(state: state, staleDate: .now.addingTimeInterval(600)),
+                content: .init(state: state, staleDate: .now.addingTimeInterval(60)),
                 pushType: .token
             )
             return nil
@@ -82,6 +83,11 @@ enum LiveActivities {
         guard watched.withLock({ $0.insert(id).inserted }),
               let activity = Activity<SignInCodeAttributes>.activities.first(where: { $0.id == id }) else { return }
         let code = activity.content.state.code
+        // Woken late, after its minute: it ends here rather than waiting on the relay.
+        if let stale = activity.content.staleDate, stale <= .now {
+            await activity.end(nil, dismissalPolicy: .immediate)
+            return
+        }
         for await token in activity.pushTokenUpdates {
             let hex = token.map { String(format: "%02x", $0) }.joined()
             note("activity token \(hex.count / 2) bytes")

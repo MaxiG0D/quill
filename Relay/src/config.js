@@ -17,6 +17,10 @@ export function loadConfig() {
     // The service account Pub/Sub signs its deliveries as, and the URL it delivers to.
     pubsubServiceAccount: required("PUBSUB_SERVICE_ACCOUNT"),
     pubsubAudience: required("PUBSUB_AUDIENCE"),
+    // The Cloud Tasks queue that ends Live Activities on time, and the relay's own address
+    // for it to call. Without them, Live Activities end only when a code is copied or closed.
+    tasksQueue: process.env.TASKS_QUEUE,
+    relayURL: process.env.RELAY_URL,
     apns: {
       key: required("APNS_KEY"),
       keyID: required("APNS_KEY_ID"),

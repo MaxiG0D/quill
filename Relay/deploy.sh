@@ -16,6 +16,7 @@ TOPIC="gmail"
 SUBSCRIPTION="gmail-relay"
 SECRET="apns-key"
 AUDIENCE="quill-relay"
+QUEUE="activities"
 
 KEY_FILE="${1:?Pass the path to the push key, AuthKey_<key ID>.p8}"
 KEY_ID="${KEY_ID:-$(basename "$KEY_FILE" .p8 | sed 's/^AuthKey_//')}"
@@ -28,7 +29,8 @@ PUBSUB_ACCOUNT="quill-pubsub@$PROJECT.iam.gserviceaccount.com"
 g() { gcloud --project "$PROJECT" --quiet "$@"; }
 
 g services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
-  pubsub.googleapis.com firestore.googleapis.com secretmanager.googleapis.com gmail.googleapis.com
+  pubsub.googleapis.com firestore.googleapis.com secretmanager.googleapis.com gmail.googleapis.com \
+  cloudtasks.googleapis.com
 
 # Source deploys build as the project's default compute account, which new projects leave without build rights.
 NUMBER="$(g projects describe "$PROJECT" --format='value(projectNumber)')"
@@ -58,12 +60,25 @@ g pubsub topics describe "$TOPIC" > /dev/null 2>&1 || g pubsub topics create "$T
 g pubsub topics add-iam-policy-binding "$TOPIC" \
   --member="serviceAccount:gmail-api-push@system.gserviceaccount.com" --role=roles/pubsub.publisher > /dev/null
 
+# The queue that ends each Live Activity a minute after its code arrives. The relay signs
+# those calls as quill-pubsub, so it checks them the way it checks Pub/Sub.
+g tasks queues describe "$QUEUE" --location "$REGION" > /dev/null 2>&1 || g tasks queues create "$QUEUE" --location "$REGION"
+g projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:$RELAY_ACCOUNT" \
+  --role=roles/cloudtasks.enqueuer --condition=None > /dev/null
+g iam service-accounts add-iam-policy-binding "$PUBSUB_ACCOUNT" --member="serviceAccount:$RELAY_ACCOUNT" \
+  --role=roles/iam.serviceAccountUser > /dev/null
+URL="$(g run services describe "$SERVICE" --region "$REGION" --format='value(status.url)' 2>/dev/null || true)"
+
 # One instance at a time keeps each account's deliveries in order.
 g run deploy "$SERVICE" --source "$ROOT/Relay" --region "$REGION" --allow-unauthenticated \
   --service-account "$RELAY_ACCOUNT" --max-instances=1 --memory=256Mi \
   --set-secrets "APNS_KEY=$SECRET:latest" \
-  --set-env-vars "GOOGLE_CLIENT_ID=$CLIENT_ID,GMAIL_TOPIC=projects/$PROJECT/topics/$TOPIC,PUBSUB_SERVICE_ACCOUNT=$PUBSUB_ACCOUNT,PUBSUB_AUDIENCE=$AUDIENCE,APNS_KEY_ID=$KEY_ID,APNS_TEAM_ID=$TEAM_ID,APNS_TOPIC=$BUNDLE_ID"
-URL="$(g run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
+  --set-env-vars "GOOGLE_CLIENT_ID=$CLIENT_ID,GMAIL_TOPIC=projects/$PROJECT/topics/$TOPIC,PUBSUB_SERVICE_ACCOUNT=$PUBSUB_ACCOUNT,PUBSUB_AUDIENCE=$AUDIENCE,APNS_KEY_ID=$KEY_ID,APNS_TEAM_ID=$TEAM_ID,APNS_TOPIC=$BUNDLE_ID,TASKS_QUEUE=projects/$PROJECT/locations/$REGION/queues/$QUEUE,RELAY_URL=$URL"
+if [ -z "$URL" ]; then
+  # The first deploy learns its own address only once it is up.
+  URL="$(g run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
+  g run services update "$SERVICE" --region "$REGION" --update-env-vars "RELAY_URL=$URL"
+fi
 
 # Pub/Sub signs each delivery as quill-pubsub, which the relay checks.
 NUMBER="$(g projects describe "$PROJECT" --format='value(projectNumber)')"

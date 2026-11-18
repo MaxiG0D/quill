@@ -77,8 +77,8 @@ export function payload(message, badge) {
   };
 }
 
-/** How long a sign-in code stays worth showing, in seconds. */
-export const codeLifetime = 10 * 60;
+/** How long a sign-in code's Live Activity stays up, in seconds. The relay ends it then, whatever happens. */
+export const codeLifetime = 60;
 
 /**
  * The push that starts a Live Activity for a message carrying a sign-in code, or null when

@@ -1,5 +1,5 @@
 import { GoogleError, Mailbox, SignedOut, accessToken, tokenInfo } from "./google.js";
-import { addedToInbox, burstLimit, hasChanges, isWaiting, payload, signInActivity, syncPayload } from "./newMail.js";
+import { addedToInbox, burstLimit, codeLifetime, hasChanges, isWaiting, payload, signInActivity, syncPayload } from "./newMail.js";
 
 /** A request the relay turns away, with the HTTP status to answer with. */
 export class Refused extends Error {
@@ -20,13 +20,16 @@ export class Relay {
   #config;
   #accounts;
   #apns;
+  /** Calls `expire` later: `(seconds, { email, code })`. Cloud Tasks in production. */
+  #later;
   /** The work in flight for each account, so one account's deliveries are handled in order. */
   #queues = new Map();
 
-  constructor({ config, accounts, apns }) {
+  constructor({ config, accounts, apns, later }) {
     this.#config = config;
     this.#accounts = accounts;
     this.#apns = apns;
+    this.#later = later;
   }
 
   /** Registers a device for the account a Quill access token belongs to. */
@@ -70,10 +73,19 @@ export class Relay {
     });
   }
 
-  /** Ends every Live Activity of this account that shows `code`, because it was copied. */
+  /** Ends every Live Activity of this account that shows `code`, because it was copied or closed. */
   async dismiss(bearer, { code }) {
     if (!/^\d{3,12}$/.test(code ?? "")) throw new Refused(400, "A code is required.");
-    const email = await this.#identify(bearer);
+    await this.#endActivities(await this.#identify(bearer), code);
+  }
+
+  /** Ends a code's Live Activities once its minute is up. Cloud Tasks calls it through `#later`. */
+  async expire({ email, code }) {
+    if (!email || !/^\d{3,12}$/.test(code ?? "")) return;
+    await this.#endActivities(email.toLowerCase(), code);
+  }
+
+  async #endActivities(email, code) {
     const activities = await this.#accounts.takeActivities(email, code);
     let ended = 0;
     const seconds = Math.floor(Date.now() / 1000);
@@ -97,7 +109,7 @@ export class Relay {
         console.error(`Ending a Live Activity failed: ${error.message}`);
       }
     }
-    console.log(`Dismissed ${ended} Live Activities for code.`);
+    console.log(`Ended ${ended} Live Activities for code.`);
   }
 
   /** Forgets a device, and the whole account once its last device is gone. */
@@ -233,6 +245,13 @@ export class Relay {
       }
       if (delivered) console.log(`Sent ${delivered} to ${name}.`);
       await this.#startActivity(email, deviceToken, device, name, messages);
+    }
+    const code = signInActivity(messages.findLast((message) => signInActivity(message)) ?? messages.at(-1))?.aps["content-state"].code;
+    if (!code || !this.#later) return;
+    try {
+      await this.#later(codeLifetime, { email, code });
+    } catch (error) {
+      console.error(`Scheduling the end of a Live Activity failed: ${error.message}`);
     }
   }
 

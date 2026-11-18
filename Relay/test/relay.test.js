@@ -254,6 +254,30 @@ test("copying a code ends its Live Activities on every device, and only that cod
   assert.equal(apns.sent.length, 2);
 });
 
+test("a code's Live Activities end a minute after it arrives, whatever happens", async () => {
+  stubGoogle(google);
+  const apns = new RecordingAPNs();
+  const accounts = new MemoryAccounts();
+  const scheduled = [];
+  const relay = new Relay({ config, accounts, apns, later: async (seconds, body) => scheduled.push([seconds, body]) });
+  await relay.register("bearer", { deviceToken: device, environment: "production", platform: "ios", refreshToken: "refresh", activityStartToken: "cd".repeat(32) });
+  await relay.testCode("bearer");
+
+  // One end is scheduled for the code, however many devices show it.
+  assert.equal(scheduled.length, 1);
+  const [seconds, body] = scheduled[0];
+  assert.equal(seconds, 60);
+  assert.deepEqual(body, { email: "max@example.com", code: apns.sent[0].payload.code });
+
+  const token = "11".repeat(32);
+  await relay.registerActivity("bearer", { deviceToken: device, activityToken: token, code: body.code });
+  apns.sent = [];
+  await relay.expire(body);
+  assert.deepEqual(apns.sent.map((push) => [push.deviceToken, push.pushType, push.payload.aps.event]), [[token, "liveactivity", "end"]]);
+  await relay.expire({ email: "max@example.com", code: "nope" });
+  assert.equal(apns.sent.length, 1);
+});
+
 test("an activity is accepted only from a registered device, with a token and a code", async () => {
   stubGoogle(google);
   const relay = new Relay({ config, accounts: new MemoryAccounts(), apns: new RecordingAPNs() });
