@@ -15,6 +15,7 @@ struct TestCodeButton: View {
     @State private var failed = false
 
     var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
         Button {
             Task {
                 let localError = LiveActivityTest.start?()
@@ -34,6 +35,11 @@ struct TestCodeButton: View {
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: attempts)
+        Text((UserDefaults.standard.stringArray(forKey: "liveActivityTrace") ?? []).joined(separator: "\n"))
+            .font(.caption.monospaced())
+            .foregroundStyle(Palette.secondaryLabel)
+            .id(attempts)
+        }
     }
 }
 #endif

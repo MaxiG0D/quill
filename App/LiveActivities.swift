@@ -6,16 +6,28 @@ import UIKit
 /// Keeps Quill's sign-in code Live Activities going: it reports the token that lets the
 /// push relay start one while the app is closed, and ends each one once its code is stale.
 enum LiveActivities {
+    /// Debug builds keep a short trail of what Live Activities did, for the Test Code row to show.
+    private static func note(_ line: String) {
+        #if DEBUG
+        let key = "liveActivityTrace"
+        var trail = UserDefaults.standard.stringArray(forKey: key) ?? []
+        trail.append("\(Date.now.formatted(date: .omitted, time: .standard)) \(line)")
+        UserDefaults.standard.set(Array(trail.suffix(6)), forKey: key)
+        #endif
+    }
+
     static func start() {
         Task {
             for await token in Activity<SignInCodeAttributes>.pushToStartTokenUpdates {
                 let hex = token.map { String(format: "%02x", $0) }.joined()
+                note("start token \(hex.count / 2) bytes")
                 await MainActor.run { QuillScene.setActivityStartToken(hex) }
             }
         }
         Task {
             for await activity in Activity<SignInCodeAttributes>.activityUpdates {
                 let id = activity.id
+                note("activity \(id.prefix(6)) appeared")
                 Task { await announce(id: id) }
                 Task { await expire(id: id) }
             }
@@ -28,6 +40,7 @@ enum LiveActivities {
             Task { await expireAll() }
         }
         Task { await expireAll() }
+        note("launched, enabled: \(ActivityAuthorizationInfo().areActivitiesEnabled)")
         #if DEBUG
         Task { @MainActor in
             LiveActivityTest.start = { startTest() }
@@ -63,6 +76,7 @@ enum LiveActivities {
             sound: .default
         )
         await activity.update(content, alertConfiguration: alert)
+        note("expanded \(id.prefix(6))")
     }
 
     private static func expireAll() async {
