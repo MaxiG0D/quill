@@ -29,9 +29,8 @@ enum CodeDismissal {
 /// The Copy button. It runs in the app, copies the code, and ends the activity.
 struct CopyCodeIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Copy"
-    /// iOS drops a clipboard write from an app that is only woken in the background, so Copy
-    /// brings Quill to the front for a moment, without changing what it shows.
-    static let openAppWhenRun = true
+    /// Only the Live Activity runs it, so Shortcuts has no business listing it.
+    static let isDiscoverable = false
 
     @Parameter(title: "Code") var code: String
 
