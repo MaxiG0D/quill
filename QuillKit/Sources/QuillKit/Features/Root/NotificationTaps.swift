@@ -38,6 +38,17 @@ final class NotificationTaps: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    /// A sign-in code is worth a banner even while Quill is open, since the person is most
+    /// likely waiting on it. Other mail is already on screen.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping @Sendable (UNNotificationPresentationOptions) -> Void
+    ) {
+        let hasCode = notification.request.content.userInfo["code"] is String
+        completionHandler(hasCode ? [.banner, .sound] : [])
+    }
+
     private func request(_ threadID: MailThread.ID) {
         requestedThreadID = threadID.isEmpty ? nil : threadID
     }
