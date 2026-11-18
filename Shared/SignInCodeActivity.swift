@@ -35,9 +35,15 @@ struct CopyCodeIntent: LiveActivityIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         UIPasteboard.general.string = code
-        for activity in Activity<SignInCodeAttributes>.activities {
-            await activity.end(nil, dismissalPolicy: .immediate)
+        let activities = Activity<SignInCodeAttributes>.activities
+        for activity in activities {
+            await activity.end(ActivityContent(state: activity.content.state, staleDate: nil), dismissalPolicy: .immediate)
         }
+        #if DEBUG
+        var trail = UserDefaults.standard.stringArray(forKey: "liveActivityTrace") ?? []
+        trail.append("\(Date.now.formatted(date: .omitted, time: .standard)) copy: ending \(activities.count)")
+        UserDefaults.standard.set(Array(trail.suffix(6)), forKey: "liveActivityTrace")
+        #endif
         return .result()
     }
 }
