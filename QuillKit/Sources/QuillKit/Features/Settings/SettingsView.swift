@@ -43,8 +43,13 @@ struct SettingsView: View {
             }
             if session.canSignOut, let notifier = session.notifier {
                 heading("Notifications")
-                NotificationSwitch(notifier: notifier)
-                    .card()
+                VStack(alignment: .leading, spacing: Spacing.m) {
+                    NotificationSwitch(notifier: notifier)
+                    #if DEBUG
+                    TestCodeButton()
+                    #endif
+                }
+                .card()
                     .padding(.bottom, Spacing.s)
             }
             heading("App Icon")

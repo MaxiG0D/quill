@@ -11,9 +11,10 @@ class MemoryAccounts {
   async get(email) {
     return this.data.has(email) ? structuredClone(this.data.get(email)) : null;
   }
-  async addDevice(email, { deviceToken, environment, platform, refreshToken }) {
+  async addDevice(email, { deviceToken, environment, platform, refreshToken, activityStartToken }) {
     const account = this.data.get(email) ?? {};
-    this.data.set(email, { ...account, refreshToken, devices: { ...account.devices, [deviceToken]: { environment, platform } } });
+    const entry = { environment, platform, ...(activityStartToken && { activityStartToken }) };
+    this.data.set(email, { ...account, refreshToken, devices: { ...account.devices, [deviceToken]: entry } });
   }
   async removeDevice(email, deviceToken) {
     const account = this.data.get(email);
@@ -182,4 +183,22 @@ test("a device found in Apple's other push service is remembered there", async (
   await relay.register("bearer", { deviceToken: device, environment: "production", refreshToken: "refresh" });
   await relay.mailboxChanged({ emailAddress: "max@example.com", historyId: 150 });
   assert.equal((await accounts.get("max@example.com")).devices[device].environment, "development");
+});
+
+test("a test code reaches the caller's devices as an alert and a Live Activity", async () => {
+  stubGoogle(google);
+  const apns = new RecordingAPNs();
+  const relay = new Relay({ config, accounts: new MemoryAccounts(), apns });
+  await assert.rejects(relay.testCode("bearer"), (error) => error.status === 404);
+
+  const start = "cd".repeat(32);
+  await relay.register("bearer", { deviceToken: device, environment: "production", platform: "ios", refreshToken: "refresh", activityStartToken: start });
+  await relay.testCode("bearer");
+
+  assert.equal(apns.sent.length, 2);
+  assert.equal(apns.sent[0].payload.aps.category, "SIGN_IN_CODE");
+  assert.match(apns.sent[0].payload.code, /^\d{6}$/);
+  assert.equal(apns.sent[1].pushType, "liveactivity");
+  assert.equal(apns.sent[1].deviceToken, start);
+  assert.equal(apns.sent[1].payload.aps["content-state"].code, apns.sent[0].payload.code);
 });

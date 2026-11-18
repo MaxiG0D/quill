@@ -33,6 +33,16 @@ struct PushRelay: Sendable {
         try await send("POST", registration, accessToken: credentials.accessToken)
     }
 
+    /// Asks the relay to send this account's devices a made-up sign-in code, for trying the alert.
+    func sendTestCode() async throws {
+        let credentials = try await auth.credentials()
+        var request = URLRequest(url: devices.deletingLastPathComponent().appending(path: "test-code"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await http.send(request)
+        guard (200..<300).contains(response.statusCode) else { throw URLError(.badServerResponse) }
+    }
+
     /// Stops notifications to a device.
     func unregister(_ deviceToken: String) async throws {
         let credentials = try await auth.credentials()

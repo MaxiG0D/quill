@@ -179,6 +179,12 @@ final class AccountSession {
         }
     }
 
+    /// Has the push relay send this account's devices a made-up sign-in code.
+    func sendTestCode() async -> Bool {
+        guard let relay else { return false }
+        return (try? await relay.sendTestCode()) != nil
+    }
+
     private func stopPush() async {
         notifier?.setPushed(false)
         guard let relay, let token = PushDevice.shared.knownToken else { return }

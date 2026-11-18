@@ -103,6 +103,24 @@ export class Relay {
     });
   }
 
+  /**
+   * Sends the caller's own devices a made-up sign-in code, the way a real email would, so
+   * the alert and the Live Activity can be tried without waiting for one.
+   */
+  async testCode(bearer) {
+    const email = await this.#identify(bearer);
+    const account = await this.#accounts.get(email);
+    if (!account || !Object.keys(account.devices ?? {}).length) throw new Refused(404, "No devices are registered.");
+    const code = String(100000 + Math.floor(Math.random() * 900000));
+    const message = {
+      id: `test-${Date.now()}`,
+      threadId: "test",
+      snippet: `Your verification code is ${code}.`,
+      payload: { headers: [{ name: "From", value: "Quill <test@quill.invalid>" }, { name: "Subject", value: "Test code" }] },
+    };
+    await this.#send(email, account, [message], undefined);
+  }
+
   async #notify(email, account, mailbox, ids) {
     const messages = [];
     for (const id of ids.slice(-burstLimit)) {
@@ -111,7 +129,10 @@ export class Relay {
     }
     if (!messages.length) return;
 
-    const badge = await mailbox.unreadCount();
+    await this.#send(email, account, messages, await mailbox.unreadCount());
+  }
+
+  async #send(email, account, messages, badge) {
     for (const [deviceToken, device] of Object.entries(account.devices)) {
       const name = `${device.platform} ${deviceToken.slice(0, 8)}`;
       let delivered = 0;
