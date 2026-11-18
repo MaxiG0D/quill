@@ -22,6 +22,16 @@ export function addedToInbox(history) {
   return ids;
 }
 
+/** True when a stretch of history holds a change another device should pick up: mail deleted or relabelled. */
+export function hasChanges(history) {
+  return (history ?? []).some(
+    (record) => record.messagesDeleted?.length || record.labelsAdded?.length || record.labelsRemoved?.length,
+  );
+}
+
+/** A push with no alert: it only wakes Quill to bring its mailbox up to date. */
+export const syncPayload = { aps: { "content-available": 1 }, sync: true };
+
 /**
  * True when a message, as it stands now, deserves a notification: still unread in the
  * Inbox, and not something the account wrote itself.

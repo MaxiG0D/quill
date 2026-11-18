@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, verify } from "node:crypto";
 import { test } from "node:test";
-import { addedToInbox, isWaiting, payload, signInActivity } from "../src/newMail.js";
+import { addedToInbox, hasChanges, isWaiting, payload, signInActivity } from "../src/newMail.js";
 import { decodeEntities, decodeHeader, senderAddress, senderName } from "../src/text.js";
 
 test("history yields each message added to the Inbox once, oldest first", () => {
@@ -162,4 +162,11 @@ test("a message with a sign-in code starts a Live Activity that goes stale after
   assert.deepEqual(aps["content-state"], { sender: "Acme", code: "482913", display: "482 913", subject: "Sign in", expiresAt: 1000 + 600 });
   assert.equal(aps["stale-date"], 1000 + 600);
   assert.equal(signInActivity({ snippet: "Lunch?", payload: { headers: [] } }), null);
+});
+
+test("only relabelled or deleted mail counts as a change to sync", () => {
+  assert.equal(hasChanges([{ labelsRemoved: [{ message: { id: "m1" } }] }]), true);
+  assert.equal(hasChanges([{ messagesDeleted: [{ message: { id: "m1" } }] }]), true);
+  assert.equal(hasChanges([{ messagesAdded: [{ message: { id: "m1" } }] }]), false);
+  assert.equal(hasChanges(undefined), false);
 });

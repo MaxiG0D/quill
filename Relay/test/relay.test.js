@@ -265,3 +265,20 @@ test("an activity is accepted only from a registered device, with a token and a 
   await assert.rejects(relay.dismiss("bearer", { code: "" }), (error) => error.status === 400);
   await assert.rejects(relay.dismiss(undefined, { code: "482913" }), (error) => error.status === 401);
 });
+
+test("an archive or delete wakes every device with a silent push", async () => {
+  stubGoogle({
+    ...google,
+    "/history": { history: [{ labelsRemoved: [{ message: { id: "m1", labelIds: [] }, labelIds: ["INBOX"] }] }] },
+  });
+  const apns = new RecordingAPNs();
+  const relay = new Relay({ config, accounts: new MemoryAccounts(), apns });
+  await relay.register("bearer", { deviceToken: device, environment: "production", platform: "ios", refreshToken: "refresh" });
+  await relay.mailboxChanged({ emailAddress: "max@example.com", historyId: 150 });
+
+  assert.equal(apns.sent.length, 1);
+  assert.equal(apns.sent[0].pushType, "background");
+  assert.equal(apns.sent[0].priority, 5);
+  assert.equal(apns.sent[0].payload.aps.alert, undefined);
+  assert.equal(apns.sent[0].payload.aps["content-available"], 1);
+});

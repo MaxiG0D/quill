@@ -1,5 +1,5 @@
 import { GoogleError, Mailbox, SignedOut, accessToken, tokenInfo } from "./google.js";
-import { addedToInbox, burstLimit, isWaiting, payload, signInActivity } from "./newMail.js";
+import { addedToInbox, burstLimit, hasChanges, isWaiting, payload, signInActivity, syncPayload } from "./newMail.js";
 
 /** A request the relay turns away, with the HTTP status to answer with. */
 export class Refused extends Error {
@@ -144,6 +144,7 @@ export class Relay {
           if (!(error instanceof GoogleError && error.status === 404)) throw error;
         }
         await this.#notify(email, account, mailbox, addedToInbox(records));
+        if (hasChanges(records)) await this.#sync(email, account);
       }
       if (!start || BigInt(historyId) > BigInt(start)) {
         await this.#accounts.update(email, { historyId: String(historyId) });
@@ -180,6 +181,26 @@ export class Relay {
     if (!messages.length) return;
 
     await this.#send(email, account, messages, await mailbox.unreadCount());
+  }
+
+  /** Wakes every device of the account without an alert, so archived, deleted and read mail shows up at once. */
+  async #sync(email, account) {
+    for (const [deviceToken, device] of Object.entries(account.devices)) {
+      try {
+        const { outcome, environment } = await this.#apns.send({
+          deviceToken,
+          environment: device.environment,
+          payload: syncPayload,
+          collapseID: "sync",
+          pushType: "background",
+          priority: 5,
+        });
+        if (outcome === "gone") await this.#accounts.removeDevice(email, deviceToken);
+        else if (environment !== device.environment) await this.#accounts.setEnvironment(email, deviceToken, environment);
+      } catch (error) {
+        console.error(`Sync push failed for ${device.platform} ${deviceToken.slice(0, 8)}: ${error.message}`);
+      }
+    }
   }
 
   async #send(email, account, messages, badge) {

@@ -76,7 +76,7 @@ export class Mailbox {
     return this.#call("/stop", { method: "POST" });
   }
 
-  /** Every history record since `startHistoryId` that added a message to the Inbox. */
+  /** Every history record since `startHistoryId`: mail added, deleted, and relabelled (archived, read, starred). */
   async history(startHistoryId) {
     const records = [];
     let pageToken;
@@ -84,7 +84,9 @@ export class Mailbox {
       const query = [
         ["startHistoryId", startHistoryId],
         ["historyTypes", "messageAdded"],
-        ["labelId", "INBOX"],
+        ["historyTypes", "messageDeleted"],
+        ["historyTypes", "labelAdded"],
+        ["historyTypes", "labelRemoved"],
       ];
       if (pageToken) query.push(["pageToken", pageToken]);
       const page = await this.#call("/history", { query });

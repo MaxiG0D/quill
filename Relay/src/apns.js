@@ -31,13 +31,13 @@ export class APNs {
    * wrong one, so a token Apple does not recognise is tried in the other service before it
    * is given up on. `environment` is the service that answered, for the caller to remember.
    */
-  async send({ deviceToken, environment, payload, collapseID, pushType = "alert" }) {
+  async send({ deviceToken, environment, payload, collapseID, pushType = "alert", priority = 10 }) {
     const first = environment === "development" ? "development" : "production";
     const second = first === "development" ? "production" : "development";
-    let reply = await this.#post(first, { deviceToken, payload, collapseID, pushType });
+    let reply = await this.#post(first, { deviceToken, payload, collapseID, pushType, priority });
     let answered = first;
     if (reply.reason === "BadDeviceToken") {
-      const other = await this.#post(second, { deviceToken, payload, collapseID, pushType });
+      const other = await this.#post(second, { deviceToken, payload, collapseID, pushType, priority });
       if (other.status === 200 || other.reason !== "BadDeviceToken") {
         reply = other;
         answered = second;
@@ -52,7 +52,7 @@ export class APNs {
     throw new Error(`APNs ${status} ${reason}`);
   }
 
-  async #post(environment, { deviceToken, payload, collapseID, pushType }) {
+  async #post(environment, { deviceToken, payload, collapseID, pushType, priority }) {
     const session = this.#session(environment);
     const headers = {
       ":method": "POST",
@@ -61,7 +61,7 @@ export class APNs {
       // A Live Activity push goes to its own topic, under the app's.
       "apns-topic": pushType === "liveactivity" ? `${this.#topic}.push-type.liveactivity` : this.#topic,
       "apns-push-type": pushType,
-      "apns-priority": "10",
+      "apns-priority": String(priority),
     };
     if (collapseID) headers["apns-collapse-id"] = collapseID;
 

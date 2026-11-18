@@ -184,7 +184,12 @@ final class MailStore {
     }
 
     private func fetch(isQuiet: Bool) async {
-        guard !isFetching else { return }
+        // A fetch already under way may have started before the change that prompted this one,
+        // so it is followed by another rather than this request being dropped.
+        guard !isFetching else {
+            isFetchQueued = true
+            return
+        }
         isFetching = true
         defer { isFetching = false }
         await fetchOnce(isQuiet: isQuiet)
