@@ -16,6 +16,7 @@ enum LiveActivities {
         Task {
             for await activity in Activity<SignInCodeAttributes>.activityUpdates {
                 let id = activity.id
+                Task { await announce(id: id) }
                 Task { await expire(id: id) }
             }
         }
@@ -51,6 +52,18 @@ enum LiveActivities {
         }
     }
     #endif
+
+    /// Expands the Dynamic Island for a moment, so a new code is hard to miss.
+    private static func announce(id: String) async {
+        guard let activity = Activity<SignInCodeAttributes>.activities.first(where: { $0.id == id }) else { return }
+        let content = activity.content
+        let alert = AlertConfiguration(
+            title: "\(content.state.sender)",
+            body: "\(content.state.display)",
+            sound: .default
+        )
+        await activity.update(content, alertConfiguration: alert)
+    }
 
     private static func expireAll() async {
         for id in Activity<SignInCodeAttributes>.activities.map(\.id) {

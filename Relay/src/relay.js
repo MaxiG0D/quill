@@ -137,6 +137,8 @@ export class Relay {
       const name = `${device.platform} ${deviceToken.slice(0, 8)}`;
       let delivered = 0;
       for (const message of messages) {
+        // A device that can show a Live Activity gets the code there, with Copy, and not twice.
+        if (device.activityStartToken && signInActivity(message)) continue;
         try {
           const { outcome, environment, reason } = await this.#apns.send({
             deviceToken,
@@ -167,7 +169,7 @@ export class Relay {
 
   /** Puts the newest sign-in code on the device's Lock Screen and Dynamic Island. */
   async #startActivity(email, deviceToken, device, name, messages) {
-    const activity = signInActivity(messages.at(-1));
+    const activity = signInActivity(messages.findLast((message) => signInActivity(message)) ?? messages.at(-1));
     if (!activity) return;
     if (!device.activityStartToken) {
       console.log(`${name} has no Live Activity token, so only the alert was sent.`);

@@ -195,10 +195,17 @@ test("a test code reaches the caller's devices as an alert and a Live Activity",
   await relay.register("bearer", { deviceToken: device, environment: "production", platform: "ios", refreshToken: "refresh", activityStartToken: start });
   await relay.testCode("bearer");
 
-  assert.equal(apns.sent.length, 2);
-  assert.equal(apns.sent[0].payload.aps.category, "SIGN_IN_CODE");
-  assert.match(apns.sent[0].payload.code, /^\d{6}$/);
-  assert.equal(apns.sent[1].pushType, "liveactivity");
-  assert.equal(apns.sent[1].deviceToken, start);
-  assert.equal(apns.sent[1].payload.aps["content-state"].code, apns.sent[0].payload.code);
+  // The device that can show a Live Activity gets only that, not an alert as well.
+  assert.equal(apns.sent.length, 1);
+  assert.equal(apns.sent[0].pushType, "liveactivity");
+  assert.equal(apns.sent[0].deviceToken, start);
+  assert.match(apns.sent[0].payload.aps["content-state"].code, /^\d{6}$/);
+
+  // One without gets the alert with Copy.
+  const other = new RecordingAPNs();
+  const plain = new Relay({ config, accounts: new MemoryAccounts(), apns: other });
+  await plain.register("bearer", { deviceToken: device, environment: "production", platform: "ios", refreshToken: "refresh" });
+  await plain.testCode("bearer");
+  assert.equal(other.sent.length, 1);
+  assert.equal(other.sent[0].payload.aps.category, "SIGN_IN_CODE");
 });
