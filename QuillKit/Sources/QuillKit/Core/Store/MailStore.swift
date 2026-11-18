@@ -163,6 +163,16 @@ final class MailStore {
         await fetch(isQuiet: isQuiet)
     }
 
+    /// Puts mail a notification announced on screen at once, by fetching just those threads,
+    /// so it is already there when the person arrives and the full refresh has yet to finish.
+    func bringIn(arrived ids: [MailThread.ID]) async {
+        guard phase == .loaded else { return }
+        for id in ids where !id.isEmpty && thread(id) == nil {
+            guard let snapshot = try? await service.fetchThread(id) else { continue }
+            adopt(snapshot)
+        }
+    }
+
     /// Brings the mailbox up to date while no one is looking, keeping any failure to itself.
     /// It starts from the mailbox as last seen when the app was opened by the system, not the person.
     func refreshUnseen() async {
