@@ -205,11 +205,13 @@ test("a test code reaches the caller's devices as an alert and a Live Activity",
   await relay.register("bearer", { deviceToken: device, environment: "production", platform: "ios", refreshToken: "refresh", activityStartToken: start });
   await relay.testCode("bearer");
 
-  // The device that can show a Live Activity gets only that, not an alert as well.
-  assert.equal(apns.sent.length, 1);
-  assert.equal(apns.sent[0].pushType, "liveactivity");
-  assert.equal(apns.sent[0].deviceToken, start);
-  assert.match(apns.sent[0].payload.aps["content-state"].code, /^\d{6}$/);
+  // The alert carries Copy (iOS only allows the clipboard write from its long-press view),
+  // and the Live Activity shows the code at a glance.
+  assert.equal(apns.sent.length, 2);
+  assert.equal(apns.sent[0].payload.aps.category, "SIGN_IN_CODE");
+  assert.equal(apns.sent[1].pushType, "liveactivity");
+  assert.equal(apns.sent[1].deviceToken, start);
+  assert.equal(apns.sent[1].payload.aps["content-state"].code, apns.sent[0].payload.code);
 
   // One without gets the alert with Copy.
   const other = new RecordingAPNs();

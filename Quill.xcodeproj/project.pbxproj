@@ -12,6 +12,7 @@
 		A1B2C3D40000000000000048 /* QuillPictures in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000000000047 /* QuillPictures */; };
 		A1B2C3D40000000000000049 /* NotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000040 /* NotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1B2C3D4000000000000005E /* ActivityWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000050 /* ActivityWidget.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A1B2C3D4000000000000006E /* CodeNotification.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000060 /* CodeNotification.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,6 +37,13 @@
 			remoteGlobalIDString = A1B2C3D40000000000000055;
 			remoteInfo = ActivityWidget;
 		};
+		A1B2C3D4000000000000006C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1B2C3D40000000000000004 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1B2C3D40000000000000065;
+			remoteInfo = CodeNotification;
+		};
 /* End PBXContainerItemProxy section */
 /* Begin PBXCopyFilesBuildPhase section */
 		A1B2C3D4000000000000004C /* Embed Foundation Extensions */ = {
@@ -46,6 +54,7 @@
 			files = (
 				A1B2C3D40000000000000049 /* NotificationService.appex in Embed Foundation Extensions */,
 				A1B2C3D4000000000000005E /* ActivityWidget.appex in Embed Foundation Extensions */,
+				A1B2C3D4000000000000006E /* CodeNotification.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -58,6 +67,7 @@
 		A1B2C3D40000000000000008 /* QuillKit */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = QuillKit; sourceTree = "<group>"; };
 		A1B2C3D40000000000000040 /* NotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D40000000000000050 /* ActivityWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ActivityWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D40000000000000060 /* CodeNotification.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CodeNotification.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -85,6 +95,13 @@
 				Info.plist,
 			);
 			target = A1B2C3D40000000000000055 /* ActivityWidget */;
+		};
+		A1B2C3D40000000000000062 /* Exceptions for "CodeNotification" folder in "CodeNotification" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A1B2C3D40000000000000065 /* CodeNotification */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -123,6 +140,14 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		A1B2C3D40000000000000061 /* CodeNotification */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A1B2C3D40000000000000062 /* Exceptions for "CodeNotification" folder in "CodeNotification" target */,
+			);
+			path = CodeNotification;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -157,6 +182,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1B2C3D40000000000000067 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -167,6 +199,7 @@
 				A1B2C3D40000000000000008 /* QuillKit */,
 				A1B2C3D40000000000000041 /* NotificationService */,
 				A1B2C3D40000000000000051 /* ActivityWidget */,
+				A1B2C3D40000000000000061 /* CodeNotification */,
 				A1B2C3D40000000000000053 /* Shared */,
 				A1B2C3D4000000000000000B /* UITests */,
 				A1B2C3D4000000000000000F /* Products */,
@@ -179,6 +212,7 @@
 				A1B2C3D40000000000000006 /* Quill.app */,
 				A1B2C3D40000000000000040 /* NotificationService.appex */,
 				A1B2C3D40000000000000050 /* ActivityWidget.appex */,
+				A1B2C3D40000000000000060 /* CodeNotification.appex */,
 				A1B2C3D40000000000000007 /* QuillUITests.xctest */,
 			);
 			name = Products;
@@ -201,6 +235,7 @@
 			dependencies = (
 				A1B2C3D4000000000000004A /* PBXTargetDependency */,
 				A1B2C3D4000000000000005D /* PBXTargetDependency */,
+				A1B2C3D4000000000000006D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A1B2C3D4000000000000000A /* App */,
@@ -284,6 +319,28 @@
 			productReference = A1B2C3D40000000000000050 /* ActivityWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		A1B2C3D40000000000000065 /* CodeNotification */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1B2C3D40000000000000069 /* Build configuration list for PBXNativeTarget "CodeNotification" */;
+			buildPhases = (
+				A1B2C3D40000000000000066 /* Sources */,
+				A1B2C3D40000000000000067 /* Frameworks */,
+				A1B2C3D40000000000000068 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A1B2C3D40000000000000061 /* CodeNotification */,
+			);
+			name = CodeNotification;
+			packageProductDependencies = (
+			);
+			productName = CodeNotification;
+			productReference = A1B2C3D40000000000000060 /* CodeNotification.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -294,6 +351,9 @@
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					A1B2C3D40000000000000065 = {
+						CreatedOnToolsVersion = 26.0;
+					};
 					A1B2C3D40000000000000055 = {
 						CreatedOnToolsVersion = 26.0;
 					};
@@ -330,6 +390,7 @@
 				A1B2C3D40000000000000005 /* Quill */,
 				A1B2C3D40000000000000043 /* NotificationService */,
 				A1B2C3D40000000000000055 /* ActivityWidget */,
+				A1B2C3D40000000000000065 /* CodeNotification */,
 				A1B2C3D40000000000000013 /* QuillUITests */,
 			);
 		};
@@ -358,6 +419,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A1B2C3D40000000000000058 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D40000000000000068 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -395,6 +463,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1B2C3D40000000000000066 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -415,6 +490,14 @@
 			);
 			target = A1B2C3D40000000000000055 /* ActivityWidget */;
 			targetProxy = A1B2C3D4000000000000005C /* PBXContainerItemProxy */;
+		};
+		A1B2C3D4000000000000006D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				ios,
+			);
+			target = A1B2C3D40000000000000065 /* CodeNotification */;
+			targetProxy = A1B2C3D4000000000000006C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -681,6 +764,48 @@
 			};
 			name = Release;
 		};
+		A1B2C3D4000000000000006A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NZN9M2VV5J;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CodeNotification/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Quill;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 0.1.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxig0d.quill.code;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A1B2C3D4000000000000006B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NZN9M2VV5J;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CodeNotification/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Quill;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 0.1.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxig0d.quill.code;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -725,6 +850,15 @@
 			buildConfigurations = (
 				A1B2C3D4000000000000005A /* Debug */,
 				A1B2C3D4000000000000005B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1B2C3D40000000000000069 /* Build configuration list for PBXNativeTarget "CodeNotification" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D4000000000000006A /* Debug */,
+				A1B2C3D4000000000000006B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

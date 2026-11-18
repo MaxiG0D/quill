@@ -187,8 +187,6 @@ export class Relay {
       const name = `${device.platform} ${deviceToken.slice(0, 8)}`;
       let delivered = 0;
       for (const message of messages) {
-        // A device that can show a Live Activity gets the code there, with Copy, and not twice.
-        if (device.activityStartToken && signInActivity(message)) continue;
         try {
           const { outcome, environment, reason } = await this.#apns.send({
             deviceToken,
