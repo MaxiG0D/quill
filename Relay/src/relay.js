@@ -112,11 +112,12 @@ export class Relay {
     const account = await this.#accounts.get(email);
     if (!account || !Object.keys(account.devices ?? {}).length) throw new Refused(404, "No devices are registered.");
     const code = String(100000 + Math.floor(Math.random() * 900000));
+    const sender = ["GitHub", "Google", "Stripe", "Apple"][Math.floor(Math.random() * 4)];
     const message = {
       id: `test-${Date.now()}`,
       threadId: "test",
       snippet: `Your verification code is ${code}.`,
-      payload: { headers: [{ name: "From", value: "Quill <test@quill.invalid>" }, { name: "Subject", value: "Test code" }] },
+      payload: { headers: [{ name: "From", value: `${sender} <test@quill.invalid>` }, { name: "Subject", value: "Test code" }] },
     };
     await this.#send(email, account, [message], undefined);
   }

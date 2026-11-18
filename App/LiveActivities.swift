@@ -53,7 +53,7 @@ enum LiveActivities {
     @MainActor
     private static func startTest() -> String? {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return "Live Activities are off for Quill." }
-        let state = SignInCodeAttributes.ContentState(sender: "Quill", code: "482913", display: "482 913")
+        let state = SignInCodeAttributes.ContentState(sender: "GitHub", code: "482913", display: "482 913")
         do {
             _ = try Activity.request(
                 attributes: SignInCodeAttributes(),
