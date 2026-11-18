@@ -30,6 +30,7 @@ struct MailRow: View {
                     }
                     Text(thread.sender?.displayName ?? "")
                         .textRole(.sender(unread: thread.isUnread))
+                        .fontWeight(thread.isUnread ? .heavy : .bold)
                         .foregroundStyle(Palette.label)
                         .lineLimit(1)
                         .allowsTightening(true)
