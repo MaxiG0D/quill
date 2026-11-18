@@ -38,10 +38,7 @@ struct SignInCodeLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Text(context.state.sender)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    monogram(context.state.sender)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.display)
@@ -61,6 +58,16 @@ struct SignInCodeLiveActivity: Widget {
                     .foregroundStyle(teal)
             }
         }
+    }
+
+    /// The sender's first letter on a soft teal disc, the same mark Quill's mail list uses.
+    private func monogram(_ sender: String) -> some View {
+        Text(sender.first.map { String($0).uppercased() } ?? "?")
+            .font(.system(.headline, design: .rounded, weight: .semibold))
+            .foregroundStyle(teal)
+            .frame(width: 44, height: 44)
+            .background(teal.opacity(0.18), in: .circle)
+            .accessibilityHidden(true)
     }
 
     private func copyButton(_ state: SignInCodeAttributes.ContentState) -> some View {
