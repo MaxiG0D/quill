@@ -12,9 +12,13 @@ protocol MailService: Sendable {
     /// Makes a label's or mailbox's own mail part of every snapshot from now on, however
     /// old it is. True when the next snapshot will hold more because of it.
     func watch(_ selection: MailboxSelection) async -> Bool
+    /// Fetches one thread by itself and returns the mailbox with it included, without listing
+    /// anything else. Nil when the service has no such thread or no mailbox to add it to.
+    func fetchThread(_ id: MailThread.ID) async throws -> MailSnapshot?
 }
 
 extension MailService {
     func cachedSnapshot() async -> MailSnapshot? { nil }
     func watch(_ selection: MailboxSelection) async -> Bool { false }
+    func fetchThread(_ id: MailThread.ID) async throws -> MailSnapshot? { nil }
 }

@@ -49,6 +49,16 @@ final class NotificationTaps: NSObject, UNUserNotificationCenterDelegate {
         completionHandler(hasCode ? [.banner, .sound] : [])
     }
 
+    /// Conversations Quill has alerts for in Notification Center, which the person may be
+    /// about to open the app for.
+    static func deliveredThreadIDs() async -> [MailThread.ID] {
+        await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().getDeliveredNotifications { notifications in
+                continuation.resume(returning: notifications.map(\.request.content.threadIdentifier))
+            }
+        }
+    }
+
     private func request(_ threadID: MailThread.ID) {
         requestedThreadID = threadID.isEmpty ? nil : threadID
     }

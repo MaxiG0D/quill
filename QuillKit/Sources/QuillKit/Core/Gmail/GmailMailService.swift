@@ -129,6 +129,28 @@ actor GmailMailService: MailService {
         return snapshot
     }
 
+    /// One thread's own call, for mail a notification has just announced: a single request
+    /// instead of the listings and label lookups a full refresh makes first.
+    func fetchThread(_ id: MailThread.ID) async throws -> MailSnapshot? {
+        guard var next = stored() else { return nil }
+        let mapper = GmailMapper(account: next.account, labels: next.labels)
+        let resource: GmailResource.Thread
+        do {
+            resource = try await api.thread(id)
+        } catch GmailError.status(404, _) {
+            return nil
+        }
+        // Read again: a refresh or a change may have written the archive while Gmail answered.
+        next = stored() ?? next
+        guard let mapped = mapper.thread(from: resource) else { return nil }
+        next.threads.removeAll { $0.id == id }
+        next.threads.insert(next.decorated(mapped.thread), at: 0)
+        next.anchors[id] = mapped.anchor
+        next.historyIDs[id] = resource.historyId
+        keep(next)
+        return next.snapshot
+    }
+
     func apply(_ change: ThreadChange, to ids: [MailThread.ID]) async throws {
         for id in ids {
             let known = stored()?.thread(id)

@@ -16,7 +16,8 @@ public final class QuillAppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
-        await PushDevice.shared.pushArrived()
+        let userInfo = UncheckedSendable(userInfo)
+        await PushDevice.shared.pushArrived(userInfo.value)
         return .newData
     }
 }
@@ -41,9 +42,17 @@ public final class QuillAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func application(_ application: NSApplication, didReceiveRemoteNotification userInfo: [String: Any]) {
+        let userInfo = UncheckedSendable(userInfo)
         Task {
-            await PushDevice.shared.pushArrived()
+            await PushDevice.shared.pushArrived(userInfo.value)
         }
     }
 }
 #endif
+
+/// A push's dictionary is plain property-list data the system hands over once, so it is
+/// safe to pass to the main actor.
+private struct UncheckedSendable<Value>: @unchecked Sendable {
+    let value: Value
+    init(_ value: Value) { self.value = value }
+}

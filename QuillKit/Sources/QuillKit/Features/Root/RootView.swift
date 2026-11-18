@@ -84,7 +84,10 @@ struct RootView: View {
     private func refreshOnReturn() {
         guard scenePhase == .active, store.phase == .loaded else { return }
         Task {
+            // Mail with an alert waiting is fetched on its own while the full refresh runs.
+            async let arrived: Void = store.bringIn(arrived: await NotificationTaps.deliveredThreadIDs())
             await store.refresh(isQuiet: true)
+            await arrived
         }
     }
 
@@ -113,6 +116,7 @@ struct RootView: View {
         guard !isFindingRequested else { return }
         isFindingRequested = true
         Task {
+            await store.bringIn(arrived: [id])
             for _ in 0..<5 where store.thread(id) == nil {
                 await store.refresh(isQuiet: true)
                 if store.thread(id) == nil {

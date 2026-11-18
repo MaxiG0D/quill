@@ -80,8 +80,12 @@ final class AccountSession {
     }
 
     /// Looks for new mail when the system wakes Quill in the background.
-    func checkMail() async {
+    func checkMail(arrived threadID: String? = nil) async {
         await restore()
+        // The announced thread first, on its own, so it is there before the full refresh ends.
+        if let threadID {
+            await store?.bringIn(arrived: [threadID])
+        }
         await store?.refreshUnseen()
     }
 
@@ -140,8 +144,8 @@ final class AccountSession {
                 await self?.stopPush()
             }
         }
-        PushDevice.shared.onPush = { [weak self] in
-            await self?.checkMail()
+        PushDevice.shared.onPush = { [weak self] threadID in
+            await self?.checkMail(arrived: threadID)
         }
         PushDevice.shared.onActivityToken = { [weak self] in
             await self?.startPush()

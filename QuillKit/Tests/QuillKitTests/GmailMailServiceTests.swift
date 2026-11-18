@@ -88,6 +88,20 @@ struct GmailMailServiceTests {
         #expect(snapshot.threads.count == 2)
     }
 
+    @Test func anAnnouncedThreadIsFetchedAloneAndKept() async throws {
+        let http = await GmailFixture.mailbox()
+        await http.reply(to: "/threads?", json: #"{"threads":[{"id":"t2","historyId":"200"}]}"#)
+        let service = GmailFixture.service(http: http)
+        _ = try await service.snapshot()
+        let before = await http.requests.count
+
+        let snapshot = try #require(await service.fetchThread("t1"))
+        let calls = await http.log().dropFirst(before)
+
+        #expect(calls == ["GET /gmail/v1/users/me/threads/t1"])
+        #expect(snapshot.threads.map(\.id) == ["t1", "t2"])
+    }
+
     @Test func olderInboxMailIsListedByName() async throws {
         // t2 sits in the Inbox but is too old to be among the newest threads.
         let http = await GmailFixture.mailbox()
