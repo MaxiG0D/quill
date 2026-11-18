@@ -15,7 +15,7 @@ enum LiveActivities {
         }
         Task {
             for await activity in Activity<SignInCodeAttributes>.activityUpdates {
-                Task { await expire(activity) }
+                Task { await expire(id: activity.id) }
             }
         }
         NotificationCenter.default.addObserver(
@@ -29,14 +29,15 @@ enum LiveActivities {
     }
 
     private static func expireAll() async {
-        for activity in Activity<SignInCodeAttributes>.activities {
-            Task { await expire(activity) }
+        for id in Activity<SignInCodeAttributes>.activities.map(\.id) {
+            Task { await expire(id: id) }
         }
     }
 
     /// Ends the activity when its code goes stale, or right away if it already has.
-    private static func expire(_ activity: Activity<SignInCodeAttributes>) async {
-        guard let stale = activity.content.staleDate else { return }
+    private static func expire(id: String) async {
+        guard let activity = Activity<SignInCodeAttributes>.activities.first(where: { $0.id == id }),
+              let stale = activity.content.staleDate else { return }
         let wait = stale.timeIntervalSinceNow
         if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
         await activity.end(nil, dismissalPolicy: .immediate)
