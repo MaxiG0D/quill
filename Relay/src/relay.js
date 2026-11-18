@@ -167,8 +167,12 @@ export class Relay {
 
   /** Puts the newest sign-in code on the device's Lock Screen and Dynamic Island. */
   async #startActivity(email, deviceToken, device, name, messages) {
-    const activity = device.activityStartToken && signInActivity(messages.at(-1));
+    const activity = signInActivity(messages.at(-1));
     if (!activity) return;
+    if (!device.activityStartToken) {
+      console.log(`${name} has no Live Activity token, so only the alert was sent.`);
+      return;
+    }
     try {
       const { outcome } = await this.#apns.send({
         deviceToken: device.activityStartToken,
@@ -176,6 +180,7 @@ export class Relay {
         payload: activity,
         pushType: "liveactivity",
       });
+      console.log(`Live Activity for ${name}: ${outcome}.`);
       if (outcome === "gone") await this.#accounts.clearActivityStartToken(email, deviceToken);
     } catch (error) {
       console.error(`Live Activity failed for ${name}: ${error.message}`);

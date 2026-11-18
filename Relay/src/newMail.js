@@ -88,6 +88,8 @@ export function signInActivity(message, now = Date.now()) {
       attributes: {},
       "content-state": { sender: senderName(from), code, display: display(code) },
       "stale-date": seconds + codeLifetime,
+      // Apple asks for an alert on a start push, since the app is not running to make one.
+      alert: { title: senderName(from), body: display(code) },
     },
   };
 }
