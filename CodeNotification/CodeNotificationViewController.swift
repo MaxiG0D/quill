@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import UserNotifications
+import UserNotificationsUI
 
 /// The long-press view of a sign-in code alert: the sender and the code, large. Its Copy
 /// action is handled here, in front, which is where iOS allows a clipboard write. A Live
