@@ -1,14 +1,10 @@
 import SwiftUI
 
-/// The detail column of the wide layout: the open thread on a raised sheet of paper.
+/// The detail column of the wide layout: the open thread on a floating card.
 struct ThreadPane: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
-
-    @State private var topInset = 0.0
-
-    /// The tallest top inset that is plain margin. Anything taller is a bar.
-    private static let marginLimit = 30.0
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
@@ -17,9 +13,9 @@ struct ThreadPane: View {
                     .id(thread.id)
                     .transition(.opacity)
             } else {
-                AppMark(size: 72)
+                AppMark(size: 48)
                     .saturation(0)
-                    .opacity(0.18)
+                    .opacity(0.09)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -33,20 +29,13 @@ struct ThreadPane: View {
             .opacity(thread == nil ? 0 : 1)
         }
         .background(Palette.surface)
-        .clipShape(.rect(cornerRadius: Radius.large))
+        .clipShape(card)
         .overlay {
-            RoundedRectangle(cornerRadius: Radius.large)
-                .strokeBorder(Palette.separator, lineWidth: 1)
+            card.strokeBorder(borderColor, lineWidth: 0.5)
         }
-        .padding(.horizontal, Spacing.s)
-        .padding(.bottom, bottomMargin)
-        .reachesBottomEdge()
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0 : 0.06), radius: 6, y: 1)
+        .padding(Self.inset)
         .background(Palette.background)
-        .onGeometryChange(for: Double.self) { proxy in
-            proxy.safeAreaInsets.top
-        } action: { inset in
-            topInset = inset
-        }
         .animation(Motion.quick, value: thread?.id)
         .navigationTitle("")
         .toolbar {
@@ -54,25 +43,23 @@ struct ThreadPane: View {
         }
     }
 
+    #if os(macOS)
+    private static let inset = 8.0
+    private static let radius = 10.0
+    #else
+    private static let inset = 12.0
+    private static let radius = 16.0
+    #endif
+
+    private var card: RoundedRectangle {
+        RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
+    }
+
+    private var borderColor: Color {
+        colorScheme == .dark ? .white.opacity(0.05) : Palette.separator.opacity(0.5)
+    }
+
     private var thread: MailThread? {
         store.thread(store.selectedThreadID)
-    }
-
-    /// Matches the margin above the page when no bar sits there, as on an unfolded
-    /// iPhone Duo, so the page is centered beside its toolbar.
-    private var bottomMargin: Double {
-        topInset < Self.marginLimit ? max(Spacing.s, topInset) : Spacing.s
-    }
-}
-
-private extension View {
-    /// Lets the page run past the home indicator on iOS, so its margins are its own.
-    @ViewBuilder
-    func reachesBottomEdge() -> some View {
-        #if os(iOS)
-        self.ignoresSafeArea(.container, edges: .bottom)
-        #else
-        self
-        #endif
     }
 }
