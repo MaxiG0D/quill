@@ -20,10 +20,10 @@ struct ThreadListRow: View {
         .listRowBackground(isPinned ? Palette.accentTint : Palette.surface)
         .listRowSeparatorTint(Palette.separator)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button("Delete", systemImage: "trash", role: .destructive, action: trash)
-                .tint(Palette.destructiveFill)
             Button("Archive", systemImage: "archivebox", action: archive)
                 .tint(Palette.accentFill)
+            Button("Delete", systemImage: "trash", role: .destructive, action: trash)
+                .tint(Palette.destructiveFill)
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button(
