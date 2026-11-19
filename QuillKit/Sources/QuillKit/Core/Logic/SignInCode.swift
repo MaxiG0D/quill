@@ -16,9 +16,13 @@ struct SignInCode: Hashable, Sendable {
     }
 
     private static let keyword = regex(
-        #"\b(?:code|passcode|pass code|otp|one[- ]time|verification|verify|security code|confirmation code|log[- ]?in|sign[- ]?in|2fa|two[- ]factor|authenticat\w*|pin)\b"#
+        #"\b(?:code|passcode|pass code|otp|one[- ]time|verification|v[ée]rif\w*|verify|s[ée]curit[ée]|security|confirmation|log[- ]?in|sign[- ]?in|connexion|2fa|two[- ]factor|authenticat\w*|authentification|pin)\b"#
     )
-    private static let candidate = regex(#"(?<![\w$#£€.,/-])(\d{3}[ -]\d{3}|\d{4,8})(?![\w%]|[.,]\d)"#)
+    private static let candidate = regex(#"(?<![\w$#£€.,/-])(?<!\d[ -])(\d{3}[ -]\d{3}|\d{4}[ -]\d{4}|\d{4,8})(?![\w%]|[.,]\d|[ -]\d{3,4}\b)"#)
+    /// Card, receipt and payment wording: a number beside it is not a sign-in code.
+    private static let receipt = regex(
+        #"\b(?:receipts?|cards?|transactions?|orders?|invoices?|payments?|purchases?|factures?|re[cç]us?|achats?|cartes?|commandes?|paiements?)\b"#
+    )
     private static let notACode = regex(
         #"\b(?:order|invoice|tracking|ticket|case|account|reference|ref|phone|call|amount|total|receipt|zip)\s*(?:no\.?|number|#)?\W*$"#
     )
@@ -34,6 +38,7 @@ struct SignInCode: Hashable, Sendable {
             let before = String(text[..<range.lowerBound].suffix(60))
             let after = String(text[range.upperBound...].prefix(25))
             if matches(notACode, String(before.suffix(24))) { continue }
+            if matches(receipt, String(before.suffix(40))) || matches(receipt, String(after.prefix(20))) { continue }
             if matches(keyword, before) || matches(keyword, after) {
                 return SignInCode(digits: String(digits))
             }

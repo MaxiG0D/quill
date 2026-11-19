@@ -15,6 +15,9 @@ const found = [
   ["Call 555-1234 to verify your visit", null],
   ["Your package arrives 2024-11-17", null],
   ["Welcome to Quill", null],
+  ["Purchase receipt. Authorization code: CU4WAS. OPUS card 329 323 7775. Payment via Apple Pay #### #### #### 7550", null],
+  ["Code de vérification : 482913", "482913"],
+  ["Votre code de sécurité est 4829 1356", "48291356"],
   ["Your tracking number is 123456789012 and your code is 5521", "5521"],
 ];
 

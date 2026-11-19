@@ -38,7 +38,7 @@ struct MailEventTests {
         ("Your appointment is on Wed, Nov 18 at 10:20 AM", 11, 18, 10, 20),
         ("Dinner December 3rd, 7pm?", 12, 3, 19, 0),
         ("Rendez-vous le 1er décembre à 9 h", 12, 1, 9, 0),
-        ("Le 18/11 à 14h30", 11, 18, 14, 30),
+        ("Rendez-vous le 18/11 à 14h30", 11, 18, 14, 30),
         ("See you 2026-11-20 at 08:15", 11, 20, 8, 15),
         ("Réunion le 20.11.2026 à 16h", 11, 20, 16, 0),
         ("Call tomorrow at 3 p.m.", 11, 7, 15, 0),
@@ -51,7 +51,7 @@ struct MailEventTests {
     }
 
     @Test func readsRanges() {
-        let french = find("mar. 18 nov. de 14h à 15h30")
+        let french = find("Réunion mar. 18 nov. de 14h à 15h30")
         #expect(french?.start == at(11, 18, 14))
         #expect(french?.end == at(11, 18, 15, 30))
 
@@ -71,8 +71,21 @@ struct MailEventTests {
         #expect(find(text) == nil)
     }
 
+    @Test func ignoresTheChronoReceipt() {
+        let text = """
+        Purchase receipt
+        Chrono ARTM — OPUS card 329 323 7775
+        Date: 2026-11-19 07 h 07
+        Authorization code: CU4WAS
+        Payment via Apple Pay #### #### #### 7550
+        """
+        let receiptSent = calendar.date(from: DateComponents(year: 2026, month: 11, day: 19, hour: 7, minute: 7)) ?? .now
+        #expect(MailEvent.find(in: text, sentAt: receiptSent, calendar: calendar) == nil)
+        #expect(MailEvent.find(in: "Appointment 2026-11-19 07 h 07", sentAt: receiptSent, calendar: calendar) == nil)
+    }
+
     @Test func endsAnHourLaterWhenNoEndIsGiven() {
-        let event = find("Nov 18 at 10:20")
+        let event = find("Meeting Nov 18 at 10:20")
         #expect(event.map { $0.calendarEnd.timeIntervalSince($0.start) } == 3600)
         #expect(event?.isUpcoming(at: at(11, 18, 11) ?? .now) == true)
         #expect(event?.isUpcoming(at: at(11, 18, 11, 30) ?? .now) == false)

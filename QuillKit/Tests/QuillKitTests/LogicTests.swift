@@ -99,7 +99,9 @@ struct SignInCodeTests {
         ("Use 1234 as your one-time passcode", "1234"),
         ("Login code: 48291356. Do not share it.", "48291356"),
         ("Security code 482-913 expires in 10 minutes", "482913"),
-        ("Your tracking number is 123456789012 and your code is 5521", "5521")
+        ("Your tracking number is 123456789012 and your code is 5521", "5521"),
+        ("Code de vérification : 482913", "482913"),
+        ("Votre code de sécurité est 4829 1356", "48291356")
     ])
     func findsTheCode(text: String, digits: String) {
         #expect(SignInCode.find(in: text)?.digits == digits)
@@ -112,7 +114,8 @@ struct SignInCodeTests {
         "Total $482913 charged to your card",
         "Call 555-1234 to verify your visit",
         "Your package arrives 2024-11-17",
-        "Welcome to Quill"
+        "Welcome to Quill",
+        "Purchase receipt. Authorization code: CU4WAS. OPUS card 329 323 7775. Payment via Apple Pay #### #### #### 7550"
     ])
     func ignoresEverythingElse(text: String) {
         #expect(SignInCode.find(in: text) == nil)

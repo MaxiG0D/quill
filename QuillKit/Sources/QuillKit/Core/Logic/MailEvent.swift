@@ -17,6 +17,7 @@ struct MailEvent: Hashable, Sendable {
     static func find(in text: String, sentAt: Date, calendar: Calendar = .current) -> MailEvent? {
         let folded = String(text.prefix(6000))
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        guard Self.isEventLike(folded) else { return nil }
         let days = Self.days(in: folded, sentAt: sentAt, calendar: calendar)
         guard !days.isEmpty else { return nil }
         let times = Self.times(in: folded)
@@ -33,11 +34,27 @@ struct MailEvent: Hashable, Sendable {
             }
             guard let time = after ?? before else { continue }
             guard let start = date(day.components, time.start, calendar) else { continue }
+            // A timestamp equal to the send time is the message's own, not an event.
+            if calendar.isDate(start, equalTo: sentAt, toGranularity: .minute) { continue }
             var end = time.end.flatMap { date(day.components, $0, calendar) }
             if let finish = end, finish <= start { end = nil }
             return MailEvent(start: start, end: end)
         }
         return nil
+    }
+
+    // MARK: Cues
+
+    /// Receipts and payment notices carry transaction timestamps, not events.
+    private static let receiptWords = regex(
+        #"\b(?:receipts?|purchases?|transactions?|payments?|invoices?|orders?|factures?|recus?|achats?|paiements?|commandes?)\b"#
+    )
+    private static let eventCues = regex(
+        #"\b(?:appointments?|rendez-vous|rdv|remind\w*|rappel|meetings?|reunion|reservations?|webinars?|invit\w*|events?|evenements?|dinner|lunch|diner|souper|dejeuner|party|workshop|conference|call|see you|a bientot|concert|interview|entrevue|session|class|cours|visit\w*)\b"#
+    )
+
+    private static func isEventLike(_ text: String) -> Bool {
+        matches(receiptWords, text).isEmpty && !matches(eventCues, text).isEmpty
     }
 
     // MARK: Days
