@@ -44,14 +44,7 @@ struct ThreadListRow: View {
         }
     }
 
-    /// Only a destructive full swipe slides the row off with the finger, and it expects the row to
-    /// leave the list. Archiving keeps a thread in a label, Starred or Snoozed, so those stay plain.
-    private var archiveRemovesRow: Bool {
-        switch store.selection {
-        case .label, .mailbox(.starred), .mailbox(.snoozed): false
-        case .mailbox: true
-        }
-    }
+    private var archiveRemovesRow: Bool { store.archiveRemovesRow }
 
     // No withAnimation here: the system animates the row off from the swipe.
     private func archive() {
@@ -68,5 +61,16 @@ struct ThreadListRow: View {
 
     private func togglePin() {
         withAnimation(Motion.list) { store.togglePin(thread.id) }
+    }
+}
+
+extension MailStore {
+    /// Whether archiving takes a thread out of the list being shown. A full swipe only slides the
+    /// row away when it will leave; a label, Starred or Snoozed keeps the thread in view.
+    var archiveRemovesRow: Bool {
+        switch selection {
+        case .label, .mailbox(.starred), .mailbox(.snoozed): false
+        case .mailbox: true
+        }
     }
 }
