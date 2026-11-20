@@ -26,6 +26,8 @@ final class MailStore {
     private(set) var isSearching = false
 
     private(set) var toast: UndoToast?
+    /// Senders the person has unsubscribed from, by lowercased address.
+    private(set) var unsubscribed: Set<String>
     private(set) var haptic: HapticCue?
     /// A failure the person should hear about.
     var alert: String?
@@ -34,6 +36,9 @@ final class MailStore {
     private let service: any MailService
     private let notifier: MailNotifier?
     private let clock: @Sendable () -> Date
+    /// Where `unsubscribed` is kept between launches. Nil keeps it in memory.
+    private let defaults: UserDefaults?
+    private static let unsubscribedKey = "unsubscribedSenders"
     private var searchTask: Task<Void, Never>?
     private var isFetching = false
     /// Set when a mailbox was opened mid-fetch and needs a fetch of its own afterwards.
@@ -50,8 +55,11 @@ final class MailStore {
         notifier: MailNotifier? = nil,
         calendar: Calendar = .current,
         clock: @escaping @Sendable () -> Date = { .now },
-        retryDelay: Duration = .seconds(30)
+        retryDelay: Duration = .seconds(30),
+        defaults: UserDefaults? = .standard
     ) {
+        self.defaults = defaults
+        self.unsubscribed = Set(defaults?.stringArray(forKey: Self.unsubscribedKey) ?? [])
         self.service = service
         self.notifier = notifier
         self.calendar = calendar
@@ -69,7 +77,8 @@ final class MailStore {
         self.init(
             service: SampleMailService(snapshot: snapshot, latency: .zero),
             calendar: calendar,
-            clock: clock
+            clock: clock,
+            defaults: nil
         )
         adopt(snapshot)
     }
@@ -322,6 +331,60 @@ final class MailStore {
         deselect(id)
         commit(.snooze(date), to: id, cue: .lift)
         toast = UndoToast(title: "Snoozed", symbol: Mailbox.snoozed.symbol, previous: [thread])
+    }
+
+    /// Archives several threads at once, with one toast to undo them all.
+    func archive(_ ids: [MailThread.ID]) {
+        let moving = ids.compactMap(thread).filter { $0.folder != .archive }
+        guard !moving.isEmpty else { return }
+        for thread in moving {
+            deselect(thread.id)
+            commit(.move(.archive), to: thread.id, cue: nil)
+        }
+        haptic = HapticCue(kind: .lift)
+        let title = moving.count == 1 ? "Archived" : "Archived \(moving.count)"
+        toast = UndoToast(title: title, symbol: Mailbox.archive.symbol, previous: moving)
+    }
+
+    // MARK: Unsubscribing
+
+    func isUnsubscribed(from sender: Contact) -> Bool {
+        unsubscribed.contains(sender.email.lowercased())
+    }
+
+    /// The Inbox threads with mail from a sender, newest first.
+    func inboxThreads(from sender: Contact) -> [MailThread.ID] {
+        let address = sender.email.lowercased()
+        let now = self.now
+        return threads
+            .filter { thread in
+                thread.belongs(to: .mailbox(.inbox), at: now)
+                    && thread.messages.contains { $0.sender.email.lowercased() == address }
+            }
+            .sorted { $0.date > $1.date }
+            .map(\.id)
+    }
+
+    /// Leaves the mailing list a message came from. True once the list has been told;
+    /// a page the person must finish themselves is handed to `open`.
+    func unsubscribe(from message: Message, open: (URL) -> Void) async -> Bool {
+        guard let offer = message.unsubscribe else { return false }
+        do {
+            switch try await service.unsubscribe(offer) {
+            case .done:
+                unsubscribed.insert(message.sender.email.lowercased())
+                defaults?.set(unsubscribed.sorted(), forKey: Self.unsubscribedKey)
+                haptic = HapticCue(kind: .success)
+                return true
+            case .openPage(let url):
+                open(url)
+                return false
+            }
+        } catch {
+            alert = error.localizedDescription
+            haptic = HapticCue(kind: .warning)
+            return false
+        }
     }
 
     /// Reverses the action the toast describes.

@@ -65,9 +65,10 @@ struct GmailMapper: Sendable {
 
     private func message(from resource: GmailResource.Message) -> Message {
         let text = QuotedText.split(MessageContent.text(of: resource.payload))
+        let sender = contacts(resource.header("From")).first ?? Contact(name: "", email: "")
         return Message(
             id: resource.id,
-            sender: contacts(resource.header("From")).first ?? Contact(name: "", email: ""),
+            sender: sender,
             to: contacts(resource.header("To")),
             cc: contacts(resource.header("Cc")),
             date: resource.date,
@@ -75,7 +76,11 @@ struct GmailMapper: Sendable {
             quoted: text.quoted,
             attachments: MessageContent.attachments(of: resource.payload, messageID: resource.id),
             html: MessageContent.designedHTML(of: resource.payload),
-            snippet: resource.snippet.map { HTMLText.decodingEntities(in: $0).trimmingCharacters(in: .whitespaces) }
+            snippet: resource.snippet.map { HTMLText.decodingEntities(in: $0).trimmingCharacters(in: .whitespaces) },
+            unsubscribe: sender == account ? nil : Unsubscribe(
+                list: resource.header("List-Unsubscribe"),
+                post: resource.header("List-Unsubscribe-Post")
+            )
         )
     }
 

@@ -204,6 +204,10 @@ actor GmailMailService: MailService {
         try await api.send(raw: raw, threadID: draft.threadID)
     }
 
+    func postOneClickUnsubscribe(to url: URL) async throws {
+        try await api.postOneClickUnsubscribe(to: url)
+    }
+
     func search(_ query: String) async throws -> [MailThread] {
         let references = try await api.threadReferences(query: query, limit: Self.searchLimit)
         let known = stored()

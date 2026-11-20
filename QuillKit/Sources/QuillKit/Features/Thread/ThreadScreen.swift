@@ -40,6 +40,7 @@ struct ThreadScreen: View {
                     }
             }
         }
+        .environment(\.closeThread, { dismiss() })
         .navigationTitle("")
         .toolbarTitleDisplayMode(.inline)
         .task(id: threadID) {

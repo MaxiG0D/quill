@@ -84,7 +84,11 @@ enum SampleData {
             messages: [
                 Message(
                     id: "library-1", sender: library, to: [me], date: at(0, 7, 30),
-                    body: "Your items are waiting at the front desk until next Thursday. Bring your card or the app to check them out."
+                    body: "Your items are waiting at the front desk until next Thursday. Bring your card or the app to check them out.",
+                    unsubscribe: Unsubscribe(
+                        list: "<https://hollislibrary.example/unsubscribe>",
+                        post: "List-Unsubscribe=One-Click"
+                    )
                 )
             ],
             labelIDs: [family.id],

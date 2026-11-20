@@ -20,6 +20,7 @@ struct ThreadConversation: View {
                 ForEach(thread.messages) { message in
                     ThreadMessageCard(
                         message: message,
+                        threadID: thread.id,
                         subject: thread.subject,
                         isExpanded: expansion.contains(message)
                     ) {

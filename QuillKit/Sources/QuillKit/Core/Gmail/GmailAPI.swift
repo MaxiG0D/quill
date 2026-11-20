@@ -95,6 +95,20 @@ struct GmailAPI: Sendable {
         let _: GmailResource.Ignored = try await call(Self.mail + "messages/send", method: "POST", body: JSONEncoder().encode(message))
     }
 
+    /// Unsubscribes from a mailing list as RFC 8058 describes: a bare POST, without the
+    /// account's token or any cookies.
+    func postOneClickUnsubscribe(to url: URL) async throws {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpShouldHandleCookies = false
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data("List-Unsubscribe=One-Click".utf8)
+        let (_, response) = try await http.send(request)
+        guard (200..<300).contains(response.statusCode) else {
+            throw GmailError.status(response.statusCode, "")
+        }
+    }
+
     /// Makes one call. A server hiccup is retried after a pause. Running out of Gmail's
     /// per-minute allowance is not, since only waiting out the minute helps: it is thrown
     /// as `GmailError.rateLimited` for the caller to pace itself.

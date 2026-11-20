@@ -26,18 +26,23 @@ struct ThreadDocument: View {
                     .padding(.bottom, Spacing.l)
                 Divider().overlay(Palette.separator)
                 ForEach(thread.messages) { message in
-                    Button {
-                        toggle(message)
-                    } label: {
-                        MessageHeader(
-                            message: message,
-                            isExpanded: expansion.contains(message),
-                            isDetailed: true,
-                            isStarred: thread.isStarred
-                        )
-                        .padding(.vertical, Spacing.m)
+                    HStack(spacing: Spacing.s) {
+                        Button {
+                            toggle(message)
+                        } label: {
+                            MessageHeader(
+                                message: message,
+                                isExpanded: expansion.contains(message),
+                                isDetailed: true,
+                                isStarred: thread.isStarred
+                            )
+                            .padding(.vertical, Spacing.m)
+                        }
+                        .buttonStyle(.plain)
+                        if expansion.contains(message), message.unsubscribe != nil {
+                            UnsubscribeButton(message: message, threadID: thread.id)
+                        }
                     }
-                    .buttonStyle(.plain)
                     Divider().overlay(Palette.separator)
                     if expansion.contains(message) {
                         MessageBody(message: message, subject: thread.subject)

@@ -14,6 +14,8 @@ struct Message: Identifiable, Hashable, Codable, Sendable {
     var html: String?
     /// The mail service's own one-line summary, when it gives one.
     var snippet: String?
+    /// How to stop mail from the list this message came from, when it says.
+    var unsubscribe: Unsubscribe?
 
     init(
         id: String = UUID().uuidString,
@@ -25,7 +27,8 @@ struct Message: Identifiable, Hashable, Codable, Sendable {
         quoted: String? = nil,
         attachments: [Attachment] = [],
         html: String? = nil,
-        snippet: String? = nil
+        snippet: String? = nil,
+        unsubscribe: Unsubscribe? = nil
     ) {
         self.id = id
         self.sender = sender
@@ -37,6 +40,7 @@ struct Message: Identifiable, Hashable, Codable, Sendable {
         self.attachments = attachments
         self.html = html
         self.snippet = snippet
+        self.unsubscribe = unsubscribe
     }
 
     /// One line for list previews. Designed mail uses the service's summary, since its text is
