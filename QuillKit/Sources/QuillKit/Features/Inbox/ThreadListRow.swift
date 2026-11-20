@@ -20,7 +20,7 @@ struct ThreadListRow: View {
         .listRowBackground(isPinned ? Palette.accentTint : Palette.surface)
         .listRowSeparatorTint(Palette.separator)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button("Archive", systemImage: "archivebox", action: archive)
+            Button("Archive", systemImage: "archivebox", role: archiveRemovesRow ? .destructive : nil, action: archive)
                 .tint(Palette.accentFill)
             Button("Delete", systemImage: "trash", role: .destructive, action: trash)
                 .tint(Palette.destructiveFill)
@@ -44,12 +44,22 @@ struct ThreadListRow: View {
         }
     }
 
+    /// Only a destructive full swipe slides the row off with the finger, and it expects the row to
+    /// leave the list. Archiving keeps a thread in a label, Starred or Snoozed, so those stay plain.
+    private var archiveRemovesRow: Bool {
+        switch store.selection {
+        case .label, .mailbox(.starred), .mailbox(.snoozed): false
+        case .mailbox: true
+        }
+    }
+
+    // No withAnimation here: the system animates the row off from the swipe.
     private func archive() {
-        withAnimation(Motion.list) { store.archive(thread.id) }
+        store.archive(thread.id)
     }
 
     private func trash() {
-        withAnimation(Motion.list) { store.trash(thread.id) }
+        store.trash(thread.id)
     }
 
     private func toggleUnread() {
