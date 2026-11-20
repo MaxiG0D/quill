@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The compact layout's home: the current mailbox, with Search and Compose at the
-/// bottom trailing corner. When the device leaves a strip beside the content, as the
+/// The compact layout's home: the current mailbox, with the account's picture at the
+/// bottom leading corner and Search and Compose at the bottom trailing corner. When the device leaves a strip beside the content, as the
 /// folded iPhone Duo does, the two stack inside it and stay clear of the list.
 struct InboxScreen: View {
     @Environment(MailStore.self) private var store
@@ -41,12 +41,19 @@ struct InboxScreen: View {
                 if router.isSearching {
                     BottomSearchBar(isFocused: $isSearchFocused)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
-                } else if !hasRail {
-                    InboxActions(search: beginSearch, compose: compose)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.horizontal, Spacing.m)
-                        .padding(.vertical, Spacing.xs)
-                        .transition(.scale(scale: 0.6, anchor: .trailing).combined(with: .opacity))
+                } else {
+                    // The account's picture holds the leading corner; with a side strip,
+                    // Search and Compose stand in the strip instead of this row.
+                    HStack(alignment: .bottom) {
+                        SettingsButton(size: .floating)
+                        Spacer(minLength: 0)
+                        if !hasRail {
+                            InboxActions(search: beginSearch, compose: compose)
+                        }
+                    }
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.xs)
+                    .transition(.opacity)
                 }
             }
             .background {

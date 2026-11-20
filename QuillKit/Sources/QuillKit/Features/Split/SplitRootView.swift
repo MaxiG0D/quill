@@ -58,6 +58,13 @@ struct SplitRootView: View {
             ComposeButton(size: BottomRow.height, action: compose)
                 .logBottomRowFrame("compose")
         }
+        // The account's picture starts the row in the screen's leading corner, over the
+        // sidebar when it shows and before the list's Search when it does not.
+        .bottomRow(alignment: .bottomLeading) {
+            SettingsButton(size: .large)
+                .padding(.leading, Spacing.m)
+                .logBottomRowFrame("account")
+        }
         .environment(\.bottomRowPlacement, bottomRow)
         .background {
             // Measured on a view that ignores the keyboard, so the row's gap stays put while

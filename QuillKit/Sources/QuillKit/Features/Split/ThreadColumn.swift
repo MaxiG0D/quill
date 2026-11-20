@@ -7,6 +7,8 @@ struct ThreadColumn: View {
     @FocusState private var isFocused: Bool
     #if !os(macOS)
     @State private var topSafeArea = 0.0
+    /// Whether the list starts at the screen's leading edge, under the account's picture.
+    @State private var isAtLeadingEdge = false
     #endif
 
     var body: some View {
@@ -70,6 +72,13 @@ struct ThreadColumn: View {
         // The sidebar button and Search share one line with Compose; see BottomRow.
         .bottomRow(alignment: .bottom) {
             SplitSearchRow()
+                .padding(.leading, isAtLeadingEdge ? BottomRow.height + Spacing.xs : 0)
+                .animation(Motion.scene, value: isAtLeadingEdge)
+        }
+        .onGeometryChange(for: Bool.self) { proxy in
+            proxy.frame(in: .global).minX < 1
+        } action: { atEdge in
+            isAtLeadingEdge = atEdge
         }
         #endif
     }

@@ -3,7 +3,7 @@ import SwiftUI
 /// A rounded tile with a person's picture, or their initials in the serif face when there is none.
 struct MonogramAvatar: View {
     enum Size: Double {
-        case small = 24, compact = 32, medium = 40, large = 48
+        case small = 24, compact = 32, medium = 40, large = 48, floating = 54
     }
 
     @Environment(SenderPictures.self) private var pictures: SenderPictures?

@@ -1,21 +1,13 @@
 import SwiftUI
 
 /// The first column of the wide layout and the phone's drawer: Compose on the Mac, then
-/// mailboxes, labels and the account.
+/// mailboxes and labels, and the account on the Mac.
 struct SidebarView: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
 
     /// Runs after a mailbox or label is chosen, so a drawer can close.
     var onSelect: () -> Void = {}
-
-    @State private var bottomInset = 0.0
-
-    /// How far the account row sinks into a home indicator's inset, which is taller
-    /// than the indicator itself. Insets without an indicator are left alone.
-    private static func lift(_ inset: Double) -> Double {
-        min(Spacing.s, max(0, inset - Spacing.l))
-    }
 
     var body: some View {
         ScrollView {
@@ -55,23 +47,19 @@ struct SidebarView: View {
             .padding(.horizontal, Spacing.s)
             .padding(.vertical, Spacing.xs)
         }
-        // The account rides on the sidebar's own surface; the labels soften away beneath it.
+        #if os(macOS)
+        // The account's picture holds the sidebar's bottom-left corner and opens Settings.
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            HStack(spacing: Spacing.s) {
-                MonogramAvatar(store.account, size: .small)
-                Text(store.account.displayName)
-                    .font(.body)
-                    .foregroundStyle(Palette.label)
-                Spacer()
-                SettingsButton()
-            }
-            .padding(.leading, Spacing.m)
-            .padding(.trailing, Spacing.xs)
-            .padding(.top, Spacing.xxs)
-            .padding(.bottom, bottomInset > 0 ? -Self.lift(bottomInset) : Spacing.xs)
+            SettingsButton()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Spacing.m)
+                .padding(.vertical, Spacing.xs)
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .onGeometryChange(for: Double.self) { $0.safeAreaInsets.bottom } action: { bottomInset = $0 }
+        #else
+        // On iOS the picture floats in the screen's bottom-left corner, over this list.
+        .contentMargins(.bottom, Metrics.listBottomPadding, for: .scrollContent)
+        #endif
         .navigationTitle("")
     }
 
