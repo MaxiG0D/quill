@@ -1,3 +1,6 @@
+import Foundation
+
+
 /// The boundary between the app and a mail provider.
 ///
 /// `MailStore` applies every change locally first and then reports it here, so an
