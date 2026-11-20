@@ -5,28 +5,23 @@ struct ThreadColumn: View {
     @Environment(MailStore.self) private var store
 
     @FocusState private var isFocused: Bool
-    /// The row whose swipe buttons are showing.
-    @State private var openRowID: MailThread.ID?
     #if !os(macOS)
     @State private var topSafeArea = 0.0
     #endif
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2) {
-                #if !os(macOS)
-                MailboxTitle(title: isSearching ? "Search" : store.title, count: isSearching ? 0 : store.unreadCount)
-                    .padding(.horizontal, Spacing.s)
-                    .padding(.bottom, Spacing.xs)
-                #endif
-                if isSearching {
-                    results
-                } else {
-                    mailbox
-                }
+        container {
+            #if !os(macOS)
+            MailboxTitle(title: isSearching ? "Search" : store.title, count: isSearching ? 0 : store.unreadCount)
+                .padding(.horizontal, Spacing.s)
+                .padding(.bottom, Spacing.xs)
+                .plainColumnRow()
+            #endif
+            if isSearching {
+                results
+            } else {
+                mailbox
             }
-            .padding(.horizontal, Spacing.xs)
-            .padding(.bottom, Metrics.listBottomPadding)
         }
         .background(Palette.background)
         .overlay {
@@ -79,6 +74,30 @@ struct ThreadColumn: View {
         #endif
     }
 
+    /// A List on iOS, for the same system swipe actions and row removal as the iPhone's list; the
+    /// Mac keeps its plain scroll view.
+    @ViewBuilder
+    private func container<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        #if os(macOS)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 2) {
+                content()
+            }
+            .padding(.horizontal, Spacing.xs)
+            .padding(.bottom, Metrics.listBottomPadding)
+        }
+        #else
+        List {
+            content()
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .listRowSpacing(0)
+        .environment(\.defaultMinListRowHeight, 0)
+        .contentMargins(.bottom, Metrics.listBottomPadding, for: .scrollContent)
+        #endif
+    }
+
     @ViewBuilder
     private var mailbox: some View {
         switch store.phase {
@@ -86,17 +105,20 @@ struct ThreadColumn: View {
             ForEach(0..<6, id: \.self) { _ in
                 SkeletonRow()
                     .padding(Spacing.s)
+                    .plainColumnRow()
             }
         case .failed:
             LoadFailedView()
+                .plainColumnRow()
         case .loaded:
             ForEach(store.sections) { section in
                 SectionHeader(kind: section.kind)
                     .padding(.horizontal, Spacing.s)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.xxs)
+                    .plainColumnRow()
                 ForEach(section.threads) { thread in
-                    ThreadColumnRow(thread: thread, openID: $openRowID)
+                    ThreadColumnRow(thread: thread)
                 }
             }
         }
@@ -105,12 +127,13 @@ struct ThreadColumn: View {
     @ViewBuilder
     private var results: some View {
         ForEach(store.searchResults) { result in
-            ThreadColumnRow(thread: result.thread, openID: $openRowID, query: store.searchQuery, excerpt: result.excerpt)
+            ThreadColumnRow(thread: result.thread, query: store.searchQuery, excerpt: result.excerpt)
         }
         if store.isSearching {
             ProgressView()
                 .controlSize(.small)
                 .frame(maxWidth: .infinity, minHeight: Metrics.target)
+                .plainColumnRow()
         }
     }
 

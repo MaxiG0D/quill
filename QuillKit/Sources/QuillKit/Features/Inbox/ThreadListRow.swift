@@ -19,8 +19,24 @@ struct ThreadListRow: View {
         .listRowInsets(EdgeInsets(top: Spacing.s, leading: Spacing.m, bottom: Spacing.s, trailing: Spacing.m))
         .listRowBackground(isPinned ? Palette.accentTint : Palette.surface)
         .listRowSeparatorTint(Palette.separator)
+        .threadSwipeActions(thread)
+        .contextMenu {
+            ThreadActions(thread: thread)
+        }
+    }
+}
+
+/// The swipe actions every thread list shares. Archive comes first, so a full swipe archives; it is
+/// destructive, which makes the row slide off with the finger, only where it leaves the list.
+struct ThreadSwipeActions: ViewModifier {
+    @Environment(MailStore.self) private var store
+
+    let thread: MailThread
+
+    func body(content: Content) -> some View {
+        content
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button("Archive", systemImage: "archivebox", role: archiveRemovesRow ? .destructive : nil, action: archive)
+            Button("Archive", systemImage: "archivebox", role: store.archiveRemovesRow ? .destructive : nil, action: archive)
                 .tint(Palette.accentFill)
             Button("Delete", systemImage: "trash", role: .destructive, action: trash)
                 .tint(Palette.destructiveFill)
@@ -39,12 +55,7 @@ struct ThreadListRow: View {
             )
             .tint(Palette.warmFill)
         }
-        .contextMenu {
-            ThreadActions(thread: thread)
-        }
     }
-
-    private var archiveRemovesRow: Bool { store.archiveRemovesRow }
 
     // The system slides the row off; the animation here, and on the list, closes the gap smoothly.
     private func archive() {
@@ -61,6 +72,12 @@ struct ThreadListRow: View {
 
     private func togglePin() {
         withAnimation(Motion.list) { store.togglePin(thread.id) }
+    }
+}
+
+extension View {
+    func threadSwipeActions(_ thread: MailThread) -> some View {
+        modifier(ThreadSwipeActions(thread: thread))
     }
 }
 
