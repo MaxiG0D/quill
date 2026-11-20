@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Leaves the mailing list a message came from, then offers to clear the sender's mail from the Inbox.
+/// Leaves the mailing list a message came from and clears the sender's mail from the Inbox, once confirmed.
 struct UnsubscribeButton: View {
     @Environment(MailStore.self) private var store
     @Environment(\.openURL) private var openURL
@@ -10,12 +10,13 @@ struct UnsubscribeButton: View {
     let threadID: MailThread.ID
 
     @State private var isWorking = false
-    @State private var leftovers: [MailThread.ID] = []
-    @State private var isOfferingArchive = false
+    @State private var isConfirming = false
 
     var body: some View {
         let isDone = store.isUnsubscribed(from: message.sender)
-        Button(action: unsubscribe) {
+        Button {
+            isConfirming = true
+        } label: {
             Text(isDone ? "Unsubscribed" : "Unsubscribe")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(isDone ? Palette.secondaryLabel : Palette.accent)
@@ -34,31 +35,27 @@ struct UnsubscribeButton: View {
         .disabled(isDone || isWorking)
         .animation(Motion.quick, value: isDone)
         .confirmationDialog(
-            "Unsubscribed from \(message.sender.displayName)",
-            isPresented: $isOfferingArchive,
+            "Unsubscribe from \(message.sender.displayName)?",
+            isPresented: $isConfirming,
             titleVisibility: .visible
         ) {
-            Button(leftovers.count == 1 ? "Archive Email" : "Archive \(leftovers.count) Emails", action: archive)
-            Button("Keep", role: .cancel) {}
+            Button("Unsubscribe", action: unsubscribe)
+            Button("Cancel", role: .cancel) {}
         }
     }
 
+    /// Clears the sender's Inbox mail at once, while the list is told in the background.
     private func unsubscribe() {
+        let leaving = store.inboxThreads(from: message.sender)
         isWorking = true
         Task {
-            let isDone = await store.unsubscribe(from: message) { openURL($0) }
+            _ = await store.unsubscribe(from: message) { openURL($0) }
             isWorking = false
-            guard isDone else { return }
-            leftovers = store.inboxThreads(from: message.sender)
-            isOfferingArchive = !leftovers.isEmpty
         }
-    }
-
-    private func archive() {
         withAnimation(Motion.list) {
-            store.archive(leftovers)
+            store.archive(leaving)
         }
-        if leftovers.contains(threadID) {
+        if leaving.contains(threadID) {
             closeThread()
         }
     }
