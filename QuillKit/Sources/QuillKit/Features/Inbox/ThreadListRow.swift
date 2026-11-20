@@ -46,13 +46,13 @@ struct ThreadListRow: View {
 
     private var archiveRemovesRow: Bool { store.archiveRemovesRow }
 
-    // No withAnimation here: the system animates the row off from the swipe.
+    // The system slides the row off; the animation here, and on the list, closes the gap smoothly.
     private func archive() {
-        store.archive(thread.id)
+        withAnimation(Motion.list) { store.archive(thread.id) }
     }
 
     private func trash() {
-        store.trash(thread.id)
+        withAnimation(Motion.list) { store.trash(thread.id) }
     }
 
     private func toggleUnread() {

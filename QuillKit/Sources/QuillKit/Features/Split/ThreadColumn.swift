@@ -5,6 +5,8 @@ struct ThreadColumn: View {
     @Environment(MailStore.self) private var store
 
     @FocusState private var isFocused: Bool
+    /// The row whose swipe buttons are showing.
+    @State private var openRowID: MailThread.ID?
     #if !os(macOS)
     @State private var topSafeArea = 0.0
     #endif
@@ -94,7 +96,7 @@ struct ThreadColumn: View {
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.xxs)
                 ForEach(section.threads) { thread in
-                    ThreadColumnRow(thread: thread)
+                    ThreadColumnRow(thread: thread, openID: $openRowID)
                 }
             }
         }
@@ -103,7 +105,7 @@ struct ThreadColumn: View {
     @ViewBuilder
     private var results: some View {
         ForEach(store.searchResults) { result in
-            ThreadColumnRow(thread: result.thread, query: store.searchQuery, excerpt: result.excerpt)
+            ThreadColumnRow(thread: result.thread, openID: $openRowID, query: store.searchQuery, excerpt: result.excerpt)
         }
         if store.isSearching {
             ProgressView()

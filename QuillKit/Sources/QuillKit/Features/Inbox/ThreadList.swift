@@ -62,6 +62,7 @@ struct ThreadList: View {
             SyncProgressBar()
         }
         .animation(Motion.list, value: isEmpty)
+        .animation(Motion.list, value: store.sections)
         .refreshable {
             await store.refresh()
         }
