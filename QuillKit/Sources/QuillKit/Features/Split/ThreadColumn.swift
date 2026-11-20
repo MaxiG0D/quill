@@ -3,9 +3,11 @@ import SwiftUI
 /// The middle column of the wide layout: the current mailbox, or search results.
 struct ThreadColumn: View {
     @Environment(MailStore.self) private var store
-    @Environment(Router.self) private var router
 
     @FocusState private var isFocused: Bool
+    #if !os(macOS)
+    @State private var topSafeArea = 0.0
+    #endif
 
     var body: some View {
         ScrollView {
@@ -56,10 +58,21 @@ struct ThreadColumn: View {
         }
         #else
         .toolbarTitleDisplayMode(.inline)
-        // The iPad toolbar has no room for Compose, so it floats over the list as on iPhone.
-        .overlay(alignment: .bottomTrailing) {
-            ComposeButton(action: compose)
-                .padding(Spacing.m)
+        // This column only lives inside the split view, and the split view hands its columns a
+        // compact width class even on a wide screen, so nothing here is gated on size class.
+        // The title is drawn in the list itself, so the column keeps no navigation bar: the
+        // serif title rises to the top, with the rows scrolling up under a soft edge.
+        .toolbarVisibility(.hidden, for: .navigationBar)
+        .contentMargins(.top, topMargin, for: .scrollContent)
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .onGeometryChange(for: Double.self) { proxy in
+            proxy.safeAreaInsets.top
+        } action: { inset in
+            topSafeArea = inset
+        }
+        // The sidebar button and Search share one line with Compose; see BottomRow.
+        .bottomRow(alignment: .bottom) {
+            SplitSearchRow()
         }
         #endif
     }
@@ -99,6 +112,17 @@ struct ThreadColumn: View {
         }
     }
 
+    #if !os(macOS)
+    /// The title's distance from the top edge of the screen at scroll start.
+    private static let titleTop = Spacing.xl
+
+    /// Tops up the safe area to the title's resting distance, so the title lands at the same
+    /// height whether the status bar sits above the list (iPad) or off to the side (iPhone Duo).
+    private var topMargin: Double {
+        max(Self.titleTop - topSafeArea, Spacing.xxs)
+    }
+    #endif
+
     private var isSearching: Bool {
         !store.searchQuery.isEmpty
     }
@@ -109,10 +133,6 @@ struct ThreadColumn: View {
         } else {
             store.isSettled && store.sections.isEmpty
         }
-    }
-
-    private func compose() {
-        router.draft = Draft()
     }
 
     private func step(_ offset: Int) -> KeyPress.Result {

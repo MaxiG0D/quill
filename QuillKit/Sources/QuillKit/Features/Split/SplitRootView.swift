@@ -7,6 +7,9 @@ struct SplitRootView: View {
 
     @State private var visibility = Self.restingVisibility(isRoomy: Self.startsRoomy)
     @State private var isRoomy = Self.startsRoomy
+    #if os(iOS)
+    @State private var bottomRow = BottomRow.Placement()
+    #endif
 
     /// The narrowest window that fits all three columns side by side. Below it the
     /// sidebar would slide over the list, as on an unfolded iPhone Duo or an upright iPad.
@@ -24,6 +27,10 @@ struct SplitRootView: View {
         NavigationSplitView(columnVisibility: $visibility) {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 200, ideal: 236, max: 300)
+                #if !os(macOS)
+                // The sidebar button moves to the bottom row, beside Search.
+                .toolbar(removing: .sidebarToggle)
+                #endif
         } content: {
             ThreadColumn()
                 .navigationSplitViewColumnWidth(min: 300, ideal: 365, max: 460)
@@ -31,7 +38,9 @@ struct SplitRootView: View {
             ThreadPane()
         }
         .navigationSplitViewStyle(.balanced)
+        #if os(macOS)
         .searchable(text: $store.searchQuery, placement: .toolbar, prompt: "Search")
+        #endif
         .onChange(of: store.searchQuery) {
             store.search()
         }
@@ -42,7 +51,35 @@ struct SplitRootView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        #if os(iOS)
+        // Compose ends the bottom row: level with Search under the list, and in the trailing
+        // corner of the screen, under the iPhone Duo's action rail when it has one.
+        .bottomRow(alignment: .bottomTrailing, trailing: bottomRow.composeTrailing) {
+            ComposeButton(size: BottomRow.height, action: compose)
+                .logBottomRowFrame("compose")
+        }
+        .environment(\.bottomRowPlacement, bottomRow)
+        .background {
+            // Measured on a view that ignores the keyboard, so the row's gap stays put while
+            // typing; the keyboard itself still lifts the row.
+            Color.clear
+                .ignoresSafeArea(.keyboard)
+                .onGeometryChange(for: BottomRow.Placement.self) { proxy in
+                    BottomRow.Placement(
+                        bottomInset: proxy.safeAreaInsets.bottom,
+                        trailingInset: proxy.safeAreaInsets.trailing
+                    )
+                } action: { placement in
+                    bottomRow = placement
+                }
+        }
+        #endif
         .settingsSheet(isPresented: $router.isShowingSettings)
+        .environment(\.toggleSidebar) {
+            withAnimation(Motion.scene) {
+                visibility = visibility == .all ? .doubleColumn : .all
+            }
+        }
         #if !os(macOS)
         .onGeometryChange(for: Bool.self) { proxy in
             proxy.size.width >= Self.threeColumnWidth
@@ -61,8 +98,24 @@ struct SplitRootView: View {
         }
     }
 
+    private func compose() {
+        router.draft = Draft()
+    }
+
     /// All three columns when they fit, otherwise the list beside the open thread.
     private static func restingVisibility(isRoomy: Bool) -> NavigationSplitViewVisibility {
         isRoomy ? .all : .doubleColumn
+    }
+}
+
+private struct ToggleSidebarKey: EnvironmentKey {
+    static let defaultValue: @MainActor () -> Void = {}
+}
+
+extension EnvironmentValues {
+    /// Slides the sidebar over, or away from, the thread list.
+    var toggleSidebar: @MainActor () -> Void {
+        get { self[ToggleSidebarKey.self] }
+        set { self[ToggleSidebarKey.self] = newValue }
     }
 }

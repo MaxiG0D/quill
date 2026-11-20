@@ -11,6 +11,14 @@ struct ThreadDocument: View {
         _expansion = State(initialValue: MessageExpansion(thread: thread))
     }
 
+    /// Extra room above the heading at scroll start: below the bar and clear of the slab's
+    /// rounded top corners.
+    #if os(macOS)
+    private static let topClearance = 8.0
+    #else
+    private static let topClearance = 24.0
+    #endif
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -39,11 +47,12 @@ struct ThreadDocument: View {
                 }
             }
             .padding(.horizontal, Metrics.panePadding)
-            .padding(.top, Metrics.panePadding * 0.75)
             .padding(.bottom, Metrics.panePadding)
             .frame(maxWidth: Metrics.readingWidth + Metrics.panePadding * 2, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .contentMargins(.top, Self.topClearance, for: .scrollContent)
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .onChange(of: thread.messages.count) {
             withAnimation(Motion.expand) {
                 expansion.expandLatest(of: thread)
