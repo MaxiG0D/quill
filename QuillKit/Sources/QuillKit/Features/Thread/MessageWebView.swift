@@ -74,6 +74,10 @@ struct MessageWebView {
     private func makeView(_ coordinator: Coordinator) -> WKWebView {
         let view = Self.takeView()
         view.navigationDelegate = coordinator
+        // The page is measured against the view's own width, which can arrive after the width on offer.
+        (view as? MessageWKWebView)?.resized = { [weak coordinator] view in
+            coordinator?.fit(view)
+        }
         #if canImport(UIKit)
         view.isOpaque = false
         view.backgroundColor = .clear
@@ -168,7 +172,19 @@ extension MessageWebView: UIViewRepresentable {
     }
 }
 
-private final class MessageWKWebView: WKWebView {}
+/// Tells the page when its width changes, so it can be fitted again.
+private final class MessageWKWebView: WKWebView {
+    var resized: (@MainActor (WKWebView) -> Void)?
+    private var fittedWidth = 0.0
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if abs(bounds.width - fittedWidth) > 0.5 {
+            fittedWidth = bounds.width
+            resized?(self)
+        }
+    }
+}
 #else
 extension MessageWebView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
@@ -180,8 +196,19 @@ extension MessageWebView: NSViewRepresentable {
     }
 }
 
-/// Passes scrolling on to the thread, since the page itself never scrolls.
+/// Passes scrolling on to the thread, since the page itself never scrolls, and tells the
+/// page when its width changes, so it can be fitted again.
 private final class MessageWKWebView: WKWebView {
+    var resized: (@MainActor (WKWebView) -> Void)?
+
+    override func setFrameSize(_ newSize: NSSize) {
+        let changed = abs(newSize.width - frame.width) > 0.5
+        super.setFrameSize(newSize)
+        if changed {
+            resized?(self)
+        }
+    }
+
     override func scrollWheel(with event: NSEvent) {
         nextResponder?.scrollWheel(with: event)
     }
