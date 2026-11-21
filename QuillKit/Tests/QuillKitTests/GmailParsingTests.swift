@@ -45,6 +45,12 @@ struct GmailParsingTests {
         #expect(page.contains("light only"))
     }
 
+    @Test func aSendersViewportIsDropped() {
+        let page = HTMLDocument.page(for: #"<META name="Viewport" content="width=600"><p>Hi</p>"#)
+        #expect(!page.contains("width=600"))
+        #expect(page.contains("<p>Hi</p>"))
+    }
+
     @Test func quotedMailIsSetApartFromTheReply() {
         let reply = QuotedText.split("Thanks, signing tonight.\n\nOn Tue, Nov 11, Priya Raman wrote:\n> Hi Max,\n>\n> The renewal is attached.")
         #expect(reply.body == "Thanks, signing tonight.")

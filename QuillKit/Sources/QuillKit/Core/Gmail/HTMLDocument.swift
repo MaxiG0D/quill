@@ -1,13 +1,21 @@
 /// Wraps a message's HTML in a page that fits the reading column.
 enum HTMLDocument {
     /// Mail is designed for a white page, so the page stays light in Dark Mode, as it does in Gmail.
+    ///
+    /// A viewport the sender set is dropped: one built for a desktop width would have the
+    /// whole page drawn small, out of reach of the fitting below.
     static func page(for html: String) -> String {
-        """
+        let html = html.replacingOccurrences(
+            of: #"<meta\b[^>]*\bname\s*=\s*["']?viewport\b[^>]*>"#,
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
+        return """
         <!doctype html>
         <html>
         <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <meta name="color-scheme" content="light only">
         <style>
         html { background: #fff; color: #1f1f1f; -webkit-text-size-adjust: 100%; }
@@ -32,7 +40,8 @@ enum HTMLDocument {
     ///
     /// A page laid out wider than its view is first let to flow at that width, as Gmail does,
     /// so a fixed-width design wraps at a readable size. Only what still overflows is shrunk.
-    static let fitScript = """
+    static func fitScript(width: Double) -> String {
+        """
         (function () {
             var message = document.getElementById("quill-message");
             message.style.zoom = 1;
@@ -40,7 +49,9 @@ enum HTMLDocument {
             Array.prototype.forEach.call(message.querySelectorAll("[" + marks.join("],[") + "]"), function (element) {
                 marks.forEach(function (mark) { element.removeAttribute(mark); });
             });
-            var available = document.documentElement.clientWidth;
+            var available = \(width) || document.documentElement.clientWidth;
+            // Held to the view's width even if the engine lays the page out wider.
+            message.style.maxWidth = available + "px";
             if (message.scrollWidth > available + 1) {
                 var elements = Array.prototype.slice.call(message.querySelectorAll("*"));
                 elements.forEach(function (element) {
@@ -63,4 +74,5 @@ enum HTMLDocument {
             return [Math.ceil(message.getBoundingClientRect().height), settled ? 1 : 0];
         })()
         """
+    }
 }

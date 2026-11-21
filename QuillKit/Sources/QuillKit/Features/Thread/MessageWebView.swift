@@ -121,7 +121,7 @@ struct MessageWebView {
 
         /// Measures the page. It is shown once nothing still loading can move it, or when asked to regardless.
         func fit(_ view: WKWebView, revealing: Bool = false) {
-            view.evaluateJavaScript(HTMLDocument.fitScript) { [weak self] result, _ in
+            view.evaluateJavaScript(HTMLDocument.fitScript(width: view.bounds.width)) { [weak self] result, _ in
                 let values = result as? [NSNumber] ?? []
                 if let height = values.first?.doubleValue, height > 0 {
                     self?.report(height)
