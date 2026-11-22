@@ -13,7 +13,7 @@ derived="$(mktemp -d)"
 trap 'rm -rf "$derived"' EXIT
 build() {
   xcodebuild build -project Quill.xcodeproj -scheme Quill -configuration Debug \
-    -destination "$1" -derivedDataPath "$derived/$2" -allowProvisioningUpdates -quiet
+    -destination "$1" -derivedDataPath "$derived/$2" -allowProvisioningUpdates -allowProvisioningDeviceRegistration -quiet
 }
 
 for target in "$@"; do
