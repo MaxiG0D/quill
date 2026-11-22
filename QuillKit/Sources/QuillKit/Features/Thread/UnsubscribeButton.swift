@@ -44,19 +44,20 @@ struct UnsubscribeButton: View {
         }
     }
 
-    /// Clears the sender's Inbox mail at once, while the list is told in the background.
+    /// Tells the list to unsubscribe first, then clears the sender's Inbox mail on success.
     private func unsubscribe() {
         let leaving = store.inboxThreads(from: message.sender)
         isWorking = true
         Task {
-            _ = await store.unsubscribe(from: message) { openURL($0) }
+            let done = await store.unsubscribe(from: message) { openURL($0) }
             isWorking = false
-        }
-        withAnimation(Motion.list) {
-            store.archive(leaving)
-        }
-        if leaving.contains(threadID) {
-            closeThread()
+            guard done else { return }
+            withAnimation(Motion.list) {
+                store.archive(leaving)
+            }
+            if leaving.contains(threadID) {
+                closeThread()
+            }
         }
     }
 }

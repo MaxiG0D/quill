@@ -39,9 +39,9 @@ actor GoogleAuth {
     }
 
     /// The page where the person approves the sign-in.
-    nonisolated func authorizationURL(challenge: String, state: String) -> URL? {
+    nonisolated func authorizationURL(challenge: String, state: String, selectAccount: Bool = false) -> URL? {
         var components = URLComponents(string: Self.authorizeURL)
-        components?.queryItems = [
+        var items = [
             URLQueryItem(name: "client_id", value: client.id),
             URLQueryItem(name: "redirect_uri", value: client.redirectURI),
             URLQueryItem(name: "response_type", value: "code"),
@@ -50,6 +50,10 @@ actor GoogleAuth {
             URLQueryItem(name: "code_challenge_method", value: "S256"),
             URLQueryItem(name: "state", value: state),
         ]
+        if selectAccount {
+            items.append(URLQueryItem(name: "prompt", value: "select_account"))
+        }
+        components?.queryItems = items
         return components?.url
     }
 
@@ -88,6 +92,20 @@ actor GoogleAuth {
     /// A token that is good for at least the next minute.
     func accessToken() async throws -> String {
         try await credentials().accessToken
+    }
+
+    /// Forces a fresh access token from Google, used when an API call returns HTTP 401 before local expiry.
+    func forceRefreshAccessToken() async throws -> String {
+        guard let token = await current() else {
+            throw GoogleAuthError.signedOut
+        }
+        if let refresh {
+            return try await refresh.value.accessToken
+        }
+        let task = Task { try await self.refreshed(token) }
+        refresh = task
+        defer { refresh = nil }
+        return try await task.value.accessToken
     }
 
     /// The account's tokens, with an access token that is good for at least the next minute.

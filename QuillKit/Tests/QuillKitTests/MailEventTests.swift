@@ -116,4 +116,17 @@ struct MailEventTests {
     @Test func readsOneLineAddresses() {
         #expect(EventDetails.address(in: "Find us at\n120 Main St, Springfield, IL 62701\nSee you") == "120 Main St, Springfield, IL 62701")
     }
+
+    @Test func handlesInOrderToAndBareMeridiemRangesAndDurations() {
+        let appointment = find("Appointment on Nov 18 from 2 - 3 pm. Please arrive early in order to check in.")
+        #expect(appointment?.start == at(11, 18, 14, 0))
+        #expect(appointment?.end == at(11, 18, 15, 0))
+
+        let duration = find("Your 1h session is on Nov 18 at 10:30 am")
+        #expect(duration?.start == at(11, 18, 10, 30))
+
+        let midnight = find("Event on Nov 18 from 12:00 - 1:00 am")
+        #expect(midnight?.start == at(11, 18, 0, 0))
+        #expect(midnight?.end == at(11, 18, 1, 0))
+    }
 }

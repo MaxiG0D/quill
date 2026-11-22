@@ -13,9 +13,12 @@ struct ReplyActions: View {
             .fontWeight(.semibold)
             .buttonStyle(.borderedProminent)
             .tint(Palette.accentFill)
+            .keyboardShortcut("r", modifiers: .command)
         Spacer()
         Button("Reply All", systemImage: "arrowshape.turn.up.left.2", action: replyAll)
+            .keyboardShortcut("r", modifiers: [.command, .shift])
         Button("Forward", systemImage: "arrowshape.turn.up.right", action: forward)
+            .keyboardShortcut("f", modifiers: [.command, .shift])
     }
 
     private func reply() {

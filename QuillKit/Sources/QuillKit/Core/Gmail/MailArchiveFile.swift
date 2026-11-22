@@ -6,8 +6,13 @@ struct MailArchiveFile: Sendable {
 
     /// The signed-in account's archive.
     static var standard: MailArchiveFile {
+        named("mailbox.json")
+    }
+
+    /// A per-account archive file inside Quill's application support folder.
+    static func named(_ filename: String) -> MailArchiveFile {
         let folder = URL.applicationSupportDirectory.appending(path: "Quill", directoryHint: .isDirectory)
-        return MailArchiveFile(url: folder.appending(path: "mailbox.json"))
+        return MailArchiveFile(url: folder.appending(path: filename))
     }
 
     func load() -> MailArchive? {

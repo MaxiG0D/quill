@@ -47,7 +47,7 @@ struct MailEvent: Hashable, Sendable {
 
     /// Receipts and payment notices carry transaction timestamps, not events.
     private static let receiptWords = regex(
-        #"\b(?:receipts?|purchases?|transactions?|payments?|invoices?|orders?|factures?|recus?|achats?|paiements?|commandes?)\b"#
+        #"\b(?:receipts?|purchases?|transactions?|invoices?|factures?|recus?|achats?|paiements?|commandes?)\b|(?<!\bin\s)\borders?\b|\bpayments?\s+(?:via|received|confirm\w*|due|method|total|amount)\b"#
     )
     private static let eventCues = regex(
         #"\b(?:appointments?|rendez-vous|rdv|remind\w*|rappel|meetings?|reunion|reservations?|webinars?|invit\w*|events?|evenements?|dinner|lunch|diner|souper|dejeuner|party|workshop|conference|call|see you|a bientot|concert|interview|entrevue|session|class|cours|visit\w*)\b"#
@@ -123,8 +123,9 @@ struct MailEvent: Hashable, Sendable {
             guard let day = int(match, 1, text), let month = int(match, 2, text) else { continue }
             add(match.range, day: day, month: month, year: int(match, 3, text))
         }
+        let locale = calendar.locale ?? .current
         let dayFirstNumbers = !matches(french, text).isEmpty
-            || Locale.current.region.map { !["US", "CA", "PH"].contains($0.identifier) } ?? true
+            || locale.region.map { !["US", "CA", "PH"].contains($0.identifier) } ?? true
         for match in matches(slashed, text) {
             guard let first = int(match, 1, text), let second = int(match, 2, text) else { continue }
             let dayFirst = first > 12 || (second <= 12 && dayFirstNumbers)
@@ -184,16 +185,27 @@ struct MailEvent: Hashable, Sendable {
     }
 
     private static let frenchClock = regex(#"(?<![\d:.,/])(\d{1,2})\s?h\s?(\d{2})?(?![\w])"#)
+    private static let frenchTimeCue = regex(#"(?:\b(?:a|de|des|vers|heure|heures|pour|jusqu'?a)|[:\-–—])\s*$"#)
     private static let colonClock = regex(#"(?<![\d:.,/])(\d{1,2}):(\d{2})(?!\d)(?:\s?([ap])\.?m\b\.?)?"#)
     private static let meridiemClock = regex(#"(?<![\d:.,/])(\d{1,2})\s?([ap])\.?m\b\.?"#)
+    /// Bare hour range with a trailing meridiem, such as "2 - 3 pm" or "11 to 12 am".
+    private static let bareMeridiemRange = regex(#"(?<![\d:.,/])(\d{1,2})\s*(?:-|\x{2013}|\x{2014}|to)\s*(\d{1,2})(?::(\d{2}))?\s?([ap])\.?m\b\.?"#)
     private static let rangeJoiner = regex(#"^\s*(?:-|\x{2013}|\x{2014}|to|a|au|until|jusqu'?a)\s*$"#)
 
     private static func times(in text: String) -> [Time] {
         var clocks: [(range: NSRange, clock: Clock)] = []
+        let nsText = text as NSString
         for match in matches(frenchClock, text) {
             guard let hour = int(match, 1, text), hour <= 23 else { continue }
-            let minute = int(match, 2, text) ?? 0
+            let minuteText = string(match, 2, text)
+            let minute = minuteText.flatMap(Int.init) ?? 0
             guard minute <= 59 else { continue }
+            // Skip bare small durations like "1h session" or "2h before" unless preceded by a time cue.
+            if minuteText == nil, hour < 7 {
+                let prefixStart = max(0, match.range.location - 16)
+                let prefix = nsText.substring(with: NSRange(location: prefixStart, length: match.range.location - prefixStart))
+                if matches(frenchTimeCue, prefix).isEmpty { continue }
+            }
             clocks.append((match.range, Clock(hour: hour, minute: minute)))
         }
         for match in matches(colonClock, text) {
@@ -207,10 +219,28 @@ struct MailEvent: Hashable, Sendable {
             else { continue }
             clocks.append((match.range, Clock(hour: hour, minute: 0, meridiem: letter + "m")))
         }
+        var bareRanges: [Time] = []
+        for match in matches(bareMeridiemRange, text) {
+            guard let startHour = int(match, 1, text), (1...12).contains(startHour),
+                  let endHour = int(match, 2, text), (1...12).contains(endHour),
+                  let letter = string(match, 4, text) else { continue }
+            let endMinute = int(match, 3, text) ?? 0
+            guard endMinute <= 59 else { continue }
+            let endMeridiem = letter + "m"
+            var startClock = Clock(hour: startHour, minute: 0, meridiem: endMeridiem)
+            let endClock = Clock(hour: endHour, minute: endMinute, meridiem: endMeridiem)
+            if startClock.hour24 >= endClock.hour24, endMeridiem == "pm" {
+                startClock.meridiem = "am"
+            }
+            bareRanges.append(Time(range: match.range, start: startClock, end: endClock))
+        }
+        clocks.removeAll { clock in
+            bareRanges.contains { NSIntersectionRange($0.range, clock.range).length > 0 }
+        }
         clocks.sort { $0.range.location < $1.range.location }
 
         // "14h à 15h30" and "2:00 - 3:30 pm" are one time with an end.
-        var times: [Time] = []
+        var times: [Time] = bareRanges
         var index = 0
         while index < clocks.count {
             var start = clocks[index].clock
@@ -218,10 +248,14 @@ struct MailEvent: Hashable, Sendable {
                 let next = clocks[index + 1]
                 let gapStart = NSMaxRange(clocks[index].range)
                 if next.range.location >= gapStart {
-                    let gap = (text as NSString).substring(with: NSRange(location: gapStart, length: next.range.location - gapStart))
+                    let gap = nsText.substring(with: NSRange(location: gapStart, length: next.range.location - gapStart))
                     if matches(rangeJoiner, gap).count == 1 {
-                        if start.meridiem == nil, next.clock.meridiem == "pm", start.hour + 12 <= next.clock.hour24 {
-                            start.meridiem = "pm"
+                        if start.meridiem == nil, let endMeridiem = next.clock.meridiem {
+                            if endMeridiem == "pm", start.hour + 12 <= next.clock.hour24 {
+                                start.meridiem = "pm"
+                            } else if endMeridiem == "am", start.hour == 12 || start.hour <= next.clock.hour24 {
+                                start.meridiem = "am"
+                            }
                         }
                         let range = NSUnionRange(clocks[index].range, next.range)
                         times.append(Time(range: range, start: start, end: next.clock))
@@ -233,7 +267,7 @@ struct MailEvent: Hashable, Sendable {
             times.append(Time(range: clocks[index].range, start: start, end: nil))
             index += 1
         }
-        return times
+        return times.sorted { $0.range.location < $1.range.location }
     }
 
     private static func date(_ day: DateComponents, _ clock: Clock, _ calendar: Calendar) -> Date? {

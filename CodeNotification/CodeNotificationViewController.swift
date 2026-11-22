@@ -50,7 +50,11 @@ private struct CodeCard: View {
     let sender: String
     let display: String
 
-    private let teal = Color(red: 0x0B / 255, green: 0x6E / 255, blue: 0x69 / 255)
+    private let teal = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0x4C / 255, green: 0xC2 / 255, blue: 0xB5 / 255, alpha: 1)
+            : UIColor(red: 0x0B / 255, green: 0x6E / 255, blue: 0x69 / 255, alpha: 1)
+    })
 
     var body: some View {
         HStack(spacing: 14) {
@@ -59,6 +63,7 @@ private struct CodeCard: View {
                 .foregroundStyle(teal)
                 .frame(width: 44, height: 44)
                 .background(teal.opacity(0.18), in: .circle)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(sender)
                     .font(.subheadline)
@@ -66,6 +71,7 @@ private struct CodeCard: View {
                     .lineLimit(1)
                 Text(display)
                     .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
+                    .lineLimit(1)
                     .minimumScaleFactor(0.6)
             }
             Spacer(minLength: 0)

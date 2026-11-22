@@ -38,7 +38,12 @@ struct InboxScreen: View {
                         .padding(.horizontal, Spacing.m)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                if router.isSearching {
+                if store.isSelecting || !store.selectedThreadIDs.isEmpty {
+                    BulkActionBar()
+                        .padding(.horizontal, Spacing.m)
+                        .padding(.bottom, Spacing.xs)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else if router.isSearching {
                     BottomSearchBar(isFocused: $isSearchFocused)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else {
@@ -56,6 +61,7 @@ struct InboxScreen: View {
                     .transition(.opacity)
                 }
             }
+            .animation(Motion.list, value: store.toast)
             .background {
                 if router.isSearching {
                     LinearGradient(
@@ -112,15 +118,29 @@ struct InboxScreen: View {
                 .allowsHitTesting(showsBarTitle)
                 .animation(Motion.quick, value: showsBarTitle)
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button(store.isSelecting ? "Done" : "Select", systemImage: store.isSelecting ? "checkmark.circle.fill" : "checkmark.circle") {
+                    withAnimation(Motion.quick) {
+                        if store.isSelecting {
+                            store.clearSelection()
+                        } else {
+                            store.isSelecting = true
+                        }
+                    }
+                }
+                .tint(Palette.accent)
                 FilterMenu()
             }
             .sharedBackgroundVisibility(.hidden)
         }
         .onChange(of: router.isSearching) { _, searching in
+            isTitleCovered = false
             guard searching else { return }
             // The field joins the hierarchy in this update, so focus it on the next turn.
             Task { isSearchFocused = true }
+        }
+        .onChange(of: store.selection) {
+            isTitleCovered = false
         }
         .task {
             await store.load()
@@ -128,14 +148,14 @@ struct InboxScreen: View {
     }
 
     private var hasRail: Bool {
-        trailingInset >= Self.railMinimum
+        trailingInset >= Self.railMinimum && verticalSizeClass != .compact
     }
 
     /// With the bar's buttons in the side strip, the mailbox moves up into the band
     /// the bar left empty. The status bar's share of the inset stays clear. A phone on
     /// its side has a strip too, but keeps its buttons in the bar, so it is left alone.
     private var liftedTopMargin: Double? {
-        hasRail && verticalSizeClass != .compact ? max(Spacing.s, topInset - Self.emptyBarHeight) : nil
+        hasRail ? max(Spacing.s, topInset - Self.emptyBarHeight) : nil
     }
 
     private var isLifted: Bool {
@@ -153,7 +173,9 @@ struct InboxScreen: View {
     }
 
     private func compose() {
-        router.draft = Draft()
+        if router.draft == nil {
+            router.draft = Draft()
+        }
     }
 
     private func showMailboxes() {

@@ -12,7 +12,11 @@ struct QuillActivityBundle: WidgetBundle {
 
 /// A sign-in code at a glance, for a minute. Copy is on the alert; the ✕ closes it.
 struct SignInCodeLiveActivity: Widget {
-    private let teal = Color(red: 0x0B / 255, green: 0x6E / 255, blue: 0x69 / 255)
+    private let teal = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0x4C / 255, green: 0xC2 / 255, blue: 0xB5 / 255, alpha: 1)
+            : UIColor(red: 0x0B / 255, green: 0x6E / 255, blue: 0x69 / 255, alpha: 1)
+    })
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SignInCodeAttributes.self) { context in
@@ -28,6 +32,7 @@ struct SignInCodeLiveActivity: Widget {
                         .layoutPriority(1)
                     Text(context.state.display)
                         .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
+                        .lineLimit(1)
                         .minimumScaleFactor(0.6)
                     detail(context.state)
                 }
@@ -45,6 +50,8 @@ struct SignInCodeLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.display)
                         .font(.system(size: 30, weight: .semibold, design: .rounded).monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     closeButton(context.state)
@@ -58,6 +65,8 @@ struct SignInCodeLiveActivity: Widget {
             } compactTrailing: {
                 Text(context.state.code)
                     .font(.system(.body, design: .rounded).monospacedDigit().weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             } minimal: {
                 Image(systemName: "key.fill")
                     .foregroundStyle(teal)
@@ -100,7 +109,7 @@ struct SignInCodeLiveActivity: Widget {
             }
             Spacer(minLength: 0)
             if let expiry = state.expiresAt.map({ Date(timeIntervalSince1970: $0) }), expiry > .now {
-                Text(expiry, style: .timer)
+                Text(timerInterval: Date.now...expiry, countsDown: true)
                     .monospacedDigit()
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 52, alignment: .trailing)

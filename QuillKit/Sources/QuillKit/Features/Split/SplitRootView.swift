@@ -25,7 +25,7 @@ struct SplitRootView: View {
         @Bindable var store = store
         @Bindable var router = router
         NavigationSplitView(columnVisibility: $visibility) {
-            SidebarView()
+            SidebarView(onSelect: dismissSlideOverSidebar)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 236, max: 300)
                 #if !os(macOS)
                 // The sidebar button moves to the bottom row, beside Search.
@@ -47,20 +47,22 @@ struct SplitRootView: View {
         .overlay(alignment: .bottom) {
             if let toast = store.toast {
                 UndoToastView(toast: toast)
-                    .padding(Spacing.l)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, toastBottomPadding)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(Motion.list, value: store.toast)
         #if os(iOS)
         // Compose ends the bottom row: level with Search under the list, and in the trailing
         // corner of the screen, under the iPhone Duo's action rail when it has one.
-        .bottomRow(alignment: .bottomTrailing, trailing: bottomRow.composeTrailing) {
+        .bottomRow(alignment: .bottomTrailing, trailing: bottomRow.composeTrailing, ignoresKeyboard: true) {
             ComposeButton(size: BottomRow.height, action: compose)
                 .logBottomRowFrame("compose")
         }
         // The account's picture starts the row in the screen's leading corner, over the
         // sidebar when it shows and before the list's Search when it does not.
-        .bottomRow(alignment: .bottomLeading) {
+        .bottomRow(alignment: .bottomLeading, ignoresKeyboard: true) {
             SettingsButton(size: .large)
                 .padding(.leading, Spacing.m)
                 .logBottomRowFrame("account")
@@ -105,8 +107,25 @@ struct SplitRootView: View {
         }
     }
 
+    private var toastBottomPadding: Double {
+        #if os(iOS)
+        bottomRow.bottomGap + BottomRow.height + Spacing.s
+        #else
+        Spacing.l
+        #endif
+    }
+
+    private func dismissSlideOverSidebar() {
+        #if !os(macOS)
+        guard !isRoomy else { return }
+        withAnimation(Motion.scene) { visibility = .doubleColumn }
+        #endif
+    }
+
     private func compose() {
-        router.draft = Draft()
+        if router.draft == nil {
+            router.draft = Draft()
+        }
     }
 
     /// All three columns when they fit, otherwise the list beside the open thread.

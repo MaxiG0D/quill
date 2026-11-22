@@ -15,16 +15,28 @@ struct ThreadStatus: View {
                     .transition(.scale.combined(with: .opacity))
                     .accessibilityLabel("Starred")
             }
-            if thread.hasReturned(at: store.now) {
-                Image(systemName: "clock")
+            if thread.isSnoozed(at: store.now), let wake = thread.snoozedUntil {
+                Image(systemName: "clock.fill")
                     .font(.caption)
-                    .foregroundStyle(Palette.secondaryLabel)
-                    .accessibilityLabel("Back from snooze")
+                    .foregroundStyle(Palette.accent)
+                    .accessibilityHidden(true)
+                Text(EventDateText.short(wake, now: store.now, calendar: store.calendar))
+                    .textRole(.meta)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Palette.accent)
+                    .accessibilityLabel("Snoozed until \(EventDateText.short(wake, now: store.now, calendar: store.calendar))")
+            } else {
+                if thread.hasReturned(at: store.now) {
+                    Image(systemName: "clock")
+                        .font(.caption)
+                        .foregroundStyle(Palette.secondaryLabel)
+                        .accessibilityLabel("Back from snooze")
+                }
+                Text(store.timestamp.short(thread.date))
+                    .textRole(.meta)
+                    .fontWeight(thread.isUnread ? .semibold : .regular)
+                    .foregroundStyle(thread.isUnread ? Palette.accent : Palette.secondaryLabel)
             }
-            Text(store.timestamp.short(thread.date))
-                .textRole(.meta)
-                .fontWeight(thread.isUnread ? .semibold : .regular)
-                .foregroundStyle(thread.isUnread ? Palette.accent : Palette.secondaryLabel)
         }
         .animation(Motion.quick, value: thread.isStarred)
     }

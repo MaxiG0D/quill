@@ -7,9 +7,13 @@ struct SettingsView: View {
 
     var body: some View {
         #if os(macOS)
-        sections
-            .padding(Spacing.xl)
-            .frame(width: 460)
+        ScrollView {
+            sections
+                .padding(Spacing.xl)
+        }
+        .frame(width: 460)
+        .frame(minHeight: 360, maxHeight: 640)
+        .background(Palette.background)
         #else
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.m) {
@@ -33,10 +37,13 @@ struct SettingsView: View {
         #endif
     }
 
+    private var preferences: MailPreferences { .shared }
+
     private var sections: some View {
-        VStack(alignment: .leading, spacing: Spacing.s) {
+        @Bindable var preferences = preferences
+        return VStack(alignment: .leading, spacing: Spacing.s) {
             if session.canSignOut, let account = session.store?.account {
-                heading("Account")
+                heading(session.accounts.count > 1 ? "Accounts" : "Account")
                 AccountRow(account: account)
                     .card()
                     .padding(.bottom, Spacing.s)
@@ -53,8 +60,42 @@ struct SettingsView: View {
                     #endif
                 }
                 .card()
-                    .padding(.bottom, Spacing.s)
+                .padding(.bottom, Spacing.s)
             }
+            heading("Reading & Compose")
+            VStack(alignment: .leading, spacing: Spacing.m) {
+                Toggle(isOn: $preferences.undoSendEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Undo Send")
+                            .font(.body)
+                            .foregroundStyle(Palette.label)
+                        Text("Hold outgoing mail for 5 seconds so you can cancel it.")
+                            .textRole(.meta)
+                            .foregroundStyle(Palette.secondaryLabel)
+                    }
+                }
+                Divider().overlay(Palette.separator)
+                Toggle(isOn: $preferences.darkModeHTML) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Dark Mode for HTML Emails")
+                            .font(.body)
+                            .foregroundStyle(Palette.label)
+                        Text("Adapt light-background newsletters when Dark Mode is active.")
+                            .textRole(.meta)
+                            .foregroundStyle(Palette.secondaryLabel)
+                    }
+                }
+                Divider().overlay(Palette.separator)
+                SignatureSettingsCard(preferences: preferences)
+            }
+            .card()
+            .padding(.bottom, Spacing.s)
+            #if os(iOS)
+            heading("Swipe Actions")
+            SwipeActionsSettingsCard(preferences: preferences)
+                .card()
+                .padding(.bottom, Spacing.s)
+            #endif
             heading("App Icon")
             AppIconPicker()
                 .card()

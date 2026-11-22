@@ -12,7 +12,7 @@ enum Palette {
     static let label = Color(light: 0x151918, dark: 0xEDF1EF)
     static let secondaryLabel = Color(light: 0x5D6561, dark: 0x94A09B)
     /// The preview line of mail that has been read.
-    static let tertiaryLabel = Color(light: 0x737B77, dark: 0x7A8580)
+    static let tertiaryLabel = Color(light: 0x676F6B, dark: 0x86928D)
     static let accent = Color(light: 0x0B6E69, dark: 0x4CC2B5)
     /// Web addresses in message text.
     static let link = Color(light: 0x0A5FD6, dark: 0x6AA9FF)

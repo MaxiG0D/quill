@@ -14,7 +14,7 @@ struct ThreadHeading: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("thread-heading")
-            HStack(spacing: Spacing.xs) {
+            FlowLayout(spacing: Spacing.xs) {
                 ForEach(store.labels(for: thread)) { label in
                     LabelChip(label)
                 }

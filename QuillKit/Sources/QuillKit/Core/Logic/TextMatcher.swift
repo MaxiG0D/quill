@@ -14,7 +14,8 @@ enum TextMatcher {
         for term in terms(in: query) {
             var start = text.startIndex
             while start < text.endIndex,
-                  let range = text.range(of: term, options: options, range: start..<text.endIndex) {
+                  let range = text.range(of: term, options: options, range: start..<text.endIndex),
+                  !range.isEmpty {
                 found.append(range)
                 start = range.upperBound
             }

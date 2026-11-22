@@ -3,6 +3,7 @@ import SwiftUI
 /// The triage actions for one thread, for context menus and the More menu.
 struct ThreadActions: View {
     @Environment(MailStore.self) private var store
+    @Environment(Router.self) private var router: Router?
 
     let thread: MailThread
     /// False where Label and Move already have buttons of their own.
@@ -28,27 +29,52 @@ struct ThreadActions: View {
             systemImage: thread.isUnread ? "envelope.open" : "envelope.badge",
             action: toggleUnread
         )
-        Menu("Snooze", systemImage: "clock") {
-            ForEach(SnoozeOption.allCases) { option in
-                Button(option.title, systemImage: option.symbol) {
-                    snooze(option)
+        if thread.snoozedUntil != nil {
+            Button("Unsnooze", systemImage: "bell.slash", action: unsnooze)
+        }
+        if thread.folder != .trash {
+            Menu("Snooze", systemImage: "clock") {
+                ForEach(SnoozeOption.allCases) { option in
+                    Button(option.title, systemImage: option.symbol) {
+                        snooze(option)
+                    }
+                }
+                if let router {
+                    Divider()
+                    Button("Pick Date & Time…", systemImage: "calendar.badge.clock") {
+                        router.snoozingThreadID = thread.id
+                    }
                 }
             }
+        }
+        Button("Print…", systemImage: "printer") {
+            ThreadPrinter.shared.printThread(thread, timestamp: store.timestamp)
         }
         if hasMenus || hasTriage { Divider() }
         if hasMenus {
             LabelMenu(thread: thread)
             MoveMenu(thread: thread, onFiled: onFiled)
         }
+        if hasTriage, thread.folder == .archive || thread.folder == .trash {
+            Button("Move to Inbox", systemImage: Mailbox.inbox.symbol) {
+                move(to: .inbox)
+            }
+        }
         if hasTriage, thread.folder != .archive {
             Button("Archive", systemImage: "archivebox") {
                 move(to: .archive)
             }
         }
+        if thread.folder != .trash && thread.folder != .drafts {
+            Button("Mark as Spam", systemImage: "exclamationmark.octagon", action: markSpam)
+        }
         if hasTriage, thread.folder != .trash {
             Button("Delete", systemImage: "trash", role: .destructive) {
                 move(to: .trash)
             }
+        }
+        if thread.folder == .trash {
+            Button("Delete Permanently", systemImage: "trash.slash", role: .destructive, action: deletePermanently)
         }
     }
 
@@ -69,12 +95,27 @@ struct ThreadActions: View {
         onFiled()
     }
 
+    private func unsnooze() {
+        withAnimation(Motion.list) { store.unsnooze(thread.id) }
+        onFiled()
+    }
+
+    private func markSpam() {
+        withAnimation(Motion.list) { store.markAsSpam(thread.id) }
+        onFiled()
+    }
+
+    private func deletePermanently() {
+        withAnimation(Motion.list) { store.deletePermanently(thread.id) }
+        onFiled()
+    }
+
     private func move(to mailbox: Mailbox) {
         withAnimation(Motion.list) {
-            if mailbox == .trash {
-                store.trash(thread.id)
-            } else {
-                store.archive(thread.id)
+            switch mailbox {
+            case .trash: store.trash(thread.id)
+            case .archive: store.archive(thread.id)
+            default: store.move(thread.id, to: mailbox)
             }
         }
         onFiled()

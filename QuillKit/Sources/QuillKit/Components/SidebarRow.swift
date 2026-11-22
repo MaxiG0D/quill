@@ -13,6 +13,8 @@ struct SidebarRow: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @State private var isHovering = false
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: Spacing.s) {
@@ -30,12 +32,19 @@ struct SidebarRow: View {
             }
             .padding(.horizontal, Spacing.s)
             .frame(minHeight: Metrics.target)
-            .background(isSelected ? Palette.accentTint : .clear, in: .rect(cornerRadius: Radius.small))
+            .background(rowBackground, in: .rect(cornerRadius: Radius.small))
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .animation(Motion.quick, value: isSelected)
+        .animation(Motion.quick, value: isHovering)
+    }
+
+    private var rowBackground: Color {
+        if isSelected { return Palette.accentTint }
+        return isHovering ? Palette.fill : .clear
     }
 
     @ViewBuilder
@@ -46,8 +55,12 @@ struct SidebarRow: View {
                 .foregroundStyle(isSelected ? Palette.accent : Palette.secondaryLabel)
                 .accessibilityHidden(true)
         case .swatch(let tone):
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(tone.fill)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .strokeBorder(tone.ink, lineWidth: 1.5)
+                }
                 .frame(width: 14, height: 14)
                 .accessibilityHidden(true)
         }
@@ -65,8 +78,10 @@ struct SidebarRow: View {
                 .background(Palette.accentFill, in: .capsule)
         } else {
             Text(count, format: .number)
-                .font(.callout.monospacedDigit())
+                .textRole(.meta)
                 .foregroundStyle(Palette.secondaryLabel)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
         }
     }
 }

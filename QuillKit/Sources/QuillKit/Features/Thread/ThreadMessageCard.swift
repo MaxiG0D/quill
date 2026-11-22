@@ -3,25 +3,21 @@ import SwiftUI
 /// One message in a conversation. Collapsed it is a single line, expanded it shows everything.
 struct ThreadMessageCard: View {
     let message: Message
-    let threadID: MailThread.ID
-    var subject = ""
+    let thread: MailThread
     let isExpanded: Bool
     let toggle: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            HStack(spacing: Spacing.s) {
-                Button(action: toggle) {
-                    MessageHeader(message: message, isExpanded: isExpanded)
-                }
-                .buttonStyle(.plain)
-                if isExpanded, message.unsubscribe != nil {
-                    UnsubscribeButton(message: message, threadID: threadID)
-                }
-            }
+            MessageHeader(
+                message: message,
+                thread: thread,
+                isExpanded: isExpanded,
+                onToggle: toggle
+            )
 
             if isExpanded {
-                MessageBody(message: message, subject: subject)
+                MessageBody(message: message, subject: thread.subject)
                     .transition(.opacity)
             }
         }

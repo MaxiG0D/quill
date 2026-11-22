@@ -53,7 +53,8 @@ struct GmailMapper: Sendable {
             labelIDs: labels.map(\.id).filter(applied.contains),
             folder: folder,
             isUnread: applied.contains("UNREAD"),
-            isStarred: applied.contains("STARRED")
+            isStarred: applied.contains("STARRED"),
+            hasSentMessages: delivered.contains { $0.has("SENT") }
         )
         let anchor = ReplyAnchor(
             latestMessageID: latest.id,
@@ -80,7 +81,8 @@ struct GmailMapper: Sendable {
             unsubscribe: sender == account ? nil : Unsubscribe(
                 list: resource.header("List-Unsubscribe"),
                 post: resource.header("List-Unsubscribe-Post")
-            )
+            ),
+            inlineImages: MessageContent.inlineImages(of: resource.payload, messageID: resource.id)
         )
     }
 

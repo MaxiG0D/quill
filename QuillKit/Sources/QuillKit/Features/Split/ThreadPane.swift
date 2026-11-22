@@ -17,7 +17,8 @@ struct ThreadPane: View {
                     .opacity(0.5)
                     .padding(.bottom, 32)
                     .transition(.opacity)
-                    .accessibilityHidden(true)
+                    .accessibilityElement()
+                    .accessibilityLabel("No conversation selected")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

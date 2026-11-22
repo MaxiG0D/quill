@@ -4,12 +4,24 @@ enum HTMLDocument {
     ///
     /// A viewport the sender set is dropped: one built for a desktop width would have the
     /// whole page drawn small, out of reach of the fitting below.
-    static func page(for html: String) -> String {
-        let html = html.replacingOccurrences(
+    static func page(for html: String, darkAdapted: Bool = false) -> String {
+        var html = html.replacingOccurrences(
             of: #"<meta\b[^>]*\bname\s*=\s*["']?viewport\b[^>]*>"#,
             with: "",
             options: [.regularExpression, .caseInsensitive]
         )
+        // Drop meta refreshes so a sender cannot redirect the message view to another page.
+        html = html.replacingOccurrences(
+            of: #"<meta\b[^>]*\bhttp-equiv\s*=\s*["']?refresh\b[^>]*>"#,
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
+        let darkStyle = darkAdapted
+            ? """
+              html { background: #141a19; filter: invert(0.92) hue-rotate(180deg); }
+              img, video, picture, svg { filter: invert(1) hue-rotate(180deg); }
+              """
+            : ""
         return """
         <!doctype html>
         <html>
@@ -27,6 +39,7 @@ enum HTMLDocument {
         img[data-quill-wide] { height: auto !important; }
         [data-quill-narrow-left] { padding-left: 24px !important; }
         [data-quill-narrow-right] { padding-right: 24px !important; }
+        \(darkStyle)
         </style>
         </head>
         <body><div id="quill-message">\(html)</div></body>
@@ -71,7 +84,8 @@ enum HTMLDocument {
             var settled = Array.prototype.every.call(document.images, function (image) {
                 return image.complete || (image.getAttribute("width") && image.getAttribute("height"));
             });
-            return [Math.ceil(message.getBoundingClientRect().height), settled ? 1 : 0];
+            var height = Math.max(message.getBoundingClientRect().height, document.body.scrollHeight);
+            return [Math.ceil(height), settled ? 1 : 0];
         })()
         """
     }

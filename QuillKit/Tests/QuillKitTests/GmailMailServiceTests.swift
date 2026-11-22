@@ -334,4 +334,52 @@ struct GmailMailServiceTests {
         #expect(store.account == GmailFixture.me)
         #expect(store.alert != nil)
     }
+
+    @Test func trashListingRequestsIncludeSpamTrash() async throws {
+        let http = await GmailFixture.mailbox()
+        let service = GmailFixture.service(http: http)
+        _ = try await service.snapshot()
+        let urls = await http.requests.compactMap { $0.url?.absoluteString }
+        #expect(urls.contains { $0.contains("labelIds=TRASH") && $0.contains("includeSpamTrash=true") })
+    }
+
+    @Test func attachmentsDownloadAndSendWithRealBytes() async throws {
+        let http = await GmailFixture.mailbox()
+        let bytes = Data("PDF-BYTES".utf8)
+        await http.reply(to: "/attachments/att1", json: #"{"size":9,"data":"\#(bytes.base64URLEncoded)"}"#)
+        await http.reply(to: "/messages/send", json: #"{"id":"m10","threadId":"t9"}"#)
+        let service = GmailFixture.service(http: http)
+        let snapshot = try await service.snapshot()
+        let attachment = try #require(snapshot.threads.first?.attachments.first)
+        #expect(attachment.attachmentID == "att1")
+        #expect(try await service.attachmentData(for: attachment) == bytes)
+
+        // Forwarding an email with a Gmail attachment automatically fetches and embeds its bytes.
+        let forward = Draft(to: [Contact(name: "Dan", email: "dan@example.com")], subject: "Fwd: Lease", body: "Here", attachments: [attachment], isForward: true)
+        let threadID = try await service.sendDraft(forward)
+        #expect(threadID == "t9")
+        let sentBody = try #require(await http.requests.last?.httpBody)
+        let payload = try JSONDecoder().decode([String: String].self, from: sentBody)
+        let raw = String(decoding: try #require(Data(base64URLEncoded: payload["raw"] ?? "")), as: UTF8.self)
+        #expect(raw.contains("multipart/mixed"))
+        #expect(raw.contains("Lease.pdf"))
+    }
+
+    @Test func gmailDraftsSyncAndPaginationLoadMore() async throws {
+        let http = await GmailFixture.mailbox()
+        await http.reply(to: "labelIds=INBOX", json: #"{"threads":[{"id":"t1","historyId":"100"}],"nextPageToken":"page-2"}"#)
+        await http.reply(to: "pageToken=page-2", json: #"{"threads":[{"id":"t2","historyId":"200"}]}"#)
+        await http.reply(to: "/drafts", json: #"{"id":"d1","message":{"id":"dm1","threadId":"td1"}}"#)
+        let service = GmailFixture.service(http: http)
+        _ = try await service.snapshot()
+        #expect(await service.hasMore(for: .mailbox(.inbox)))
+
+        let page = try await service.loadMore(for: .mailbox(.inbox))
+        #expect(page.threads.map(\.id) == ["t2"])
+        #expect(!page.hasMore)
+
+        let saved = try await service.saveDraft(Draft(to: [Contact(name: "Dan", email: "dan@example.com")], subject: "Draft", body: "WIP"))
+        #expect(saved?.id == "td1")
+        #expect(saved?.folder == .drafts)
+    }
 }

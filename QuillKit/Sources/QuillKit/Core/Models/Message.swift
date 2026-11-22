@@ -16,6 +16,8 @@ struct Message: Identifiable, Hashable, Codable, Sendable {
     var snippet: String?
     /// How to stop mail from the list this message came from, when it says.
     var unsubscribe: Unsubscribe?
+    /// Embedded `cid:` images referenced by `html` that need to be fetched on demand.
+    var inlineImages: [InlineImage]
 
     init(
         id: String = UUID().uuidString,
@@ -28,7 +30,8 @@ struct Message: Identifiable, Hashable, Codable, Sendable {
         attachments: [Attachment] = [],
         html: String? = nil,
         snippet: String? = nil,
-        unsubscribe: Unsubscribe? = nil
+        unsubscribe: Unsubscribe? = nil,
+        inlineImages: [InlineImage] = []
     ) {
         self.id = id
         self.sender = sender
@@ -41,6 +44,23 @@ struct Message: Identifiable, Hashable, Codable, Sendable {
         self.html = html
         self.snippet = snippet
         self.unsubscribe = unsubscribe
+        self.inlineImages = inlineImages
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        sender = try container.decode(Contact.self, forKey: .sender)
+        to = try container.decode([Contact].self, forKey: .to)
+        cc = try container.decode([Contact].self, forKey: .cc)
+        date = try container.decode(Date.self, forKey: .date)
+        body = try container.decode(String.self, forKey: .body)
+        quoted = try container.decodeIfPresent(String.self, forKey: .quoted)
+        attachments = try container.decode([Attachment].self, forKey: .attachments)
+        html = try container.decodeIfPresent(String.self, forKey: .html)
+        snippet = try container.decodeIfPresent(String.self, forKey: .snippet)
+        unsubscribe = try container.decodeIfPresent(Unsubscribe.self, forKey: .unsubscribe)
+        inlineImages = try container.decodeIfPresent([InlineImage].self, forKey: .inlineImages) ?? []
     }
 
     /// One line for list previews. Designed mail uses the service's summary, since its text is

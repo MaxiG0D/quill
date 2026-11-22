@@ -23,11 +23,15 @@ struct Unsubscribe: Hashable, Codable, Sendable {
             guard let url = URL(string: entry), let scheme = url.scheme?.lowercased() else { continue }
             if scheme == "mailto", mail == nil {
                 mail = Self.mail(from: entry)
-            } else if scheme == "https" || scheme == "http", web == nil, url.host() != nil {
+            } else if scheme == "https", url.host() != nil {
+                if web?.scheme?.lowercased() != "https" {
+                    web = url
+                }
+            } else if scheme == "http", web == nil, url.host() != nil {
                 web = url
             }
         }
-        let isOneClick = post?.replacingOccurrences(of: " ", with: "")
+        let isOneClick = post?.filter { !$0.isWhitespace }
             .caseInsensitiveCompare("List-Unsubscribe=One-Click") == .orderedSame
         if isOneClick, web?.scheme?.lowercased() == "https" {
             oneClick = web

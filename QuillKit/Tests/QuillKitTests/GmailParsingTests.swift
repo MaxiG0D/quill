@@ -94,4 +94,60 @@ struct GmailParsingTests {
         #expect(data.base64URLEncoded == "-__-AQ")
         #expect(Data(base64URLEncoded: "-__-AQ") == data)
     }
+
+    @Test func htmlTextSeparatesTableCellsAndDecodesFrenchEntities() {
+        let html = "<table><tr><td>Date:</td><td>18&nbsp;novembre</td></tr></table><p>Caf&eacute; &laquo;&nbsp;Ouvert&nbsp;&raquo; 10&euro;</p>"
+        #expect(HTMLText.plain(from: html) == "Date: 18 novembre\n\nCafé « Ouvert » 10€")
+    }
+
+    @Test func htmlDocumentDropsMetaRefresh() {
+        let page = HTMLDocument.page(for: #"<meta http-equiv="refresh" content="0;url=https://evil.example"><p>Hi</p>"#)
+        #expect(!page.contains("evil.example"))
+        #expect(page.contains("<p>Hi</p>"))
+    }
+
+    @Test func outgoingMailSupportsBccAndMultipartHTML() {
+        let draft = Draft(
+            to: [Contact(name: "Priya", email: "priya@example.com")],
+            bcc: [Contact(name: "", email: "secret@example.com")],
+            subject: "Hello",
+            body: "Bold text",
+            htmlBody: "<strong>Bold text</strong>"
+        )
+        let raw = String(decoding: OutgoingMail.data(for: draft, from: GmailFixture.me), as: UTF8.self)
+        #expect(raw.contains("Bcc: secret@example.com"))
+        #expect(raw.contains("Content-Type: multipart/alternative"))
+        #expect(raw.contains("Content-Type: text/html; charset=UTF-8"))
+    }
+
+    @Test func frenchQuotedAttributionIsSplit() {
+        let reply = QuotedText.split("Parfait, merci !\n\nLe mar. 11 nov. 2025, Priya Raman a écrit :\n> Bonjour")
+        #expect(reply.body == "Parfait, merci !")
+        #expect(reply.quoted?.contains("Bonjour") == true)
+    }
+
+    @Test func encodedWordJoinsSplitUTF8BytesAcrossAdjacentWords() {
+        // "é" (C3 A9) split across two adjacent UTF-8 encoded words.
+        #expect(EncodedWord.decode("=?UTF-8?Q?Caf=C3?= =?UTF-8?Q?=A9?=") == "Café")
+    }
+
+    @Test func addressListStripsCommentsAndUnwrapsGroups() {
+        let contacts = AddressList.contacts(in: "Team: alice@example.com (Alice), Bob <bob@example.com>;")
+        #expect(contacts.map(\.email) == ["alice@example.com", "bob@example.com"])
+        #expect(contacts.map(\.name) == ["Alice", "Bob"])
+    }
+
+    @Test func outgoingMailEncodesAttachmentsAsMultipartMixed() {
+        let file = Attachment(filename: "note.txt", byteCount: 5, mimeType: "text/plain", data: Data("hello".utf8))
+        let draft = Draft(
+            to: [Contact(name: "Priya", email: "priya@example.com")],
+            subject: "Attached",
+            body: "See attached.",
+            attachments: [file]
+        )
+        let raw = String(decoding: OutgoingMail.data(for: draft, from: GmailFixture.me), as: UTF8.self)
+        #expect(raw.contains("Content-Type: multipart/mixed"))
+        #expect(raw.contains("Content-Disposition: attachment; filename=\"note.txt\""))
+        #expect(raw.contains(Data("hello".utf8).base64EncodedString()))
+    }
 }

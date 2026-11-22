@@ -1,3 +1,4 @@
+import QuickLook
 import SwiftUI
 
 /// Chooses the layout for the space available and hosts what both layouts share:
@@ -5,6 +6,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router
+    @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(MailNotifier.self) private var notifier: MailNotifier?
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
@@ -29,6 +31,15 @@ struct RootView: View {
                 .presentationBackground(Palette.surface)
                 .composeSheetFrame()
         }
+        .sheet(isPresented: isShowingSnoozePicker) {
+            if let threadID = router.snoozingThreadID {
+                CustomSnoozeSheet(
+                    threadID: threadID,
+                    defaultDate: SnoozeOption.tomorrow.date(from: store.now, calendar: store.calendar)
+                )
+            }
+        }
+        .quickLookPreview($router.previewAttachmentURL)
         .alert("Something Went Wrong", isPresented: $isShowingAlert) {
             Button("OK", action: clearAlert)
         } message: {
@@ -36,6 +47,15 @@ struct RootView: View {
         }
         .onChange(of: store.alert) {
             isShowingAlert = store.alert != nil
+        }
+        .onChange(of: store.cancelledDraft) {
+            if let cancelled = store.cancelledDraft {
+                router.draft = cancelled
+                store.cancelledDraft = nil
+            }
+        }
+        .onChange(of: store.account, initial: true) {
+            session?.syncActiveProfile(store.account)
         }
         .onChange(of: sizeClass) {
             carrySelectionAcrossLayouts()
@@ -52,7 +72,7 @@ struct RootView: View {
         .onChange(of: store.threads) {
             openRequestedThread()
         }
-        .task(id: store.badge(for: .mailbox(.inbox))) {
+        .task(id: store.unreadInboxIDs) {
             // Reading or filing mail here changes the badge and clears its notifications.
             await notifier?.reflect(store.threads)
         }
@@ -102,6 +122,8 @@ struct RootView: View {
         taps.requestedThreadID = nil
         router.isShowingMailboxes = false
         router.isShowingSettings = false
+        router.isSearching = false
+        store.endSearch()
         store.show(.mailbox(.inbox))
         if sizeClass == .compact {
             router.path = [id]
@@ -132,6 +154,13 @@ struct RootView: View {
         }
     }
 
+    private var isShowingSnoozePicker: Binding<Bool> {
+        Binding(
+            get: { router.snoozingThreadID != nil },
+            set: { if !$0 { router.snoozingThreadID = nil } }
+        )
+    }
+
     private func clearAlert() {
         store.alert = nil
     }
@@ -142,13 +171,17 @@ struct RootView: View {
         // Settings hangs off a view that belongs to one layout, so it closes with that layout.
         router.isShowingSettings = false
         if sizeClass == .compact {
-            router.path = store.selectedThreadID.map { [$0] } ?? []
-        } else {
-            if let open = router.path.last {
-                store.selectedThreadID = open
+            if let open = store.selectedThreadID, store.thread(open) != nil {
+                router.path = [open]
+            } else {
+                router.path = []
             }
+            router.isSearching = store.hasSearchQuery
+        } else {
+            store.selectedThreadID = router.path.last
             router.path = []
             router.isShowingMailboxes = false
+            router.isSearching = false
         }
     }
 }

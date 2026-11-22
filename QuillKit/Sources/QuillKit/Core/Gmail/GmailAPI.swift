@@ -56,19 +56,71 @@ struct GmailAPI: Sendable {
         return list.labels ?? []
     }
 
+    func createLabel(name: String) async throws -> GmailResource.Label {
+        let payload = GmailResource.LabelWrite(name: name)
+        return try await call(Self.mail + "labels", method: "POST", body: JSONEncoder().encode(payload))
+    }
+
+    func renameLabel(_ id: String, to name: String) async throws -> GmailResource.Label {
+        let payload = GmailResource.LabelWrite(name: name, labelListVisibility: nil, messageListVisibility: nil)
+        return try await call(Self.mail + "labels/\(id)", method: "PATCH", body: JSONEncoder().encode(payload))
+    }
+
+    func deleteLabel(_ id: String) async throws {
+        let _: GmailResource.Ignored = try await call(Self.mail + "labels/\(id)", method: "DELETE")
+    }
+
     /// The newest threads matching a Gmail search and every given label. Spam and Trash are left out unless asked for.
-    func threadReferences(query: String? = nil, labelIDs: [String] = [], limit: Int) async throws -> [GmailResource.ThreadReference] {
+    func threadReferences(
+        query: String? = nil,
+        labelIDs: [String] = [],
+        includeSpamTrash: Bool = false,
+        pageToken: String? = nil,
+        limit: Int
+    ) async throws -> [GmailResource.ThreadReference] {
+        try await threadReferencePage(
+            query: query,
+            labelIDs: labelIDs,
+            includeSpamTrash: includeSpamTrash,
+            pageToken: pageToken,
+            limit: limit
+        ).threads
+    }
+
+    /// One page of thread references plus its continuation token for loading older mail.
+    func threadReferencePage(
+        query: String? = nil,
+        labelIDs: [String] = [],
+        includeSpamTrash: Bool = false,
+        pageToken: String? = nil,
+        limit: Int
+    ) async throws -> (threads: [GmailResource.ThreadReference], nextPageToken: String?) {
         var items = [URLQueryItem(name: "maxResults", value: String(limit))]
         if let query {
             items.append(URLQueryItem(name: "q", value: query))
         }
+        if includeSpamTrash {
+            items.append(URLQueryItem(name: "includeSpamTrash", value: "true"))
+        }
+        if let pageToken {
+            items.append(URLQueryItem(name: "pageToken", value: pageToken))
+        }
         items += labelIDs.map { URLQueryItem(name: "labelIds", value: $0) }
         let list: GmailResource.ThreadList = try await call(Self.mail + "threads", query: items)
-        return list.threads ?? []
+        return (list.threads ?? [], list.nextPageToken)
     }
 
     func thread(_ id: String) async throws -> GmailResource.Thread {
         try await call(Self.mail + "threads/\(id)", query: [URLQueryItem(name: "format", value: "full")])
+    }
+
+    /// Downloads raw attachment bytes for a message part.
+    func attachment(messageID: String, id: String) async throws -> Data {
+        let response: GmailResource.AttachmentData = try await call(Self.mail + "messages/\(messageID)/attachments/\(id)")
+        guard let encoded = response.data, let data = Data(base64URLEncoded: encoded) else {
+            throw GmailError.status(404, "Attachment data missing.")
+        }
+        return data
     }
 
     func modifyThread(_ id: String, adding: [String] = [], removing: [String] = []) async throws {
@@ -89,10 +141,35 @@ struct GmailAPI: Sendable {
         let _: GmailResource.Ignored = try await call(Self.mail + "threads/\(id)/untrash", method: "POST")
     }
 
+    /// Permanently deletes a thread from Gmail (cannot be undone).
+    func deleteThread(_ id: String) async throws {
+        let _: GmailResource.Ignored = try await call(Self.mail + "threads/\(id)", method: "DELETE")
+    }
+
     /// Sends a finished RFC 5322 message, joining `threadID` when it is a reply.
-    func send(raw: Data, threadID: String?) async throws {
+    @discardableResult
+    func send(raw: Data, threadID: String?) async throws -> GmailResource.SentMessage {
         let message = GmailResource.OutgoingMessage(raw: raw.base64URLEncoded, threadId: threadID)
-        let _: GmailResource.Ignored = try await call(Self.mail + "messages/send", method: "POST", body: JSONEncoder().encode(message))
+        return try await call(Self.mail + "messages/send", method: "POST", body: JSONEncoder().encode(message))
+    }
+
+    func drafts(limit: Int = 50) async throws -> [GmailResource.DraftSummary] {
+        let list: GmailResource.DraftList = try await call(Self.mail + "drafts", query: [URLQueryItem(name: "maxResults", value: String(limit))])
+        return list.drafts ?? []
+    }
+
+    func createDraft(raw: Data, threadID: String?) async throws -> GmailResource.DraftSummary {
+        let payload = GmailResource.OutgoingDraft(message: GmailResource.OutgoingMessage(raw: raw.base64URLEncoded, threadId: threadID))
+        return try await call(Self.mail + "drafts", method: "POST", body: JSONEncoder().encode(payload))
+    }
+
+    func updateDraft(_ draftID: String, raw: Data, threadID: String?) async throws -> GmailResource.DraftSummary {
+        let payload = GmailResource.OutgoingDraft(message: GmailResource.OutgoingMessage(raw: raw.base64URLEncoded, threadId: threadID))
+        return try await call(Self.mail + "drafts/\(draftID)", method: "PUT", body: JSONEncoder().encode(payload))
+    }
+
+    func deleteDraft(_ draftID: String) async throws {
+        let _: GmailResource.Ignored = try await call(Self.mail + "drafts/\(draftID)", method: "DELETE")
     }
 
     /// Unsubscribes from a mailing list as RFC 8058 describes: a bare POST, without the
@@ -130,10 +207,11 @@ struct GmailAPI: Sendable {
 
         var delay = Duration.seconds(1)
         let attempts = 3
+        var hasRefreshedAuth = false
         for attempt in 1...attempts {
             var request = URLRequest(url: url)
             request.httpMethod = method
-            let token = try await auth.accessToken()
+            let token = hasRefreshedAuth ? try await auth.forceRefreshAccessToken() : try await auth.accessToken()
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             if let body {
                 request.httpBody = body
@@ -144,6 +222,11 @@ struct GmailAPI: Sendable {
             let status = response.statusCode
             if (200..<300).contains(status) {
                 return try JSONDecoder().decode(Response.self, from: data.isEmpty ? Data("{}".utf8) : data)
+            }
+
+            if status == 401, !hasRefreshedAuth {
+                hasRefreshedAuth = true
+                continue
             }
 
             let failure = (try? JSONDecoder().decode(Failure.self, from: data))?.error

@@ -5,6 +5,8 @@ import SwiftUI
 /// photo and file attachments on the right.
 struct FormatBar: View {
     @Binding var photo: PhotosPickerItem?
+    var isBold = false
+    var isItalic = false
     let onStyle: (ComposeTextStyle) -> Void
     let onBold: () -> Void
     let onItalic: () -> Void
@@ -27,8 +29,17 @@ struct FormatBar: View {
             }
             .menuIndicator(.hidden)
             .buttonStyle(.plain)
+            .help("Text Style")
             IconButton("Bold", systemImage: "bold", action: onBold)
+                .foregroundStyle(isBold ? Palette.accent : Palette.label)
+                .background(isBold ? Palette.accentTint : .clear, in: .rect(cornerRadius: Radius.small))
+                .keyboardShortcut("b", modifiers: .command)
+                .accessibilityAddTraits(isBold ? .isSelected : [])
             IconButton("Italic", systemImage: "italic", action: onItalic)
+                .foregroundStyle(isItalic ? Palette.accent : Palette.label)
+                .background(isItalic ? Palette.accentTint : .clear, in: .rect(cornerRadius: Radius.small))
+                .keyboardShortcut("i", modifiers: .command)
+                .accessibilityAddTraits(isItalic ? .isSelected : [])
             IconButton("List", systemImage: "list.bullet", action: onList)
             Spacer()
             Group {
@@ -39,6 +50,7 @@ struct FormatBar: View {
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
+                .help("Add Photo")
                 IconButton("Attach File", systemImage: "paperclip", action: onAttach)
             }
             .foregroundStyle(Palette.accent)

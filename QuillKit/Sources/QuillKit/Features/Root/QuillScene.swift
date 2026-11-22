@@ -3,7 +3,6 @@ import SwiftUI
 /// The app's window and commands. The app target's only job is to show this scene.
 public struct QuillScene: Scene {
     @State private var session: AccountSession
-    @State private var router: Router
     private let options: LaunchOptions
 
     /// - Parameter googleClientID: The iOS OAuth client ID from Google Cloud Console.
@@ -13,7 +12,6 @@ public struct QuillScene: Scene {
         let options = LaunchOptions()
         self.options = options
         _session = State(initialValue: AccountSession(options: options, googleClientID: googleClientID, pushRelayURL: pushRelayURL))
-        _router = State(initialValue: options.makeRouter())
         NotificationTaps.shared.listen()
         CodeCopying.register()
     }
@@ -46,21 +44,14 @@ public struct QuillScene: Scene {
 
     public var body: some Scene {
         WindowGroup {
-            SessionView()
-                .environment(session)
-                .environment(router)
-                .preferredColorScheme(options.colorScheme)
+            QuillWindow(session: session, options: options)
         }
         #if os(macOS)
         .defaultSize(width: 1334, height: 834)
         .windowToolbarStyle(.unified(showsTitle: false))
         #endif
         .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("New Message", action: compose)
-                    .keyboardShortcut("n", modifiers: .command)
-                    .disabled(session.store == nil)
-            }
+            QuillCommands(session: session)
         }
         #if os(iOS)
         .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { [session] in
@@ -78,8 +69,121 @@ public struct QuillScene: Scene {
         }
         #endif
     }
+}
+
+/// Gives each window its own navigation and sheet `Router` so multiple windows stay independent.
+private struct QuillWindow: View {
+    let session: AccountSession
+    let options: LaunchOptions
+    @State private var router: Router
+
+    init(session: AccountSession, options: LaunchOptions) {
+        self.session = session
+        self.options = options
+        _router = State(initialValue: options.makeRouter())
+    }
+
+    var body: some View {
+        SessionView()
+            .environment(session)
+            .environment(router)
+            .focusedSceneValue(\.quillRouter, router)
+            .preferredColorScheme(options.colorScheme)
+    }
+}
+
+private struct QuillCommands: Commands {
+    let session: AccountSession
+    @FocusedValue(\.quillRouter) private var router
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Message", action: compose)
+                .keyboardShortcut("n", modifiers: .command)
+                .disabled(session.store == nil || router == nil)
+            Button("Check for New Mail", action: refresh)
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .disabled(session.store == nil)
+        }
+        CommandGroup(replacing: .printItem) {
+            Button("Print…", action: printSelected)
+                .keyboardShortcut("p", modifiers: .command)
+                .disabled(selectedThread == nil)
+        }
+        CommandGroup(replacing: .undoRedo) {
+            Button(session.store?.toast.map { "Undo \($0.title)" } ?? "Undo", action: undo)
+                .keyboardShortcut("z", modifiers: .command)
+                .disabled(session.store?.toast == nil)
+        }
+        CommandMenu("Message") {
+            Button(selectedThread?.isUnread == true ? "Mark as Read" : "Mark as Unread", action: toggleUnread)
+                .keyboardShortcut("u", modifiers: [.command, .shift])
+                .disabled(selectedThread == nil)
+            Button("Mark All as Read", action: markAllRead)
+                .disabled((session.store?.unreadCount ?? 0) == 0)
+            Divider()
+            Button(selectedThread?.isStarred == true ? "Remove Star" : "Star", action: toggleStar)
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+                .disabled(selectedThread == nil)
+            Button(selectedThread?.isPinned == true ? "Unpin" : "Pin", action: togglePin)
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+                .disabled(selectedThread == nil)
+        }
+    }
+
+    private var selectedThread: MailThread? {
+        guard let store = session.store else { return nil }
+        return store.thread(store.selectedThreadID ?? router?.path.last)
+    }
 
     private func compose() {
+        guard let router, router.draft == nil else { return }
         router.draft = Draft()
+    }
+
+    private func refresh() {
+        guard let store = session.store else { return }
+        Task { await store.refresh() }
+    }
+
+    private func undo() {
+        guard let store = session.store else { return }
+        withAnimation(Motion.list) { store.undo() }
+    }
+
+    private func toggleUnread() {
+        guard let store = session.store, let id = selectedThread?.id else { return }
+        withAnimation(Motion.quick) { store.toggleUnread(id) }
+    }
+
+    private func markAllRead() {
+        guard let store = session.store else { return }
+        withAnimation(Motion.quick) { store.markAllRead() }
+    }
+
+    private func toggleStar() {
+        guard let store = session.store, let id = selectedThread?.id else { return }
+        withAnimation(Motion.quick) { store.toggleStar(id) }
+    }
+
+    private func togglePin() {
+        guard let store = session.store, let id = selectedThread?.id else { return }
+        withAnimation(Motion.list) { store.togglePin(id) }
+    }
+
+    private func printSelected() {
+        guard let store = session.store, let thread = selectedThread else { return }
+        ThreadPrinter.shared.printThread(thread, timestamp: store.timestamp)
+    }
+}
+
+private struct QuillRouterKey: FocusedValueKey {
+    typealias Value = Router
+}
+
+private extension FocusedValues {
+    var quillRouter: Router? {
+        get { self[QuillRouterKey.self] }
+        set { self[QuillRouterKey.self] = newValue }
     }
 }

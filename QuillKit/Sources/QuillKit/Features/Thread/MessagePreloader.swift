@@ -30,14 +30,16 @@ final class MessagePreloader {
         let earlier = task
         task = Task {
             await earlier?.value
+            guard !Task.isCancelled else { return }
             let view = self.view ?? MessageWebView.makeHiddenView()
             self.view = view
             for page in pages {
+                guard !Task.isCancelled else { break }
                 view.loadHTMLString(HTMLDocument.page(for: page), baseURL: nil)
                 // A slow sender is given a few seconds, then left behind.
                 for _ in 0..<25 {
                     try? await Task.sleep(for: .milliseconds(200))
-                    if !view.isLoading { break }
+                    if Task.isCancelled || !view.isLoading { break }
                 }
             }
             view.loadHTMLString("", baseURL: nil)
@@ -46,6 +48,9 @@ final class MessagePreloader {
 
     func forget() {
         task?.cancel()
+        task = nil
+        view?.stopLoading()
+        view = nil
         seen = []
     }
 }

@@ -12,9 +12,11 @@ struct ComposeButton: View {
                 .font(.system(size: size * 0.4, weight: .medium))
                 .foregroundStyle(Palette.onFill)
                 .frame(width: size, height: size)
-                .background(Palette.warmFill, in: .rect(cornerRadius: size * Radius.squircle))
+                .background(Palette.warmFill, in: .rect(cornerRadius: size * Radius.squircle, style: .continuous))
                 .shadow(color: Palette.warmFill.opacity(0.3), radius: 10, y: 4)
+                .contentShape(.rect(cornerRadius: size * Radius.squircle, style: .continuous))
         }
         .buttonStyle(.pressable)
+        .help("New Message")
     }
 }

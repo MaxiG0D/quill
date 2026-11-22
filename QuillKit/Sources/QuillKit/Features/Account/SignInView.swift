@@ -5,10 +5,15 @@ import SwiftUI
 struct SignInView: View {
     @Environment(AccountSession.self) private var session
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @AppStorage(AppIcon.storageKey) private var storedIcon = AppIcon.primary.rawValue
+
+    private var icon: AppIcon {
+        AppIcon(rawValue: storedIcon) ?? .primary
+    }
 
     var body: some View {
         VStack(spacing: Spacing.xl) {
-            Image(AppIcon.stored().previewName, bundle: .module)
+            Image(icon.previewName, bundle: .module)
                 .resizable()
                 .frame(width: 104, height: 104)
                 .clipShape(IconShape())

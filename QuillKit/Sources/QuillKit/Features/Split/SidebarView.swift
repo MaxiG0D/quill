@@ -8,6 +8,10 @@ struct SidebarView: View {
 
     /// Runs after a mailbox or label is chosen, so a drawer can close.
     var onSelect: () -> Void = {}
+    /// True when the iOS floating account button overlaps the bottom of this sidebar.
+    var hasFloatingAccount = true
+
+    @State private var isCreatingLabel = false
 
     var body: some View {
         ScrollView {
@@ -32,38 +36,62 @@ struct SidebarView: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.pressable)
+                .help("New Message (⌘N)")
                 .padding(.bottom, Spacing.xs)
                 #endif
                 MailboxRows(onSelect: onSelect)
-                Text("Labels")
-                    .textRole(.section)
-                    .foregroundStyle(Palette.label)
-                    .padding(.leading, Spacing.s)
-                    .padding(.top, Spacing.l)
-                    .padding(.bottom, Spacing.xxs)
-                    .accessibilityAddTraits(.isHeader)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Labels")
+                        .textRole(.section)
+                        .foregroundStyle(Palette.label)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer()
+                    Button {
+                        isCreatingLabel = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Palette.secondaryLabel)
+                            .frame(width: 28, height: 28)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.pressable)
+                    .help("New Label")
+                    .accessibilityLabel("New Label")
+                }
+                .padding(.leading, Spacing.s)
+                .padding(.trailing, Spacing.xxs)
+                .padding(.top, Spacing.l)
+                .padding(.bottom, Spacing.xxs)
                 LabelRows(onSelect: onSelect)
             }
             .padding(.horizontal, Spacing.s)
             .padding(.vertical, Spacing.xs)
         }
+        .sheet(isPresented: $isCreatingLabel) {
+            LabelEditorSheet(title: "New Label", confirmTitle: "Create") { name in
+                await store.createLabel(named: name)
+            }
+        }
         #if os(macOS)
         // The account's picture holds the sidebar's bottom-left corner and opens Settings.
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            SettingsButton()
+            SettingsButton(showsName: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, Spacing.m)
+                .padding(.horizontal, Spacing.s)
                 .padding(.vertical, Spacing.xs)
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         #else
-        // On iOS the picture floats in the screen's bottom-left corner, over this list.
-        .contentMargins(.bottom, Metrics.listBottomPadding, for: .scrollContent)
+        // On iOS the picture floats in the screen's bottom-left corner, over the split sidebar.
+        .contentMargins(.bottom, hasFloatingAccount ? Metrics.listBottomPadding : Spacing.m, for: .scrollContent)
         #endif
         .navigationTitle("")
     }
 
     private func compose() {
-        router.draft = Draft()
+        if router.draft == nil {
+            router.draft = Draft()
+        }
     }
 }

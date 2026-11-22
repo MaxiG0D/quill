@@ -9,9 +9,12 @@ struct AttachmentGlyph: View {
         Text(kind.badge)
             .font(.system(size: size * 0.3, weight: .bold))
             .tracking(0.6)
+            .lineLimit(1)
+            .minimumScaleFactor(0.55)
+            .padding(.horizontal, 2)
             .foregroundStyle(kind.tone.ink)
             .frame(width: size, height: size)
-            .background(kind.tone.fill, in: .rect(cornerRadius: size * 0.28))
+            .background(kind.tone.fill, in: .rect(cornerRadius: size * 0.28, style: .continuous))
             .accessibilityHidden(true)
     }
 }

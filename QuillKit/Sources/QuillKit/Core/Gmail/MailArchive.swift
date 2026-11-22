@@ -4,7 +4,7 @@ import Foundation
 /// It also holds what Gmail has no place for: pins and snoozes.
 struct MailArchive: Codable, Sendable {
     /// Raised whenever threads start keeping something more from Gmail.
-    static let currentFormat = 3
+    static let currentFormat = 4
 
     /// The format this archive was written in. Older archives carry none.
     var format: Int? = MailArchive.currentFormat
@@ -20,6 +20,8 @@ struct MailArchive: Codable, Sendable {
     /// Gmail labels whose own mail is listed on every refresh, most recently opened first.
     /// Older archives carry none.
     var watched: [String]?
+    /// Gmail draft resource IDs mapped by their thread ID, for updating and deleting synced drafts.
+    var draftIDs: [MailThread.ID: String]?
 
     var snapshot: MailSnapshot {
         MailSnapshot(account: account, labels: labels, threads: threads)

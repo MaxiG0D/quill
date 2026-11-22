@@ -27,6 +27,9 @@ struct EventDetails: Hashable, Sendable {
     private static let street = regex(#"^\d+[A-Za-z]?(?:-\d+)?[,\s]+\p{L}"#)
     private static let country = regex(#"^(?:canada|usa|united states|etats-unis|france)$"#)
 
+    private static let addressDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.address.rawValue)
+    private static let phoneDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.phoneNumber.rawValue)
+
     /// A postal address: the lines from the street number down to the postal code, joined on one line.
     static func address(in text: String) -> String? {
         let lines = text.components(separatedBy: .newlines)
@@ -52,9 +55,8 @@ struct EventDetails: Hashable, Sendable {
             return parts.joined(separator: ", ")
         }
 
-        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.address.rawValue)
         let range = NSRange(text.startIndex..., in: text)
-        guard let match = detector?.firstMatch(in: text, range: range),
+        guard let match = addressDetector?.firstMatch(in: text, range: range),
               let bounds = Range(match.range, in: text) else { return nil }
         return text[bounds]
             .components(separatedBy: .newlines)
@@ -64,9 +66,8 @@ struct EventDetails: Hashable, Sendable {
     }
 
     static func phone(in text: String) -> String? {
-        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.phoneNumber.rawValue)
         let range = NSRange(text.startIndex..., in: text)
-        return detector?.firstMatch(in: text, range: range)?.phoneNumber
+        return phoneDetector?.firstMatch(in: text, range: range)?.phoneNumber
     }
 
     private static func matches(_ expression: NSRegularExpression, _ text: String) -> Bool {

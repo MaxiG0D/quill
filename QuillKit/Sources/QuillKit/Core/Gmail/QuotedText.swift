@@ -20,15 +20,20 @@ enum QuotedText {
 
     private static func startsQuote(at index: Int, in lines: [String]) -> Bool {
         let line = lines[index].trimmingCharacters(in: .whitespaces)
-        if line.hasPrefix(">") || line.hasPrefix("-----Original Message-----") {
-            return true
-        }
-        // "On Tue, Nov 11, Priya Raman wrote:", which long addresses can push onto a second line.
-        guard line.hasPrefix("On ") else { return false }
-        if line.hasSuffix("wrote:") {
+        if line.hasPrefix(">") || line.hasPrefix("-----Original Message-----") || line.hasPrefix("---------- Forwarded message") {
             return true
         }
         let next = index + 1 < lines.count ? lines[index + 1].trimmingCharacters(in: .whitespaces) : ""
-        return next.hasSuffix("wrote:") && !next.hasPrefix("On ")
+        // "On Tue, Nov 11, Priya Raman wrote:", which long addresses can push onto a second line.
+        if line.hasPrefix("On ") {
+            if line.hasSuffix("wrote:") { return true }
+            return next.hasSuffix("wrote:") && !next.hasPrefix("On ")
+        }
+        // French Gmail/Mail attribution: "Le mar. 11 nov. 2025, Priya Raman a écrit :"
+        if line.hasPrefix("Le ") {
+            if line.hasSuffix("a écrit :") || line.hasSuffix("a écrit:") { return true }
+            return (next.hasSuffix("a écrit :") || next.hasSuffix("a écrit:")) && !next.hasPrefix("Le ")
+        }
+        return false
     }
 }

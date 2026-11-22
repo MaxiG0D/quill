@@ -34,7 +34,7 @@ for target in "$@"; do
       id="$(python3 - "$json" "$pattern" <<'PY'
 import json, sys
 devices = json.load(open(sys.argv[1]))["result"]["devices"]
-hits = [d for d in devices if sys.argv[2] in d["deviceProperties"]["name"].lower()]
+hits = [d for d in devices if sys.argv[2] in d["deviceProperties"]["name"].lower() and d.get("hardwareProperties",{}).get("reality","physical") != "simulated"]
 print(hits[0]["identifier"] if len(hits) == 1 else "")
 PY
 )"

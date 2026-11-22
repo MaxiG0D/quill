@@ -13,32 +13,42 @@ struct TestCodeButton: View {
     @Environment(AccountSession.self) private var session
     @State private var attempts = 0
     @State private var failed = false
+    @State private var errorMessage: String?
 
     var body: some View {
+        let trace = (UserDefaults.standard.stringArray(forKey: "liveActivityTrace") ?? []).joined(separator: "\n")
         VStack(alignment: .leading, spacing: Spacing.xs) {
-        Button {
-            Task {
-                let localError = LiveActivityTest.start?()
-                let pushed = await session.sendTestCode()
-                failed = !pushed || localError != nil
-                attempts += 1
+            Button {
+                Task {
+                    let localError = LiveActivityTest.start?()
+                    let pushed = await session.sendTestCode()
+                    errorMessage = localError
+                    failed = !pushed || localError != nil
+                    attempts += 1
+                }
+            } label: {
+                HStack {
+                    Text("Test Code")
+                        .foregroundStyle(Palette.label)
+                    Spacer(minLength: Spacing.s)
+                    Image(systemName: failed ? "exclamationmark.triangle" : "paperplane")
+                        .foregroundStyle(failed ? Palette.warm : Palette.accent)
+                        .contentTransition(.symbolEffect(.replace))
+                }
             }
-        } label: {
-            HStack {
-                Text("Test Code")
-                    .foregroundStyle(Palette.label)
-                Spacer(minLength: Spacing.s)
-                Image(systemName: failed ? "exclamationmark.triangle" : "paperplane")
-                    .foregroundStyle(failed ? Palette.warm : Palette.accent)
-                    .contentTransition(.symbolEffect(.replace))
+            .buttonStyle(.plain)
+            .sensoryFeedback(.selection, trigger: attempts)
+            if let errorMessage, !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(Palette.destructive)
             }
-        }
-        .buttonStyle(.plain)
-        .sensoryFeedback(.selection, trigger: attempts)
-        Text((UserDefaults.standard.stringArray(forKey: "liveActivityTrace") ?? []).joined(separator: "\n"))
-            .font(.caption.monospaced())
-            .foregroundStyle(Palette.secondaryLabel)
-            .id(attempts)
+            if !trace.isEmpty {
+                Text(trace)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(Palette.secondaryLabel)
+                    .id(attempts)
+            }
         }
     }
 }

@@ -12,6 +12,9 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
     var isStarred: Bool
     var isPinned: Bool
     var snoozedUntil: Date?
+    /// True when this conversation includes at least one message sent by the account,
+    /// so it also appears in the Sent mailbox even while filed in Inbox or Archive.
+    var hasSentMessages: Bool
 
     init(
         id: String = UUID().uuidString,
@@ -22,7 +25,8 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
         isUnread: Bool = false,
         isStarred: Bool = false,
         isPinned: Bool = false,
-        snoozedUntil: Date? = nil
+        snoozedUntil: Date? = nil,
+        hasSentMessages: Bool = false
     ) {
         self.id = id
         self.subject = subject
@@ -33,6 +37,21 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
         self.isStarred = isStarred
         self.isPinned = isPinned
         self.snoozedUntil = snoozedUntil
+        self.hasSentMessages = hasSentMessages
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        subject = try container.decode(String.self, forKey: .subject)
+        messages = try container.decode([Message].self, forKey: .messages)
+        labelIDs = try container.decode([MailLabel.ID].self, forKey: .labelIDs)
+        folder = try container.decode(Mailbox.self, forKey: .folder)
+        isUnread = try container.decode(Bool.self, forKey: .isUnread)
+        isStarred = try container.decode(Bool.self, forKey: .isStarred)
+        isPinned = try container.decode(Bool.self, forKey: .isPinned)
+        snoozedUntil = try container.decodeIfPresent(Date.self, forKey: .snoozedUntil)
+        hasSentMessages = try container.decodeIfPresent(Bool.self, forKey: .hasSentMessages) ?? false
     }
 
     var latest: Message? { messages.last }
@@ -41,6 +60,14 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
     var preview: String { latest?.preview ?? "" }
     var attachments: [Attachment] { messages.flatMap(\.attachments) }
     var hasAttachments: Bool { messages.contains { !$0.attachments.isEmpty } }
+
+    /// The date used for sorting and sectioning: returning snoozes surface at their wake time.
+    func displayDate(at now: Date) -> Date {
+        if hasReturned(at: now), let wake = snoozedUntil {
+            return max(date, wake)
+        }
+        return date
+    }
 
     /// Hidden until its snooze date passes.
     func isSnoozed(at now: Date) -> Bool {
@@ -63,6 +90,8 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
             snoozed && folder != .trash
         case .mailbox(.inbox):
             folder == .inbox && !snoozed
+        case .mailbox(.sent):
+            (folder == .sent || hasSentMessages) && folder != .trash
         case .mailbox(let mailbox):
             folder == mailbox
         }

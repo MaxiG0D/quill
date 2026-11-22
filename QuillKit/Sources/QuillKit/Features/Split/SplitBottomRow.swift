@@ -52,14 +52,15 @@ extension EnvironmentValues {
 
 extension View {
     /// Lays `content` along the screen's bottom edge at the row's gap, ignoring the container
-    /// safe area so both columns share the screen edge as their basis. The keyboard still
-    /// pushes it up.
+    /// safe area so both columns share the screen edge as their basis. Set `ignoresKeyboard`
+    /// for peripheral buttons (account, Compose) that should stay put when typing in Search.
     func bottomRow<Content: View>(
         alignment: Alignment,
         trailing: Double = 0,
+        ignoresKeyboard: Bool = false,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        modifier(BottomRowModifier(alignment: alignment, trailing: trailing, row: content()))
+        modifier(BottomRowModifier(alignment: alignment, trailing: trailing, ignoresKeyboard: ignoresKeyboard, row: content()))
     }
 
     /// Logs this view's global frame in Debug builds, to check the row's alignment by number.
@@ -78,6 +79,7 @@ private struct BottomRowModifier<Row: View>: ViewModifier {
     @Environment(\.bottomRowPlacement) private var placement
     let alignment: Alignment
     let trailing: Double
+    let ignoresKeyboard: Bool
     let row: Row
 
     func body(content: Content) -> some View {
@@ -86,7 +88,7 @@ private struct BottomRowModifier<Row: View>: ViewModifier {
                 .padding(.trailing, trailing)
                 .padding(.bottom, placement.bottomGap)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
-                .ignoresSafeArea(.container, edges: trailing > 0 ? [.bottom, .trailing] : .bottom)
+                .ignoresSafeArea(ignoresKeyboard ? [.container, .keyboard] : .container, edges: trailing > 0 ? [.bottom, .trailing] : .bottom)
         }
     }
 }
@@ -140,6 +142,9 @@ struct SplitSearchRow: View {
         }
         .padding(.horizontal, Spacing.m)
         .animation(Motion.quick, value: store.searchQuery.isEmpty)
+        .onChange(of: store.selection) {
+            isFocused = false
+        }
     }
 
     private func clear() {

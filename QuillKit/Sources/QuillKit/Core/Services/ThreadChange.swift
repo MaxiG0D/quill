@@ -35,6 +35,7 @@ enum ThreadChange: Hashable, Sendable {
             if !thread.labelIDs.contains(label) {
                 thread.labelIDs.append(label)
             }
+            thread.snoozedUntil = nil
             if thread.folder == .inbox || thread.folder == .trash {
                 thread.folder = .archive
             }

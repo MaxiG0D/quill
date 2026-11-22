@@ -19,6 +19,8 @@ enum LiveActivities {
 
     /// The activities whose update token is already being watched.
     private static let watched = OSAllocatedUnfairLock(initialState: Set<String>())
+    /// The activities that already have an expiration timer running.
+    private static let expiring = OSAllocatedUnfairLock(initialState: Set<String>())
 
     static func start() {
         CodeDismissal.send = { code in await QuillScene.dismissCode(code) }
@@ -80,8 +82,9 @@ enum LiveActivities {
     /// Gives the push relay an activity's update token, so copying its code on another
     /// device can end it here. Each activity is watched once.
     private static func reportToken(id: String) async {
-        guard watched.withLock({ $0.insert(id).inserted }),
-              let activity = Activity<SignInCodeAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard watched.withLock({ $0.insert(id).inserted }) else { return }
+        defer { _ = watched.withLock { $0.remove(id) } }
+        guard let activity = Activity<SignInCodeAttributes>.activities.first(where: { $0.id == id }) else { return }
         let code = activity.content.state.code
         // Woken late, after its minute: it ends here rather than waiting on the relay.
         if let stale = activity.content.staleDate, stale <= .now {
@@ -110,6 +113,8 @@ enum LiveActivities {
 
     /// Ends the activity when its code goes stale, or right away if it already has.
     private static func expire(id: String) async {
+        guard expiring.withLock({ $0.insert(id).inserted }) else { return }
+        defer { _ = expiring.withLock { $0.remove(id) } }
         guard let activity = Activity<SignInCodeAttributes>.activities.first(where: { $0.id == id }),
               let stale = activity.content.staleDate else { return }
         let wait = stale.timeIntervalSinceNow

@@ -1,4 +1,5 @@
 import Combine
+import EventKit
 import SwiftUI
 
 /// An event found in a message, at the top of it, with a button that adds it to the calendar.
@@ -7,10 +8,12 @@ struct EventCard: View {
     let details: EventDetails
     let messageID: String
 
+    @Environment(MailStore.self) private var store: MailStore?
     @State private var state: AddState = .ready
     @State private var added = 0
     @State private var calendars: [EventCalendar.Choice] = []
     @State private var picksCalendar = false
+    @State private var errorMessage: String?
     @Environment(\.scenePhase) private var scenePhase
 
     private enum AddState {
@@ -18,19 +21,27 @@ struct EventCard: View {
     }
 
     var body: some View {
-        HStack(spacing: Spacing.s) {
-            CalendarTile(date: event.start)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(EventDateText.day(event.start, now: .now))
-                    .font(.headline)
-                    .foregroundStyle(Palette.label)
-                Text(EventDateText.time(event))
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(Palette.secondaryLabel)
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: Spacing.s) {
+                CalendarTile(date: event.start)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(EventDateText.day(event.start, now: store?.now ?? .now))
+                        .font(.headline)
+                        .foregroundStyle(Palette.label)
+                    Text(EventDateText.time(event))
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(Palette.secondaryLabel)
+                }
+                .lineLimit(1)
+                Spacer(minLength: Spacing.xs)
+                button
             }
-            .lineLimit(1)
-            Spacer(minLength: Spacing.xs)
-            button
+            if let errorMessage {
+                Text(errorMessage)
+                    .textRole(.meta)
+                    .foregroundStyle(Palette.destructive)
+                    .padding(.leading, Spacing.xxs)
+            }
         }
         .padding(Spacing.xs + 2)
         .frame(maxWidth: 440, alignment: .leading)
@@ -45,13 +56,17 @@ struct EventCard: View {
         }
     }
 
-    /// Follows the calendar: an event deleted there brings Add back.
+    /// Follows the calendar: an event deleted there brings Add back, and granted permission clears Allow.
     private func refresh() {
         guard state != .adding else { return }
         if EventCalendar.isAdded(messageID) {
             state = .added
+            errorMessage = nil
         } else if state == .added {
             withAnimation(Motion.quick) { state = .ready }
+        } else if state == .denied, EKEventStore.authorizationStatus(for: .event) == .fullAccess {
+            withAnimation(Motion.quick) { state = .ready }
+            errorMessage = nil
         }
     }
 
@@ -62,12 +77,21 @@ struct EventCard: View {
             Button {
                 Task { await chooseCalendar() }
             } label: {
-                Label("Add", systemImage: "plus")
-                    .foregroundStyle(Palette.onFill)
-                    .modifier(EventButtonShape(filled: true))
+                Group {
+                    if state == .adding {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(Palette.onFill)
+                    } else {
+                        Label("Add", systemImage: "plus")
+                    }
+                }
+                .foregroundStyle(Palette.onFill)
+                .modifier(EventButtonShape(filled: true))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .disabled(state == .adding)
+            .help("Add to Calendar")
             .accessibilityLabel("Add to Calendar")
             .popover(isPresented: $picksCalendar) {
                 CalendarPicker(calendars: calendars) { calendar in
@@ -84,7 +108,8 @@ struct EventCard: View {
                     .foregroundStyle(Palette.accent)
                     .modifier(EventButtonShape(filled: false))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
+            .help("Open in Calendar")
             .accessibilityLabel("Open in Calendar")
         case .denied:
             Button {
@@ -94,16 +119,25 @@ struct EventCard: View {
                     .foregroundStyle(Palette.accent)
                     .modifier(EventButtonShape(filled: false))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
+            .help("Allow Calendar access in Settings")
             .accessibilityLabel("Allow Calendar access in Settings")
         }
     }
 
     /// Asks which calendar to use, unless there is only one.
     private func chooseCalendar() async {
+        errorMessage = nil
         state = .adding
-        guard let choices = await EventCalendar.choices(), !choices.isEmpty else {
+        guard let choices = await EventCalendar.choices() else {
             withAnimation(Motion.quick) { state = .denied }
+            return
+        }
+        guard !choices.isEmpty else {
+            withAnimation(Motion.quick) {
+                state = .ready
+                errorMessage = "No writable calendar available."
+            }
             return
         }
         if choices.count == 1 {
@@ -116,6 +150,7 @@ struct EventCard: View {
     }
 
     private func add(to calendar: EventCalendar.Choice) async {
+        errorMessage = nil
         state = .adding
         switch await EventCalendar.add(event, details: details, to: calendar, messageID: messageID) {
         case .added:
@@ -124,7 +159,10 @@ struct EventCard: View {
         case .denied:
             withAnimation(Motion.quick) { state = .denied }
         case .failed:
-            state = .ready
+            withAnimation(Motion.quick) {
+                state = .ready
+                errorMessage = "Couldn’t save event to Calendar."
+            }
         }
     }
 }
@@ -135,37 +173,62 @@ private struct CalendarPicker: View {
     let pick: (EventCalendar.Choice) -> Void
 
     var body: some View {
-        if calendars.count > 8 {
-            ScrollView { list }
-                .frame(width: 260, height: 360)
-        } else {
-            list.frame(width: 260)
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Add to Calendar")
+                .textRole(.meta)
+                .fontWeight(.semibold)
+                .foregroundStyle(Palette.secondaryLabel)
+                .padding(.horizontal, Spacing.m)
+                .padding(.top, Spacing.s)
+                .padding(.bottom, Spacing.xs)
+            Divider().overlay(Palette.separator)
+            if calendars.count > 8 {
+                ScrollView { list }
+                    .frame(height: 320)
+            } else {
+                list
+            }
         }
+        .frame(minWidth: 240, maxWidth: 280)
     }
 
     private var list: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 2) {
             ForEach(calendars) { calendar in
-                Button {
+                CalendarPickerRow(calendar: calendar) {
                     pick(calendar)
-                } label: {
-                    HStack(spacing: Spacing.s) {
-                        Circle()
-                            .fill(Color(.sRGB, red: calendar.red, green: calendar.green, blue: calendar.blue))
-                            .frame(width: 10, height: 10)
-                        Text(calendar.title)
-                            .foregroundStyle(Palette.label)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, Spacing.m)
-                    .padding(.vertical, Spacing.s - 2)
-                    .contentShape(.rect)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.vertical, Spacing.xs)
+        .padding(.horizontal, Spacing.xs)
+    }
+}
+
+private struct CalendarPickerRow: View {
+    let calendar: EventCalendar.Choice
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Spacing.s) {
+                Circle()
+                    .fill(Color(.sRGB, red: calendar.red, green: calendar.green, blue: calendar.blue))
+                    .frame(width: 10, height: 10)
+                Text(calendar.title)
+                    .foregroundStyle(Palette.label)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, Spacing.s)
+            .frame(minHeight: Metrics.target)
+            .background(isHovering ? Palette.fill : .clear, in: .rect(cornerRadius: Radius.small))
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
     }
 }
 
@@ -198,10 +261,15 @@ private struct CalendarTile: View {
             Text(date.formatted(.dateTime.month(.abbreviated)).uppercased())
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(Palette.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
             Text(date.formatted(.dateTime.day()))
                 .font(.title3.weight(.semibold).monospacedDigit())
                 .foregroundStyle(Palette.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
+        .padding(.horizontal, 2)
         .frame(width: 44, height: 46)
         .background(Palette.surface, in: .rect(cornerRadius: Radius.small))
         .accessibilityHidden(true)
@@ -212,6 +280,8 @@ private struct CalendarTile: View {
 struct EventChip: View {
     let event: MailEvent
     let now: Date
+    /// True when rendered on `Palette.accentTint` (selected row or pinned card).
+    var onTint = false
 
     var body: some View {
         Label {
@@ -225,7 +295,7 @@ struct EventChip: View {
         .foregroundStyle(Palette.accent)
         .padding(.horizontal, Spacing.xs)
         .padding(.vertical, 3)
-        .background(Palette.accentTint, in: .capsule)
+        .background(onTint ? Palette.surface : Palette.accentTint, in: .capsule)
         .accessibilityLabel("Event \(EventDateText.short(event.start, now: now))")
     }
 }

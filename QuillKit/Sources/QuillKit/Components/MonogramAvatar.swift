@@ -20,6 +20,9 @@ struct MonogramAvatar: View {
         let picture = pictures?.picture(for: contact)
         Text(contact.initials)
             .font(.system(size: size.rawValue * 0.42, weight: .semibold, design: .serif))
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .padding(.horizontal, 2)
             .foregroundStyle(contact.tone.ink)
             .frame(width: size.rawValue, height: size.rawValue)
             .background(contact.tone.fill)
@@ -30,7 +33,13 @@ struct MonogramAvatar: View {
                         .transition(.opacity)
                 }
             }
-            .clipShape(.rect(cornerRadius: size.rawValue * Radius.squircle))
+            .clipShape(.rect(cornerRadius: size.rawValue * Radius.squircle, style: .continuous))
+            .overlay {
+                if picture?.kind == .logo {
+                    RoundedRectangle(cornerRadius: size.rawValue * Radius.squircle, style: .continuous)
+                        .strokeBorder(Palette.separator.opacity(0.6), lineWidth: Metrics.hairline)
+                }
+            }
             .animation(Motion.quick, value: picture != nil)
             .accessibilityHidden(true)
             .task(id: lookup) {
@@ -51,6 +60,7 @@ struct MonogramAvatar: View {
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
+                .padding(size.rawValue * 0.1)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.white)
         }

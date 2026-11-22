@@ -48,7 +48,9 @@ enum EventCalendar {
         var added = UserDefaults.standard.dictionary(forKey: addedKey) as? [String: String] ?? [:]
         guard let eventID = added[messageID] else { return false }
         guard EKEventStore.authorizationStatus(for: .event) == .fullAccess, !eventID.isEmpty else { return true }
-        if watcher.event(withIdentifier: eventID) != nil { return true }
+        // A store that has been open a while keeps answering for events deleted since, so ask a fresh one.
+        let fresh = EKEventStore()
+        if let event = fresh.event(withIdentifier: eventID), event.calendar != nil { return true }
         added[messageID] = nil
         UserDefaults.standard.set(added, forKey: addedKey)
         return false

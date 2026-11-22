@@ -69,8 +69,8 @@ final class MailNotifier {
     func setOn(_ isOn: Bool) async -> Bool {
         isEnabled = isOn
         defaults.set(isOn, forKey: Self.enabledKey)
-        await onSwitch?(isOn)
         guard isOn else {
+            await onSwitch?(false)
             await clear()
             return true
         }
@@ -78,7 +78,9 @@ final class MailNotifier {
         if permission == .undecided {
             permission = await poster.requestPermission()
         }
-        return permission == .allowed
+        guard permission == .allowed else { return false }
+        await onSwitch?(true)
+        return true
     }
 
     /// Takes in a freshly fetched mailbox: notifies about what is new in it, unless the

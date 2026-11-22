@@ -24,5 +24,6 @@ struct IconButton: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.pressable)
+        .help(title)
     }
 }

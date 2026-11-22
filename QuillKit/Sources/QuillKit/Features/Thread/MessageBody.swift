@@ -1,12 +1,19 @@
+import QuickLook
 import SwiftUI
 
 /// A message's content, as designed HTML or as text, and its attachments.
 struct MessageBody: View {
+    @Environment(MailStore.self) private var store: MailStore?
+    @Environment(Router.self) private var router: Router?
+
     let message: Message
     /// The conversation's subject, read with the message to find events.
     var subject = ""
 
     @State private var showsQuoted = false
+    @State private var loadingAttachmentID: Attachment.ID?
+    @State private var previewURL: URL?
+    @State private var downloadedURLs: [Attachment.ID: URL] = [:]
 
     /// The message as text, with anything it quotes behind a toggle.
     @ViewBuilder
@@ -39,12 +46,14 @@ struct MessageBody: View {
     }
 
     var body: some View {
+        let now = store?.now ?? .now
+        let codeSource = message.body.isEmpty ? (message.snippet ?? "") : message.body
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            if let code = SignInCode.find(in: message.body.isEmpty ? message.snippet ?? "" : message.body) {
+            if let code = SignInCode.find(in: subject.isEmpty ? codeSource : "\(subject)\n\(codeSource)") {
                 SignInCodeChip(code: code)
                     .padding(.bottom, Spacing.xs)
             }
-            if let event = MailEventCache.event(in: message, subject: subject), event.isUpcoming(at: .now) {
+            if let event = MailEventCache.event(in: message, subject: subject), event.isUpcoming(at: now) {
                 EventCard(
                     event: event,
                     details: EventDetails.make(
@@ -57,17 +66,77 @@ struct MessageBody: View {
                 .padding(.bottom, Spacing.xs)
             }
             if let html = message.html {
-                HTMLMessageView(html: html)
+                HTMLMessageView(html: html, inlineImages: message.inlineImages)
             } else {
-                text.tint(Palette.link)
+                text
+                    .tint(Palette.link)
+                    .environment(\.openURL, OpenURLAction { url in
+                        if url.scheme?.lowercased() == "mailto",
+                           let router,
+                           let draft = MessageWebView.draft(from: url) {
+                            router.draft = draft
+                            return .handled
+                        }
+                        return .systemAction
+                    })
             }
 
             ForEach(message.attachments) { attachment in
-                AttachmentRow(attachment: attachment) {
-                    ShareLink(item: attachment.filename)
+                AttachmentRow(
+                    attachment: attachment,
+                    isLoading: loadingAttachmentID == attachment.id,
+                    onOpen: attachment.isAvailable ? { openAttachment(attachment) } : nil
+                ) {
+                    if attachment.isAvailable {
+                        Button("Preview", systemImage: "eye") {
+                            openAttachment(attachment)
+                        }
+                    }
+                    if let url = downloadedURLs[attachment.id] {
+                        ShareLink(item: url)
+                    } else if attachment.isAvailable {
+                        Button("Download", systemImage: "arrow.down.circle") {
+                            downloadAttachment(attachment)
+                        }
+                    } else {
+                        ShareLink(item: attachment.filename)
+                    }
                 }
                 .frame(maxWidth: 340)
             }
+        }
+        .quickLookPreview($previewURL)
+    }
+
+    private func openAttachment(_ attachment: Attachment) {
+        if let cached = downloadedURLs[attachment.id], FileManager.default.fileExists(atPath: cached.path) {
+            previewURL = cached
+            return
+        }
+        Task {
+            if let url = await fetchToTempFile(attachment) {
+                previewURL = url
+            }
+        }
+    }
+
+    private func downloadAttachment(_ attachment: Attachment) {
+        Task {
+            _ = await fetchToTempFile(attachment)
+        }
+    }
+
+    private func fetchToTempFile(_ attachment: Attachment) async -> URL? {
+        guard let store else { return nil }
+        loadingAttachmentID = attachment.id
+        defer { if loadingAttachmentID == attachment.id { loadingAttachmentID = nil } }
+        do {
+            let fileURL = try await store.previewFileURL(for: attachment)
+            downloadedURLs[attachment.id] = fileURL
+            return fileURL
+        } catch {
+            store.alert = error.localizedDescription
+            return nil
         }
     }
 }

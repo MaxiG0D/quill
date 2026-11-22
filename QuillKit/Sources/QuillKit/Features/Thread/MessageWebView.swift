@@ -11,11 +11,14 @@ struct MessageWebView {
     let html: String
     /// The width on offer. A change means the page must be fitted again.
     let width: Double
+    /// Adapts a light HTML email for Dark Mode reading when enabled.
+    var darkAdapted = false
     @Binding var height: Double
     /// Set once the page can show without its layout moving, or has taken long enough that it should show anyway.
     @Binding var isReady: Bool
 
     @Environment(\.openURL) private var openURL
+    @Environment(Router.self) private var router: Router?
 
     /// One store for every message, apart from the browser's. It keeps pictures on the
     /// device so a message opens without fetching them again, and it refuses cookies, so a
@@ -64,6 +67,7 @@ struct MessageWebView {
 
     /// Removes every picture kept from the account's mail.
     static func forget() async {
+        spare = nil
         await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
     }
 
@@ -76,7 +80,7 @@ struct MessageWebView {
         view.navigationDelegate = coordinator
         // The page is measured against the view's own width, which can arrive after the width on offer.
         (view as? MessageWKWebView)?.resized = { [weak coordinator] view in
-            coordinator?.fit(view)
+            coordinator?.fitIfCommitted(view)
         }
         #if canImport(UIKit)
         view.isOpaque = false
@@ -84,12 +88,22 @@ struct MessageWebView {
         view.scrollView.isScrollEnabled = false
         view.scrollView.bounces = false
         view.scrollView.contentInsetAdjustmentBehavior = .never
+        #else
+        view.setValue(false, forKey: "drawsBackground")
         #endif
         return view
     }
 
     private func update(_ view: WKWebView, _ coordinator: Coordinator) {
-        coordinator.open = { url in openURL(url) }
+        let router = router
+        let openURL = openURL
+        coordinator.open = { url in
+            if url.scheme?.lowercased() == "mailto", let router, let draft = Self.draft(from: url) {
+                router.draft = draft
+            } else {
+                openURL(url)
+            }
+        }
         coordinator.report = { newHeight in
             if abs(height - newHeight) > 0.5 {
                 height = newHeight
@@ -100,24 +114,62 @@ struct MessageWebView {
                 isReady = true
             }
         }
-        if coordinator.html != html {
+        if coordinator.html != html || coordinator.darkAdapted != darkAdapted {
             coordinator.html = html
+            coordinator.darkAdapted = darkAdapted
             coordinator.width = width
-            view.loadHTMLString(HTMLDocument.page(for: html), baseURL: nil)
+            coordinator.hasCommitted = false
+            if isReady {
+                isReady = false
+            }
+            view.loadHTMLString(HTMLDocument.page(for: html, darkAdapted: darkAdapted), baseURL: nil)
         } else if coordinator.width != width {
             coordinator.width = width
-            coordinator.fit(view)
+            coordinator.fitIfCommitted(view)
         }
+    }
+
+    /// Parses a `mailto:` link into a Quill draft so tapping an address composes inside the app.
+    static func draft(from url: URL) -> Draft? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        let rawTo = components.path.removingPercentEncoding ?? components.path
+        let addresses = rawTo
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.contains("@") }
+        let to = addresses.map { Contact(name: "", email: $0) }
+        let items = components.queryItems ?? []
+        func value(_ name: String) -> String? {
+            items.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
+        }
+        let cc = (value("cc") ?? "")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.contains("@") }
+            .map { Contact(name: "", email: $0) }
+        let bcc = (value("bcc") ?? "")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.contains("@") }
+            .map { Contact(name: "", email: $0) }
+        return Draft(to: to, cc: cc, bcc: bcc, subject: value("subject") ?? "", body: value("body") ?? "")
     }
 
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate {
         var html: String?
+        var darkAdapted = false
         var width = 0.0
+        var hasCommitted = false
         var open: (URL) -> Void = { _ in }
         var report: (Double) -> Void = { _ in }
         var reveal: () -> Void = {}
         private var settling: Task<Void, Never>?
+
+        func fitIfCommitted(_ view: WKWebView) {
+            guard hasCommitted else { return }
+            fit(view)
+        }
 
         /// Measures the page. It is shown once nothing still loading can move it, or when asked to regardless.
         func fit(_ view: WKWebView, revealing: Bool = false) {
@@ -136,6 +188,7 @@ struct MessageWebView {
         /// their sizes shows at once and the pictures fill in. One whose pictures would push
         /// the text around stays hidden a little longer, so it does not appear in steps.
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            hasCommitted = true
             settling?.cancel()
             settling = Task { [weak self, weak webView] in
                 for (pause, reveals) in [(20, false), (80, false), (150, false), (250, false), (300, true), (700, false), (1500, false), (3000, false)] {
@@ -147,14 +200,22 @@ struct MessageWebView {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            hasCommitted = true
             settling?.cancel()
             fit(webView, revealing: true)
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-            guard navigationAction.navigationType == .linkActivated else { return .allow }
-            if let url = navigationAction.request.url, ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
-                open(url)
+            if navigationAction.navigationType == .linkActivated {
+                if let url = navigationAction.request.url, ["http", "https", "mailto", "tel"].contains(url.scheme?.lowercased() ?? "") {
+                    open(url)
+                }
+                return .cancel
+            }
+            // Only allow loading the message's own local HTML (about:blank); block redirects and external frames.
+            let scheme = navigationAction.request.url?.scheme?.lowercased()
+            if scheme == nil || scheme == "about" || scheme == "data" {
+                return .allow
             }
             return .cancel
         }

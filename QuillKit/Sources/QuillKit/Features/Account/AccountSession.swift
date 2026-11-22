@@ -21,10 +21,16 @@ final class AccountSession {
     /// The signed-in account's mailbox, or the sample one.
     private(set) var store: MailStore? = nil
     private(set) var isSigningIn = false
+    /// All signed-in Google accounts on this device.
+    private(set) var accounts: [AccountRecord] = []
+    private(set) var activeAccountID: String?
     /// A sign-in failure the person should hear about.
     var alert: String?
 
-    private let auth: GoogleAuth?
+    private let googleClient: GoogleClient?
+    private var auth: GoogleAuth?
+    private let defaultTokens: any TokenStore
+    private let registry = AccountRegistry()
     private let http: any HTTPClient
     private let relayAddress: String
     /// The push relay, when this build has one and someone is signed in.
@@ -51,13 +57,16 @@ final class AccountSession {
         notifier: MailNotifier? = nil
     ) {
         self.http = http
+        self.defaultTokens = tokens
         relayAddress = pushRelayURL
         if options.screen == nil, let client = GoogleClient(id: googleClientID) {
+            googleClient = client
             auth = GoogleAuth(client: client, http: http, tokens: tokens)
             self.notifier = notifier ?? MailNotifier()
             pictures = SenderPictures(http: http)
             phase = .launching
         } else {
+            googleClient = nil
             auth = nil
             self.notifier = nil
             pictures = SenderPictures()
@@ -68,7 +77,26 @@ final class AccountSession {
 
     /// True when there is a real account to sign out of.
     var canSignOut: Bool {
-        auth != nil && phase == .ready
+        googleClient != nil && phase == .ready
+    }
+
+    /// Keeps the active account's display name and picture in step once the mailbox loads.
+    func syncActiveProfile(_ contact: Contact) {
+        guard googleClient != nil, !contact.email.isEmpty else { return }
+        let email = contact.email.lowercased()
+        let existing = registry.accounts.first { $0.id == activeAccountID || $0.id == email }
+        let record = AccountRecord(
+            id: email,
+            name: contact.name,
+            email: email,
+            photoURL: contact.photoURL,
+            keychainAccount: existing?.keychainAccount ?? "default",
+            archiveFilename: existing?.archiveFilename ?? "mailbox.json"
+        )
+        registry.upsert(record)
+        registry.activeID = record.id
+        accounts = registry.accounts
+        activeAccountID = record.id
     }
 
     /// Picks up an earlier sign-in at launch. Callers that arrive together share one attempt.
@@ -90,29 +118,82 @@ final class AccountSession {
     }
 
     private func resume() async {
-        guard let auth, phase == .launching else { return }
-        await auth.onSignedOut { [weak self] in
-            await self?.close()
+        guard let client = googleClient, phase == .launching else { return }
+        accounts = registry.accounts
+        let chosen = accounts.first { $0.id == registry.activeID } ?? accounts.first
+        if let chosen {
+            let accountAuth = makeAuth(client: client, keychainAccount: chosen.keychainAccount)
+            if await accountAuth.isSignedIn() {
+                activeAccountID = chosen.id
+                await openAccount(auth: accountAuth, archiveFilename: chosen.archiveFilename)
+                return
+            }
         }
-        if await auth.isSignedIn() {
-            open(with: auth)
+        // Fallback / seamless migration for a legacy single-account sign-in in the default keychain slot.
+        let legacyAuth = auth ?? GoogleAuth(client: client, http: http, tokens: defaultTokens)
+        if await legacyAuth.isSignedIn() {
+            activeAccountID = "default"
+            await openAccount(auth: legacyAuth, archiveFilename: "mailbox.json")
         } else {
             phase = .signedOut
         }
     }
 
     func signIn(using web: WebAuthenticationSession) async {
-        guard let auth, !isSigningIn else { return }
+        await authenticateAccount(using: web, isAdditional: false)
+    }
+
+    /// Signs in an additional Google account and switches to it immediately.
+    func addAccount(using web: WebAuthenticationSession) async {
+        await authenticateAccount(using: web, isAdditional: true)
+    }
+
+    private func authenticateAccount(using web: WebAuthenticationSession, isAdditional: Bool) async {
+        guard let client = googleClient, !isSigningIn else { return }
         let pkce = PKCE()
         let state = UUID().uuidString
-        guard let url = auth.authorizationURL(challenge: pkce.challenge, state: state) else { return }
+        let stagingStore = MemoryAuthStore()
+        let stagingAuth = GoogleAuth(client: client, http: http, tokens: stagingStore)
+        guard let url = stagingAuth.authorizationURL(challenge: pkce.challenge, state: state, selectAccount: isAdditional) else { return }
 
         isSigningIn = true
         defer { isSigningIn = false }
         do {
-            let callback = try await web.authenticate(using: url, callbackURLScheme: auth.client.redirectScheme)
-            try await auth.signIn(callback: callback, verifier: pkce.verifier, state: state)
-            open(with: auth)
+            let callback = try await web.authenticate(using: url, callbackURLScheme: client.redirectScheme)
+            try await stagingAuth.signIn(callback: callback, verifier: pkce.verifier, state: state)
+            guard let token = try await stagingStore.load() else { return }
+
+            let userInfo = try? await GmailAPI(auth: stagingAuth, http: http).userInfo()
+            let email = userInfo?.email.lowercased() ?? ""
+            let isFirst = registry.accounts.isEmpty && !isAdditional
+            let existing = registry.accounts.first { $0.email == email }
+            let keychainAccount = existing?.keychainAccount ?? AccountRegistry.keychainAccount(for: email, isPrimary: isFirst)
+            let archiveFilename = existing?.archiveFilename ?? AccountRegistry.archiveFilename(for: email, isPrimary: isFirst)
+
+            let targetTokens: any TokenStore = keychainAccount == "default"
+                ? defaultTokens
+                : KeychainTokenStore(account: keychainAccount)
+            try await targetTokens.save(token)
+
+            let recordID = email.isEmpty ? "default" : email
+            let record = AccountRecord(
+                id: recordID,
+                name: userInfo?.name ?? "",
+                email: email,
+                photoURL: userInfo?.photoURL,
+                keychainAccount: keychainAccount,
+                archiveFilename: archiveFilename
+            )
+            registry.upsert(record)
+            registry.activeID = record.id
+            accounts = registry.accounts
+            activeAccountID = record.id
+
+            if isAdditional {
+                await tearDownActiveSession(eraseArchive: false)
+            }
+            let accountAuth = makeAuth(client: client, keychainAccount: keychainAccount)
+            await openAccount(auth: accountAuth, archiveFilename: archiveFilename)
         } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
             // Closing the sign-in page is a choice, not a failure.
         } catch {
@@ -120,17 +201,69 @@ final class AccountSession {
         }
     }
 
-    func signOut() async {
-        guard let auth else { return }
-        // While the token still works, so the relay can tell who is asking.
-        await stopPush()
-        await auth.signOut()
-        await close()
+    /// Switches to another already signed-in Google account.
+    func switchAccount(to id: String) async {
+        guard let client = googleClient,
+              id != activeAccountID,
+              let record = registry.accounts.first(where: { $0.id == id }) else { return }
+        await tearDownActiveSession(eraseArchive: false)
+        registry.activeID = record.id
+        activeAccountID = record.id
+        accounts = registry.accounts
+        let accountAuth = makeAuth(client: client, keychainAccount: record.keychainAccount)
+        await openAccount(auth: accountAuth, archiveFilename: record.archiveFilename)
     }
 
-    private func open(with auth: GoogleAuth) {
+    func signOut(accountID: String? = nil) async {
+        let targetID = accountID ?? activeAccountID
+        guard let client = googleClient else { return }
+
+        if let targetID, let record = registry.accounts.first(where: { $0.id == targetID }), targetID != activeAccountID {
+            let otherAuth = makeAuth(client: client, keychainAccount: record.keychainAccount)
+            await otherAuth.signOut()
+            MailArchiveFile.named(record.archiveFilename).erase()
+            registry.remove(id: targetID)
+            accounts = registry.accounts
+            return
+        }
+
+        // Signing out the currently active account.
+        await stopPush()
+        await auth?.signOut()
+        if let targetID {
+            registry.remove(id: targetID)
+        }
+        accounts = registry.accounts
+
+        if let next = accounts.first {
+            await tearDownActiveSession(eraseArchive: true)
+            registry.activeID = next.id
+            activeAccountID = next.id
+            let nextAuth = makeAuth(client: client, keychainAccount: next.keychainAccount)
+            await openAccount(auth: nextAuth, archiveFilename: next.archiveFilename)
+        } else {
+            await close()
+        }
+    }
+
+    private func makeAuth(client: GoogleClient, keychainAccount: String) -> GoogleAuth {
+        let tokenStore: any TokenStore = keychainAccount == "default"
+            ? defaultTokens
+            : KeychainTokenStore(account: keychainAccount)
+        return GoogleAuth(client: client, http: http, tokens: tokenStore)
+    }
+
+    private func openAccount(auth: GoogleAuth, archiveFilename: String) async {
+        self.auth = auth
+        await auth.onSignedOut { [weak self] in
+            await self?.close(reason: "Your Google sign-in expired. Please sign in again.")
+        }
+        open(with: auth, archiveFile: MailArchiveFile.named(archiveFilename))
+    }
+
+    private func open(with auth: GoogleAuth, archiveFile: MailArchiveFile = .standard) {
         let api = GmailAPI(auth: auth, http: http)
-        let service = GmailMailService(api: api)
+        let service = GmailMailService(api: api, file: archiveFile)
         self.service = service
         pictures.load(from: api)
         let store = MailStore(service: service, notifier: notifier)
@@ -214,18 +347,37 @@ final class AccountSession {
         try? await relay.unregister(token)
     }
 
-    /// Returns to the sign-in screen and removes the account's mail from the device.
-    private func close() async {
+    private func tearDownActiveSession(eraseArchive: Bool) async {
         polling?.cancel()
         polling = nil
         relay = nil
-        await notifier?.reset()
-        await service?.erase()
+        if eraseArchive {
+            store?.clearAccountDefaults()
+            await notifier?.reset()
+            await service?.erase()
+        }
         pictures.forget()
         MessagePreloader.shared.forget()
         await MessageWebView.forget()
         service = nil
         store = nil
-        phase = .signedOut
     }
+
+    /// Returns to the sign-in screen and removes the account's mail from the device.
+    private func close(reason: String? = nil) async {
+        await tearDownActiveSession(eraseArchive: true)
+        activeAccountID = nil
+        phase = .signedOut
+        if let reason {
+            alert = reason
+        }
+    }
+}
+
+/// Ephemeral token holder used while discovering a newly signed-in account's email address.
+private actor MemoryAuthStore: TokenStore {
+    private var token: OAuthToken?
+    func load() async throws -> OAuthToken? { token }
+    func save(_ token: OAuthToken) async throws { self.token = token }
+    func clear() async throws { token = nil }
 }

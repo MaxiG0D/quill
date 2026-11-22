@@ -158,4 +158,111 @@ struct MailStoreTests {
         #expect(store.searchResults.isEmpty)
         #expect(!store.isSearching)
     }
+
+    @Test func unsnoozingReturnsThreadToInboxAndSupportsUndo() {
+        let store = Fixture.store()
+        store.snooze("hike", until: .tomorrow)
+        #expect(!store.visibleThreads.map(\.id).contains("hike"))
+
+        store.unsnooze("hike")
+        #expect(store.visibleThreads.map(\.id).contains("hike"))
+        #expect(store.thread("hike")?.snoozedUntil == nil)
+        #expect(store.toast?.title == "Returned to Inbox")
+
+        store.undo()
+        #expect(!store.visibleThreads.map(\.id).contains("hike"))
+        #expect(store.thread("hike")?.snoozedUntil != nil)
+    }
+
+    @Test func searchResultsReflectTriageAndTrashing() {
+        let store = Fixture.store()
+        store.searchQuery = "lease"
+        store.search()
+        let before = store.searchResults.count
+        store.select("lease-renewal")
+        #expect(store.searchResults.first { $0.id == "lease-renewal" }?.thread.isUnread == false)
+
+        store.trash("lease-renewal")
+        #expect(store.searchResults.count == before - 1)
+        #expect(!store.searchResults.map(\.id).contains("lease-renewal"))
+
+        store.undo()
+        #expect(store.searchResults.count == before)
+    }
+
+    @Test func switchingMailboxResetsFilter() {
+        let store = Fixture.store()
+        store.filter = .unread
+        store.show(.mailbox(.sent))
+        #expect(store.filter == .all)
+    }
+
+    @Test func arrowKeysFollowVisualOrderWithPinsFirst() {
+        let store = Fixture.store()
+        store.togglePin("water")
+        store.selectNeighbor(offset: 1)
+        #expect(store.selectedThreadID == "lease-renewal")
+        store.selectNeighbor(offset: 1)
+        #expect(store.selectedThreadID == "water")
+    }
+
+    @Test func editingAndSendingDraftReplacesOriginalDraft() async throws {
+        let store = Fixture.store()
+        store.show(.mailbox(.drafts))
+        let draftThread = try #require(store.visibleThreads.first)
+        var draft = Draft.editing(draftThread)
+        draft.to = [SampleData.priya]
+        draft.body = "Updated message"
+
+        let sent = await store.send(draft)
+        #expect(sent)
+        #expect(store.thread(draftThread.id) == nil)
+    }
+
+    @Test func repliedThreadsAppearInSentMailbox() async throws {
+        let store = Fixture.store()
+        let thread = try #require(store.thread("dental"))
+        var reply = Draft.reply(to: thread, from: store.account)
+        reply.body = "Confirmed!"
+        #expect(await store.send(reply))
+        store.show(.mailbox(.sent))
+        #expect(store.visibleThreads.map(\.id).contains("dental"))
+    }
+
+    @Test func markAllReadEmptyTrashAndMarkAsSpamWithUndo() {
+        let store = Fixture.store()
+        #expect(store.unreadCount == 2)
+        store.markAllRead()
+        #expect(store.unreadCount == 0)
+
+        store.markAsSpam("dental")
+        #expect(store.thread("dental") == nil)
+        store.undo()
+        #expect(store.thread("dental") != nil)
+
+        store.trash("dental")
+        store.show(.mailbox(.trash))
+        #expect(!store.visibleThreads.isEmpty)
+        store.emptyTrash()
+        #expect(store.visibleThreads.isEmpty)
+    }
+
+    @Test func returnedSnoozeBubblesToTodayAndClearsOnRead() {
+        let oldDate = Fixture.date(daysAgo: 10, hour: 9)
+        let wakeDate = Fixture.now.addingTimeInterval(-60)
+        let thread = MailThread(
+            id: "snoozed-old",
+            subject: "Follow up",
+            messages: [Message(sender: SampleData.priya, date: oldDate, body: "Checking in")],
+            isUnread: true,
+            snoozedUntil: wakeDate
+        )
+        let snapshot = MailSnapshot(account: SampleData.account, labels: [], threads: [thread])
+        let store = MailStore(snapshot: snapshot, calendar: Fixture.calendar, clock: { Fixture.now })
+        #expect(store.sections.first?.kind == .today)
+
+        store.select("snoozed-old")
+        #expect(store.thread("snoozed-old")?.isUnread == false)
+        #expect(store.thread("snoozed-old")?.snoozedUntil == nil)
+    }
 }

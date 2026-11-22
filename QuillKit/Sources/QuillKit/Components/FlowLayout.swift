@@ -47,14 +47,23 @@ struct FlowLayout: Layout {
         var rows: [Row] = []
         var current = Row()
         for index in subviews.indices {
-            var size = subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil))
-            if let minWidth = flexibleTrailingMinWidth, isFlexible(index, in: subviews) {
-                size.width = minWidth
-            }
             let gap = current.indices.isEmpty ? 0 : spacing
-            if !current.indices.isEmpty, current.width + gap + size.width > width {
-                rows.append(current)
-                current = Row()
+            var size: CGSize
+            if let minWidth = flexibleTrailingMinWidth, isFlexible(index, in: subviews) {
+                let remaining = width.isFinite ? max(width - current.width - gap, 0) : .infinity
+                if !current.indices.isEmpty, remaining < minWidth {
+                    rows.append(current)
+                    current = Row()
+                }
+                let available = width.isFinite ? max(width - current.width - (current.indices.isEmpty ? 0 : spacing), minWidth) : minWidth
+                size = subviews[index].sizeThatFits(ProposedViewSize(width: available, height: nil))
+                size.width = minWidth
+            } else {
+                size = subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil))
+                if !current.indices.isEmpty, current.width + gap + size.width > width {
+                    rows.append(current)
+                    current = Row()
+                }
             }
             current.width += (current.indices.isEmpty ? 0 : spacing) + size.width
             current.height = max(current.height, size.height)

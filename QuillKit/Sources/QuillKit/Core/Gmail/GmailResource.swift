@@ -4,6 +4,7 @@ import Foundation
 enum GmailResource {
     struct ThreadList: Decodable, Sendable {
         var threads: [ThreadReference]?
+        var nextPageToken: String?
     }
 
     /// A thread's ID and the history ID that changes whenever the thread does.
@@ -74,6 +75,12 @@ enum GmailResource {
         var type: String?
     }
 
+    struct LabelWrite: Encodable, Sendable {
+        let name: String
+        var labelListVisibility: String? = "labelShow"
+        var messageListVisibility: String? = "show"
+    }
+
     struct UserInfo: Decodable, Sendable {
         let email: String
         var name: String?
@@ -140,6 +147,29 @@ enum GmailResource {
         /// The whole message in URL-safe base64.
         let raw: String
         var threadId: String?
+    }
+
+    struct SentMessage: Decodable, Sendable {
+        let id: String
+        var threadId: String?
+    }
+
+    struct AttachmentData: Decodable, Sendable {
+        var size: Int?
+        var data: String?
+    }
+
+    struct OutgoingDraft: Encodable, Sendable {
+        let message: OutgoingMessage
+    }
+
+    struct DraftSummary: Decodable, Sendable {
+        let id: String
+        var message: SentMessage?
+    }
+
+    struct DraftList: Decodable, Sendable {
+        var drafts: [DraftSummary]?
     }
 
     /// Stands in for a response Quill has no use for.

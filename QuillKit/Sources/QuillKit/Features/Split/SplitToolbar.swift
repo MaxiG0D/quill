@@ -10,26 +10,42 @@ struct SplitToolbar: ToolbarContent {
         ToolbarItemGroup {
             Button("Archive", systemImage: "archivebox", action: archive)
                 .keyboardShortcut("e", modifiers: .command)
+                .disabled(thread == nil || thread?.folder == .archive)
             MoveMenu(thread: thread)
             Button("Delete", systemImage: "trash", action: trash)
                 .tint(Palette.destructive)
                 .keyboardShortcut(.delete, modifiers: .command)
+                .disabled(thread == nil || thread?.folder == .trash)
             Menu("More", systemImage: "ellipsis") {
                 if let thread {
                     ThreadActions(thread: thread, hasMenus: false, hasTriage: false)
                     LabelMenu(thread: thread)
                 }
             }
+            .disabled(thread == nil)
         }
         ToolbarSpacer(.fixed)
         ToolbarItemGroup {
-            Button("Reply", systemImage: "arrowshape.turn.up.left", action: reply)
-                .keyboardShortcut("r", modifiers: .command)
-            Button("Reply All", systemImage: "arrowshape.turn.up.left.2", action: replyAll)
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-            Button("Forward", systemImage: "arrowshape.turn.up.right", action: forward)
-                .keyboardShortcut("f", modifiers: [.command, .shift])
+            if let thread, thread.folder == .drafts {
+                Button("Edit Draft", systemImage: "pencil", action: editDraft)
+                    .keyboardShortcut("r", modifiers: .command)
+            } else {
+                Button("Reply", systemImage: "arrowshape.turn.up.left", action: reply)
+                    .keyboardShortcut("r", modifiers: .command)
+                    .disabled(thread == nil)
+                Button("Reply All", systemImage: "arrowshape.turn.up.left.2", action: replyAll)
+                    .keyboardShortcut("r", modifiers: [.command, .shift])
+                    .disabled(thread == nil)
+                Button("Forward", systemImage: "arrowshape.turn.up.right", action: forward)
+                    .keyboardShortcut("f", modifiers: [.command, .shift])
+                    .disabled(thread == nil)
+            }
         }
+    }
+
+    private func editDraft() {
+        guard let thread else { return }
+        router.draft = .editing(thread)
     }
 
     private func archive() {

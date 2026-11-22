@@ -7,37 +7,56 @@ final class NotificationService: UNNotificationServiceExtension, @unchecked Send
     private let lock = NSLock()
     private var handler: ((UNNotificationContent) -> Void)?
     private var original: UNNotificationContent?
+    private var fetchTask: Task<Void, Never>?
+    private var generation = 0
 
     override func didReceive(
         _ request: UNNotificationRequest,
         withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
     ) {
         let content = request.content
-        lock.withLock {
+        let currentGeneration: Int = lock.withLock {
+            fetchTask?.cancel()
+            fetchTask = nil
+            generation += 1
             handler = contentHandler
             original = content
+            return generation
         }
         guard let address = content.userInfo["sender"] as? String, !address.isEmpty else {
-            finish(content)
+            finish(content, generation: currentGeneration)
             return
         }
-        Task {
+        let task = Task {
             guard let picture = await NotificationPicture.data(for: address) else {
-                finish(content)
+                finish(content, generation: currentGeneration)
                 return
             }
-            finish(CommunicationNotification.decorate(content, sender: content.title, address: address, picture: picture))
+            guard !Task.isCancelled else { return }
+            finish(CommunicationNotification.decorate(content, sender: content.title, address: address, picture: picture), generation: currentGeneration)
+        }
+        lock.withLock {
+            if generation == currentGeneration {
+                fetchTask = task
+            } else {
+                task.cancel()
+            }
         }
     }
 
     override func serviceExtensionTimeWillExpire() {
-        let content = lock.withLock { original }
-        if let content { finish(content) }
+        let (content, currentGeneration): (UNNotificationContent?, Int) = lock.withLock {
+            fetchTask?.cancel()
+            fetchTask = nil
+            return (original, generation)
+        }
+        if let content { finish(content, generation: currentGeneration) }
     }
 
     /// Hands the alert over once, whichever of the picture and the clock comes first.
-    private func finish(_ content: UNNotificationContent) {
-        let deliver = lock.withLock {
+    private func finish(_ content: UNNotificationContent, generation expected: Int) {
+        let deliver: ((UNNotificationContent) -> Void)? = lock.withLock {
+            guard generation == expected else { return nil }
             defer { handler = nil }
             return handler
         }

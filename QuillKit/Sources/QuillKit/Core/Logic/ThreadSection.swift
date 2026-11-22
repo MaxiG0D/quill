@@ -34,15 +34,16 @@ struct ThreadSection: Identifiable, Hashable, Sendable {
         let weekAgo = calendar.date(byAdding: .day, value: -7, to: today) ?? today
 
         var groups: [Kind: [MailThread]] = [:]
-        for thread in threads.sorted(by: { $0.date > $1.date }) {
+        for thread in threads.sorted(by: { $0.displayDate(at: now) > $1.displayDate(at: now) }) {
+            let effectiveDate = thread.displayDate(at: now)
             let kind: Kind =
                 if pinsFirst && thread.isPinned {
                     .pinned
-                } else if thread.date >= today {
+                } else if effectiveDate >= today {
                     .today
-                } else if thread.date >= yesterday {
+                } else if effectiveDate >= yesterday {
                     .yesterday
-                } else if thread.date >= weekAgo {
+                } else if effectiveDate >= weekAgo {
                     .thisWeek
                 } else {
                     .earlier

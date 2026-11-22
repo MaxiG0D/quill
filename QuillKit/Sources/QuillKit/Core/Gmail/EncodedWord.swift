@@ -4,17 +4,53 @@ import Foundation
 enum EncodedWord {
     static func decode(_ text: String) -> String {
         guard text.contains("=?") else { return text }
-        let word = #/=\?([^?\s]+)\?([bBqQ])\?([^?\s]*)\?=/#
+        let pattern = #/=\?([^?\s]+)\?([bBqQ])\?([^?\s]*)\?=/#
         // White space between two encoded words is not part of the text.
         let joined = text.replacing(#/\?=\s+=\?/#, with: "?==?")
-        return joined.replacing(word) { match -> String in
-            let charset = encoding(named: String(match.1))
+
+        var output = ""
+        var cursor = joined.startIndex
+        var pendingCharset: String?
+        var pendingBytes = Data()
+        var pendingRaw = ""
+
+        func flushPending() {
+            guard let charsetName = pendingCharset else { return }
+            let charset = encoding(named: charsetName)
+            output += String(data: pendingBytes, encoding: charset) ?? pendingRaw
+            pendingCharset = nil
+            pendingBytes.removeAll(keepingCapacity: true)
+            pendingRaw = ""
+        }
+
+        for match in joined.matches(of: pattern) {
+            if match.range.lowerBound > cursor {
+                flushPending()
+                output += joined[cursor..<match.range.lowerBound]
+            }
+            let charsetName = String(match.1).lowercased()
             let data =
                 match.2.lowercased() == "b"
                 ? Data(base64Encoded: String(match.3))
                 : quotedPrintable(String(match.3))
-            return data.flatMap { String(data: $0, encoding: charset) } ?? String(match.0)
+            if let data {
+                if let current = pendingCharset, current != charsetName {
+                    flushPending()
+                }
+                pendingCharset = charsetName
+                pendingBytes.append(data)
+                pendingRaw += String(match.0)
+            } else {
+                flushPending()
+                output += String(match.0)
+            }
+            cursor = match.range.upperBound
         }
+        flushPending()
+        if cursor < joined.endIndex {
+            output += joined[cursor...]
+        }
+        return output
     }
 
     private static func encoding(named name: String) -> String.Encoding {

@@ -81,6 +81,29 @@ struct ModelTests {
         #expect(forward.subject.hasPrefix("Fwd: "))
         #expect(forward.attachments.map(\.filename) == ["Lease_Renewal_2027.pdf"])
         #expect(forward.to.isEmpty)
+        #expect(forward.title == "Forward")
+    }
+
+    @Test func replyAllDeduplicatesCaseInsensitively() {
+        let me = Contact(name: "Max", email: "max@example.com")
+        let sender = Contact(name: "Priya", email: "priya@example.com")
+        let dan1 = Contact(name: "Dan", email: "Dan@example.com")
+        let dan2 = Contact(name: "Dan Okafor", email: "dan@example.com")
+        let meUpper = Contact(name: "Max G", email: "MAX@example.com")
+        let message = Message(sender: sender, to: [meUpper, dan1], cc: [dan2], date: Fixture.now, body: "Hi")
+        let thread = MailThread(subject: "Test", messages: [message])
+        let reply = Draft.reply(to: thread, from: me, all: true)
+        #expect(reply.to == [sender])
+        #expect(reply.cc.count == 1)
+        #expect(reply.cc.first?.email.lowercased() == "dan@example.com")
+    }
+
+    @Test func recipientValidationRejectsMalformedAddresses() {
+        #expect(RecipientField.isValidEmail("priya@example.com"))
+        #expect(!RecipientField.isValidEmail("@"))
+        #expect(!RecipientField.isValidEmail("a@b"))
+        #expect(!RecipientField.isValidEmail("a b@example.com"))
+        #expect(!RecipientField.isValidEmail("a@example..com"))
     }
 
     @Test func expansionStartsWithOnlyTheNewestMessageOpen() throws {

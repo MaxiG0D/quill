@@ -25,7 +25,7 @@ enum SnoozeOption: String, CaseIterable, Identifiable, Sendable {
     func date(from now: Date, calendar: Calendar) -> Date {
         let morning = { (days: Int) -> Date in
             let day = calendar.date(byAdding: .day, value: days, to: calendar.startOfDay(for: now)) ?? now
-            return calendar.date(byAdding: .hour, value: 8, to: day) ?? day
+            return calendar.date(bySettingHour: 8, minute: 0, second: 0, of: day) ?? day
         }
         switch self {
         case .laterToday: return calendar.date(byAdding: .hour, value: 3, to: now) ?? now

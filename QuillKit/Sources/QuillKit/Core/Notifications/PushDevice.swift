@@ -25,14 +25,22 @@ final class PushDevice {
     /// Run when a code was copied, so the relay ends its Live Activities everywhere.
     var onCodeCopied: (@MainActor (_ code: String) async -> Void)?
     private var waiters: [CheckedContinuation<String?, Never>] = []
+    private var timeoutTask: Task<Void, Never>?
 
-    /// The device's push token, asking the system the first time. Nil when it has none to give.
+    /// The device's push token, asking the system the first time. Nil when it has none to give
+    /// or when the system does not answer in time.
     func token() async -> String? {
         if let knownToken { return knownToken }
         return await withCheckedContinuation { continuation in
             let isFirst = waiters.isEmpty
             waiters.append(continuation)
             guard isFirst else { return }
+            timeoutTask?.cancel()
+            timeoutTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(10))
+                guard !Task.isCancelled else { return }
+                self?.finishWaiters(returning: self?.knownToken)
+            }
             #if os(iOS)
             UIApplication.shared.registerForRemoteNotifications()
             #else
@@ -44,10 +52,16 @@ final class PushDevice {
     /// The system's answer: a token, or nil when registration failed.
     func received(_ token: Data?) {
         knownToken = token?.map { String(format: "%02x", $0) }.joined()
+        finishWaiters(returning: knownToken)
+    }
+
+    private func finishWaiters(returning token: String?) {
+        timeoutTask?.cancel()
+        timeoutTask = nil
         let waiting = waiters
         waiters = []
         for continuation in waiting {
-            continuation.resume(returning: knownToken)
+            continuation.resume(returning: token)
         }
     }
 

@@ -16,5 +16,6 @@ struct SheetCloseButton: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.pressable)
+        .help("Close")
     }
 }

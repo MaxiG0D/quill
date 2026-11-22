@@ -22,6 +22,21 @@ struct SystemNotifications: NotificationPosting {
     }
 
     func post(_ mail: [NewMail]) async {
+        // Fetch sender pictures in parallel so a burst of notifications does not stall background refresh.
+        let addresses = Set(mail.map(\.address).filter { !$0.isEmpty })
+        let pictures: [String: Data] = await withTaskGroup(of: (String, Data?).self) { group in
+            for address in addresses {
+                group.addTask {
+                    (address, await NotificationPicture.data(for: address))
+                }
+            }
+            var found: [String: Data] = [:]
+            for await (address, data) in group {
+                if let data { found[address] = data }
+            }
+            return found
+        }
+
         for item in mail {
             let content = UNMutableNotificationContent()
             content.title = item.sender
@@ -37,7 +52,7 @@ struct SystemNotifications: NotificationPosting {
             content.threadIdentifier = item.threadID
             // The message ID keeps a message from being shown twice.
             var shown: UNNotificationContent = content
-            if !item.address.isEmpty, let picture = await NotificationPicture.data(for: item.address) {
+            if let picture = pictures[item.address] {
                 shown = CommunicationNotification.decorate(content, sender: item.sender, address: item.address, picture: picture)
             }
             let request = UNNotificationRequest(identifier: item.messageID, content: shown, trigger: nil)
