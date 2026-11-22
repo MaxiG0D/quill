@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Checks, builds and installs Quill, on exactly the targets named.
-# Usage: Scripts/install.sh mac|duo|ipad [...]    e.g. Scripts/install.sh mac duo
-# Device targets are found by name, case-insensitive: "duo" matches "iPhone Duo".
+# Usage: Scripts/install.sh mac|duo|ipad|wife [...]    e.g. Scripts/install.sh mac duo
+# Device targets are found by name, case-insensitive: "duo" matches "iPhone Duo"; "wife" matches "Marina's iPhone".
 # A device must be unlocked and reachable. Nothing is installed if a check fails.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[ $# -gt 0 ] || { echo "Name a target: mac, duo or ipad." >&2; exit 2; }
+[ $# -gt 0 ] || { echo "Name a target: mac, duo, ipad or wife." >&2; exit 2; }
 
 Scripts/check.sh
 
@@ -26,8 +26,8 @@ for target in "$@"; do
       cp -R "$derived/mac/Build/Products/Debug/Quill.app" /Applications/Quill.app
       open /Applications/Quill.app
       ;;
-    duo|ipad)
-      [ "$target" = duo ] && pattern="duo" || pattern="ipad"
+    duo|ipad|wife)
+      case "$target" in duo) pattern=duo ;; ipad) pattern=ipad ;; wife) pattern=marina ;; esac
       [ -d "$derived/ios" ] || build "generic/platform=iOS" ios
       json="$derived/devices.json"
       xcrun devicectl list devices --json-output "$json" >/dev/null
