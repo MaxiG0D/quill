@@ -18,6 +18,8 @@ final class MailStore {
 
     var selection: MailboxSelection = .mailbox(.inbox)
     var filter: InboxFilter = .all
+    /// The Inbox tab on screen, when the account sorts its mail into tabs.
+    private(set) var category: InboxCategory = .primary
     /// The open thread in the three-column layout.
     var selectedThreadID: MailThread.ID?
     /// Multi-selection state for bulk triage on iOS and macOS.
@@ -123,12 +125,49 @@ final class MailStore {
 
     var isInbox: Bool { selection == .mailbox(.inbox) }
 
+    /// The Inbox tabs to offer, in Gmail's order: none when every Inbox thread is Primary,
+    /// otherwise Primary, the tab on screen and each tab that holds mail.
+    var inboxCategories: [InboxCategory] {
+        let now = self.now
+        var held: Set<InboxCategory> = []
+        for thread in threads where thread.belongs(to: .mailbox(.inbox), at: now) {
+            held.formUnion(thread.categories ?? [])
+        }
+        held.remove(.primary)
+        guard !held.isEmpty else { return [] }
+        held.formUnion([.primary, category])
+        return InboxCategory.allCases.filter(held.contains)
+    }
+
+    /// The tab the Inbox is narrowed to, or nil when the account shows no tabs.
+    private var activeCategory: InboxCategory? {
+        inboxCategories.isEmpty ? nil : category
+    }
+
+    /// Whether a thread shows in `selection`, narrowed to `tab` inside the Inbox.
+    /// Callers work out `activeCategory` once, since it reads every thread.
+    private func isListed(_ thread: MailThread, in selection: MailboxSelection, tab: InboxCategory?, at now: Date) -> Bool {
+        guard thread.belongs(to: selection, at: now) else { return false }
+        guard selection == .mailbox(.inbox), let tab else { return true }
+        return thread.isFiled(under: tab)
+    }
+
+    /// What the mail service is asked to page through: the open tab inside the Inbox.
+    private var feedSelection: MailboxSelection {
+        if isInbox, let tab = activeCategory {
+            return .label(tab.labelID)
+        }
+        return selection
+    }
+
     /// Threads in the current mailbox that pass the filter, newest first.
     var visibleThreads: [MailThread] {
         _ = snoozeTick
         let now = self.now
+        let selection = self.selection
+        let tab = activeCategory
         return threads
-            .filter { $0.belongs(to: selection, at: now) && filter.matches($0) }
+            .filter { isListed($0, in: selection, tab: tab, at: now) && filter.matches($0) }
             .sorted { $0.displayDate(at: now) > $1.displayDate(at: now) }
     }
 
@@ -140,14 +179,18 @@ final class MailStore {
     var unreadCount: Int {
         _ = snoozeTick
         let now = self.now
-        return threads.count { $0.belongs(to: selection, at: now) && $0.isUnread }
+        let selection = self.selection
+        let tab = activeCategory
+        return threads.count { isListed($0, in: selection, tab: tab, at: now) && $0.isUnread }
     }
 
     /// The number shown beside a mailbox or label, or nil when there is nothing to show.
     func badge(for selection: MailboxSelection) -> Int? {
         _ = snoozeTick
         let now = self.now
-        let members = threads.filter { $0.belongs(to: selection, at: now) }
+        // The Inbox counts Primary only, as Gmail's own badge does.
+        let primary = !inboxCategories.isEmpty && selection == .mailbox(.inbox)
+        let members = threads.filter { $0.belongs(to: selection, at: now) && (!primary || $0.isFiled(under: .primary)) }
         let count =
             switch selection {
             case .mailbox(.snoozed), .mailbox(.drafts): members.count
@@ -379,10 +422,15 @@ final class MailStore {
 
     /// Marks every unread thread in `target` (or the current mailbox) as read.
     func markAllRead(in target: MailboxSelection? = nil) {
-        let target = target ?? selection
         let now = self.now
+        // Inside the Inbox, the open tab only.
+        let tab = activeCategory
         let unreadIDs = threads
-            .filter { $0.belongs(to: target, at: now) && $0.isUnread }
+            .filter { thread in
+                guard thread.isUnread else { return false }
+                if let target { return thread.belongs(to: target, at: now) }
+                return isListed(thread, in: selection, tab: tab, at: now)
+            }
             .map(\.id)
         guard !unreadIDs.isEmpty else { return }
         for id in unreadIDs {
@@ -592,14 +640,14 @@ final class MailStore {
     /// Loads the next page of older mail for the current mailbox or label.
     func loadMore() async {
         guard !isLoadingMore, hasMoreThreads else { return }
-        let currentSelection = selection
+        let currentSelection = feedSelection
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
             let page = try await service.loadMore(for: currentSelection)
             let known = Set(threads.map(\.id))
             threads += page.threads.filter { !known.contains($0.id) }
-            if selection == currentSelection {
+            if feedSelection == currentSelection {
                 hasMoreThreads = page.hasMore
             }
         } catch {
@@ -608,10 +656,10 @@ final class MailStore {
     }
 
     private func refreshHasMore() {
-        let currentSelection = selection
+        let currentSelection = feedSelection
         Task {
             let more = await service.hasMore(for: currentSelection)
-            if selection == currentSelection {
+            if feedSelection == currentSelection {
                 hasMoreThreads = more
             }
         }
@@ -819,7 +867,7 @@ final class MailStore {
         if hasSearchQuery {
             return copy.folder == .trash
         }
-        return !copy.belongs(to: selection, at: now) || !filter.matches(copy)
+        return !isListed(copy, in: selection, tab: activeCategory, at: now) || !filter.matches(copy)
     }
 
     /// Moves the split view's selection to a neighbor before a thread leaves the list.
@@ -885,6 +933,17 @@ final class MailStore {
         refreshHasMore()
         haptic = HapticCue(kind: .selection)
         Task { await bringIn(selection) }
+    }
+
+    /// Switches the Inbox to another of Gmail's tabs.
+    func show(_ category: InboxCategory) {
+        guard self.category != category else { return }
+        self.category = category
+        selectedThreadID = nil
+        clearSelection()
+        refreshHasMore()
+        haptic = HapticCue(kind: .selection)
+        Task { await bringIn(.label(category.labelID)) }
     }
 
     /// Asks for a label's or mailbox's older mail the first time it is opened.

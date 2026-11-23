@@ -60,6 +60,8 @@ actor GmailMailService: MailService {
         // The Inbox, Starred and Drafts are asked for by name, because mail can sit in them
         // long after it has dropped out of the newest hundred threads.
         async let inboxPage = api.threadReferencePage(labelIDs: ["INBOX"], limit: Self.recentLimit)
+        // Primary is asked for by itself, so a flood of promotions cannot push it out of the newest hundred.
+        async let primaryPage = api.threadReferencePage(labelIDs: Self.inboxLabels(InboxCategory.primary.labelID), limit: Self.recentLimit)
         async let starredPage = api.threadReferencePage(labelIDs: ["STARRED"], limit: Self.sideLimit)
         async let draftsPage = api.threadReferencePage(labelIDs: ["DRAFT"], limit: Self.sideLimit)
         async let recentPage = api.threadReferencePage(limit: Self.recentLimit)
@@ -77,12 +79,14 @@ actor GmailMailService: MailService {
         let labelledPages = try await labelReferencePages(watched)
 
         let inboxResult = try await inboxPage
+        let primaryResult = try await primaryPage
         let starredResult = try await starredPage
         let draftsResult = try await draftsPage
         let recentResult = try await recentPage
         let trashedResult = try await trashedPage
 
         pageTokens[.mailbox(.inbox)] = inboxResult.nextPageToken
+        pageTokens[.label(InboxCategory.primary.labelID)] = primaryResult.nextPageToken
         pageTokens[.mailbox(.starred)] = starredResult.nextPageToken
         pageTokens[.mailbox(.drafts)] = draftsResult.nextPageToken
         pageTokens[.mailbox(.archive)] = recentResult.nextPageToken
@@ -95,7 +99,7 @@ actor GmailMailService: MailService {
         let labelled = labelledPages.flatMap(\.1.threads)
         var seen = Set<String>()
         // In the order they are fetched when Gmail's allowance cannot cover them all at once.
-        let references = (inboxResult.threads + labelled + starredResult.threads + draftsResult.threads + recentResult.threads + trashedResult.threads).filter { seen.insert($0.id).inserted }
+        let references = (primaryResult.threads + inboxResult.threads + labelled + starredResult.threads + draftsResult.threads + recentResult.threads + trashedResult.threads).filter { seen.insert($0.id).inserted }
 
         // Another account's archive is of no use here.
         var old = stored()
@@ -103,7 +107,8 @@ actor GmailMailService: MailService {
             old = nil
         }
         let changed = references.filter { reference in
-            old?.thread(reference.id) == nil || old?.historyIDs[reference.id] != reference.historyId
+            // A copy kept from before inbox tabs does not know its tab yet.
+            old?.thread(reference.id)?.categories == nil || old?.historyIDs[reference.id] != reference.historyId
         }
         // Gmail meters each account by the minute, so a big mailbox arrives over several
         // passes: the newest changed threads now, the rest on the refreshes that follow.
@@ -139,7 +144,7 @@ actor GmailMailService: MailService {
                 next.anchors[reference.id] = old?.anchors[reference.id]
                 next.historyIDs[reference.id] = old?.historyIDs[reference.id]
                 included.insert(reference.id)
-                isComplete = isComplete && old?.historyIDs[reference.id] == reference.historyId
+                isComplete = isComplete && old?.historyIDs[reference.id] == reference.historyId && thread.categories != nil
             } else if !pass.missing.contains(reference.id) {
                 // New to the device and not fetched yet.
                 isComplete = false
@@ -429,7 +434,7 @@ actor GmailMailService: MailService {
         case .mailbox(.sent): (["SENT"], false)
         case .mailbox(.trash): (["TRASH"], true)
         case .mailbox(.archive), .mailbox(.snoozed): ([], false)
-        case .label(let id): ([id], false)
+        case .label(let id): (inboxLabels(id), false)
         }
     }
 
@@ -513,7 +518,12 @@ actor GmailMailService: MailService {
     }
 
     /// Mailboxes that Gmail keeps as a label and that reach further back than the newest mail.
-    private static let watchableSystemLabels: Set<String> = ["SENT"]
+    private static let watchableSystemLabels: Set<String> = Set(["SENT"] + InboxCategory.allCases.map(\.labelID))
+
+    /// An inbox tab is the Inbox narrowed to its category; any other label stands alone.
+    private static func inboxLabels(_ label: String) -> [String] {
+        InboxCategory.isCategoryLabel(label) ? ["INBOX", label] : [label]
+    }
 
     /// The Gmail label whose mail a selection shows, when it has to be asked for by name.
     /// The other mailboxes are already listed on every refresh.
@@ -538,7 +548,7 @@ actor GmailMailService: MailService {
         return try await withThrowingTaskGroup(of: (Int, String, [GmailResource.ThreadReference], String?).self) { group in
             for (index, label) in labels.enumerated() {
                 group.addTask {
-                    let page = try await api.threadReferencePage(labelIDs: [label], limit: Self.labelLimit)
+                    let page = try await api.threadReferencePage(labelIDs: Self.inboxLabels(label), limit: Self.labelLimit)
                     return (index, label, page.threads, page.nextPageToken)
                 }
             }

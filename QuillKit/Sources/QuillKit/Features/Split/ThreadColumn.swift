@@ -40,6 +40,12 @@ struct ThreadColumn: View {
                 .padding(.bottom, Spacing.xs)
                 .plainColumnRow()
                 #endif
+                if !isSearching && store.isInbox && !store.inboxCategories.isEmpty {
+                    CategoryTabs()
+                        .padding(.horizontal, Spacing.s)
+                        .padding(.bottom, Spacing.xs)
+                        .plainColumnRow()
+                }
                 if isSearching {
                     searchFilterChips
                         .padding(.horizontal, Spacing.s)

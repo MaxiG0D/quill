@@ -54,7 +54,8 @@ struct GmailMapper: Sendable {
             folder: folder,
             isUnread: applied.contains("UNREAD"),
             isStarred: applied.contains("STARRED"),
-            hasSentMessages: delivered.contains { $0.has("SENT") }
+            hasSentMessages: delivered.contains { $0.has("SENT") },
+            categories: Set(applied.compactMap(InboxCategory.init(labelID:)))
         )
         let anchor = ReplyAnchor(
             latestMessageID: latest.id,
