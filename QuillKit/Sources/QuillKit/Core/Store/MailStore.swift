@@ -132,6 +132,7 @@ final class MailStore {
     /// The Inbox tabs to offer, in Gmail's order: none when every Inbox thread is Primary,
     /// otherwise Primary, the tab on screen and each tab that holds mail.
     var inboxCategories: [InboxCategory] {
+        guard MailPreferences.shared.inboxTabs else { return [] }
         let now = self.now
         var held: Set<InboxCategory> = []
         for thread in threads where thread.belongs(to: .mailbox(.inbox), at: now) {

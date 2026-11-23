@@ -32,6 +32,11 @@ final class MailPreferences {
         didSet { defaults.set(trailingSecondarySwipe.rawValue, forKey: Keys.trailingSecondarySwipe) }
     }
 
+    /// Gmail's Primary, Promotions, Social, Updates and Forums tabs above the Inbox.
+    var inboxTabs: Bool {
+        didSet { defaults.set(inboxTabs, forKey: Keys.inboxTabs) }
+    }
+
     private let defaults: UserDefaults
 
     private enum Keys {
@@ -43,6 +48,7 @@ final class MailPreferences {
         static let leadingSecondarySwipe = "prefs.leadingSecondarySwipe"
         static let trailingSwipe = "prefs.trailingSwipe"
         static let trailingSecondarySwipe = "prefs.trailingSecondarySwipe"
+        static let inboxTabs = "prefs.inboxTabs"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -55,6 +61,7 @@ final class MailPreferences {
         leadingSecondarySwipe = defaults.string(forKey: Keys.leadingSecondarySwipe).flatMap(SwipeAction.init) ?? .pin
         trailingSwipe = defaults.string(forKey: Keys.trailingSwipe).flatMap(SwipeAction.init) ?? .archive
         trailingSecondarySwipe = defaults.string(forKey: Keys.trailingSecondarySwipe).flatMap(SwipeAction.init) ?? .delete
+        inboxTabs = defaults.object(forKey: Keys.inboxTabs) as? Bool ?? true
     }
 
     /// Signature text to append to a new draft, or nil when disabled or empty.

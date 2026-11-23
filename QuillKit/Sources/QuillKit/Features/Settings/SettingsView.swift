@@ -64,6 +64,12 @@ struct SettingsView: View {
             }
             heading("Reading & Compose")
             VStack(alignment: .leading, spacing: Spacing.m) {
+                Toggle(isOn: $preferences.inboxTabs) {
+                    Text("Inbox Tabs")
+                        .font(.body)
+                        .foregroundStyle(Palette.label)
+                }
+                Divider().overlay(Palette.separator)
                 Toggle(isOn: $preferences.undoSendEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Undo Send")
