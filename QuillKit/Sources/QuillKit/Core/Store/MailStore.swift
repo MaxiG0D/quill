@@ -182,10 +182,10 @@ final class MailStore {
     /// The number shown beside the title: unread threads in the current mailbox.
     var unreadCount: Int {
         _ = snoozeTick
-        if selection == .mailbox(.inbox) { return inboxUnread }
+        let tab = activeCategory
+        if isInbox && (tab ?? .primary) == .primary { return inboxUnread }
         let now = self.now
         let selection = self.selection
-        let tab = activeCategory
         return threads.count { isListed($0, in: selection, tab: tab, at: now) && $0.isUnread }
     }
 
@@ -195,18 +195,21 @@ final class MailStore {
     var inboxUnread: Int {
         _ = snoozeTick
         let now = self.now
-        let loaded = threads.count { $0.isUnread && $0.belongs(to: .mailbox(.inbox), at: now) }
+        let loaded = threads.count { Self.countsTowardInboxUnread($0, at: now) }
         guard let total = inboxUnreadTotal else { return loaded }
         return max(loaded, total + loaded - inboxUnreadBaseline)
+    }
+
+    /// Gmail counts the Primary tab only, which is the whole Inbox when tabs are off.
+    private static func countsTowardInboxUnread(_ thread: MailThread, at now: Date) -> Bool {
+        thread.isUnread && thread.belongs(to: .mailbox(.inbox), at: now) && thread.isFiled(under: .primary)
     }
 
     /// The number shown beside a mailbox or label, or nil when there is nothing to show.
     func badge(for selection: MailboxSelection) -> Int? {
         _ = snoozeTick
         let now = self.now
-        // The Inbox counts Primary only, as Gmail's own badge does.
-        let primary = !inboxCategories.isEmpty && selection == .mailbox(.inbox)
-        let members = threads.filter { $0.belongs(to: selection, at: now) && (!primary || $0.isFiled(under: .primary)) }
+        let members = threads.filter { $0.belongs(to: selection, at: now) }
         let count =
             switch selection {
             case .mailbox(.snoozed), .mailbox(.drafts): members.count
@@ -383,7 +386,7 @@ final class MailStore {
             // A new count from Gmail: it already includes everything read or received so far.
             let now = self.now
             inboxUnreadTotal = total
-            inboxUnreadBaseline = snapshot.threads.count { $0.isUnread && $0.belongs(to: .mailbox(.inbox), at: now) }
+            inboxUnreadBaseline = snapshot.threads.count { Self.countsTowardInboxUnread($0, at: now) }
         }
         phase = .loaded
         scheduleSnoozeWake()
