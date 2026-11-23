@@ -22,6 +22,10 @@ struct ThreadList: View {
                 }
                 .buttonStyle(.pressable)
                 .accessibilityHint("Mailboxes")
+                if store.isInbox && !store.inboxCategories.isEmpty {
+                    CategoryTabs()
+                        .padding(.bottom, Spacing.xxs)
+                }
                 HStack(spacing: Spacing.xs) {
                     if store.filter != .all {
                         Button {

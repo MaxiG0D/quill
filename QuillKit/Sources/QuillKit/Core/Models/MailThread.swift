@@ -15,6 +15,9 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
     /// True when this conversation includes at least one message sent by the account,
     /// so it also appears in the Sent mailbox even while filed in Inbox or Archive.
     var hasSentMessages: Bool
+    /// The inbox tabs Gmail filed its messages under. Empty means Primary.
+    /// Nil for a copy kept from before tabs existed, which is fetched again.
+    var categories: Set<InboxCategory>?
 
     init(
         id: String = UUID().uuidString,
@@ -26,7 +29,8 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
         isStarred: Bool = false,
         isPinned: Bool = false,
         snoozedUntil: Date? = nil,
-        hasSentMessages: Bool = false
+        hasSentMessages: Bool = false,
+        categories: Set<InboxCategory> = []
     ) {
         self.id = id
         self.subject = subject
@@ -38,6 +42,7 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
         self.isPinned = isPinned
         self.snoozedUntil = snoozedUntil
         self.hasSentMessages = hasSentMessages
+        self.categories = categories
     }
 
     init(from decoder: any Decoder) throws {
@@ -52,6 +57,7 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
         isPinned = try container.decode(Bool.self, forKey: .isPinned)
         snoozedUntil = try container.decodeIfPresent(Date.self, forKey: .snoozedUntil)
         hasSentMessages = try container.decodeIfPresent(Bool.self, forKey: .hasSentMessages) ?? false
+        categories = try container.decodeIfPresent(Set<InboxCategory>.self, forKey: .categories)
     }
 
     var latest: Message? { messages.last }
@@ -77,6 +83,12 @@ struct MailThread: Identifiable, Hashable, Codable, Sendable {
     /// Back in the inbox after a snooze. Rows mark these with a clock.
     func hasReturned(at now: Date) -> Bool {
         snoozedUntil.map { $0 <= now } ?? false
+    }
+
+    /// Whether the thread shows under an inbox tab. Mail Gmail has not sorted counts as Primary.
+    func isFiled(under category: InboxCategory) -> Bool {
+        let filed = categories ?? []
+        return filed.isEmpty ? category == .primary : filed.contains(category)
     }
 
     func belongs(to selection: MailboxSelection, at now: Date) -> Bool {
