@@ -22,19 +22,19 @@ struct InboxCategoryTests {
     }
 
     @Test func theInboxOpensOnPrimaryAndCountsOnlyPrimary() {
-        let store = store(filing: ["dental": [.promotions], "holds": [.updates]])
+        let store = store(filing: ["dental": [.promotions], "library": [.updates]])
         #expect(store.inboxCategories == [.primary, .promotions, .updates])
         #expect(store.category == .primary)
         let shown = store.visibleThreads.map(\.id)
         #expect(!shown.contains("dental"))
-        #expect(!shown.contains("holds"))
+        #expect(!shown.contains("library"))
         #expect(shown.contains("lease-renewal"))
         #expect(store.unreadCount == 1)
         #expect(store.badge(for: .mailbox(.inbox)) == 1)
     }
 
     @Test func aTabShowsOnlyItsOwnMail() {
-        let store = store(filing: ["dental": [.promotions], "holds": [.updates]])
+        let store = store(filing: ["dental": [.promotions], "library": [.updates]])
         store.show(.promotions)
         #expect(store.visibleThreads.map(\.id) == ["dental"])
         #expect(store.unreadCount == 1)
