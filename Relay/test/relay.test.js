@@ -309,7 +309,12 @@ test("an archive or delete wakes every device with a silent push", async () => {
 });
 
 test("the badge counts the Primary category, and the whole Inbox when categories are off", async () => {
-  stubGoogle({ ...google, "/labels/CATEGORY_PERSONAL": { threadsTotal: 30, threadsUnread: 3 } });
+  // Primary's tally (185) includes archived mail; only the Inbox threads are counted.
+  stubGoogle({
+    ...google,
+    "/labels/CATEGORY_PERSONAL": { threadsTotal: 300, threadsUnread: 185 },
+    "/threads": { threads: [{ id: "a" }, { id: "b" }, { id: "c" }] },
+  });
   assert.equal(await new Mailbox("access").unreadCount(), 3);
 
   stubGoogle({ ...google, "/labels/CATEGORY_PERSONAL": { threadsTotal: 0, threadsUnread: 0 } });

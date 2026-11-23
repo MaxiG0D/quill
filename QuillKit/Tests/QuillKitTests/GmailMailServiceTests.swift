@@ -44,6 +44,20 @@ struct GmailMailServiceTests {
         #expect(newsletter.messages.first?.preview == "Fall hours & events. Don't miss Thursdays")
     }
 
+    @Test func inboxUnreadCountsPrimaryInboxThreadsNotArchivedOnes() async throws {
+        let http = StubHTTP()
+        await http.reply(to: "/labels/CATEGORY_PERSONAL", json: #"{"threadsTotal":300,"threadsUnread":185}"#)
+        await http.reply(to: "/labels/INBOX", json: #"{"threadsUnread":14811}"#)
+        await http.reply(to: "/threads?", json: #"{"threads":[{"id":"a"},{"id":"b"}]}"#)
+        let auth = GoogleAuth(client: GmailFixture.client, http: http, tokens: MemoryTokenStore(GmailFixture.token()))
+        let api = GmailAPI(auth: auth, http: http)
+        #expect(try await api.inboxUnread() == 2)
+
+        // Categories off: the whole Inbox's own tally is exact.
+        await http.reply(to: "/labels/CATEGORY_PERSONAL", json: #"{"threadsTotal":0,"threadsUnread":0}"#)
+        #expect(try await api.inboxUnread() == 14_811)
+    }
+
     @Test func theAccountsPictureIsAskedForAtAvatarSize() throws {
         func photo(_ json: String) throws -> String? {
             try JSONDecoder().decode(GmailResource.UserInfo.self, from: Data(json.utf8)).photoURL?.absoluteString

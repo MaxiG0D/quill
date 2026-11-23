@@ -114,15 +114,32 @@ export class Mailbox {
 
   /**
    * How many threads are unread, for the badge: Gmail's own number, which counts only the
-   * Primary category. Without categories (label missing, failing or empty) it is the whole Inbox.
+   * Primary category. Primary's label tally also covers archived mail, so those are counted
+   * from the Inbox itself, in pages. Without categories (label missing, failing or empty)
+   * it is the whole Inbox, whose tally is exact.
    */
   async unreadCount() {
     try {
       const primary = await this.#call("/labels/CATEGORY_PERSONAL");
-      if ((primary.threadsTotal ?? 0) > 0) return primary.threadsUnread ?? 0;
+      if ((primary.threadsTotal ?? 0) > 0) return await this.#unreadPrimaryInbox();
     } catch {
       // Categories are off or unavailable: count the whole Inbox.
     }
     return (await this.#call("/labels/INBOX")).threadsUnread ?? 0;
+  }
+
+  async #unreadPrimaryInbox() {
+    let count = 0;
+    let pageToken;
+    for (let page = 0; page < 10; page++) {
+      const query = [["maxResults", "500"]];
+      for (const label of ["INBOX", "CATEGORY_PERSONAL", "UNREAD"]) query.push(["labelIds", label]);
+      if (pageToken) query.push(["pageToken", pageToken]);
+      const list = await this.#call("/threads", { query });
+      count += (list.threads ?? []).length;
+      pageToken = list.nextPageToken;
+      if (!pageToken) break;
+    }
+    return count;
   }
 }
