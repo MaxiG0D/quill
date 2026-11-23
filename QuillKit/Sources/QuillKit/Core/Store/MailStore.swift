@@ -134,7 +134,7 @@ final class MailStore {
             held.formUnion(thread.categories ?? [])
         }
         held.remove(.primary)
-        guard !held.isEmpty else { return [] }
+        guard !held.isEmpty || category != .primary else { return [] }
         held.formUnion([.primary, category])
         return InboxCategory.allCases.filter(held.contains)
     }
