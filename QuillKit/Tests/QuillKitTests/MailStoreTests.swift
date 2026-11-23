@@ -247,6 +247,25 @@ struct MailStoreTests {
         #expect(store.visibleThreads.isEmpty)
     }
 
+    @Test func inboxUnreadUsesGmailsWholeInboxTotal() {
+        var snapshot = Fixture.snapshot
+        snapshot.inboxUnread = 14_811
+        let now = Fixture.now
+        let store = MailStore(snapshot: snapshot, calendar: Fixture.calendar, clock: { now })
+        #expect(store.inboxUnread == 14_811)
+        #expect(store.unreadCount == 14_811)
+        #expect(store.badge(for: .mailbox(.inbox)) == 14_811)
+
+        let unread = store.threads.first { $0.isUnread && $0.belongs(to: .mailbox(.inbox), at: now) }
+        store.markRead(unread!.id)
+        #expect(store.inboxUnread == 14_810)
+    }
+
+    @Test func inboxUnreadFallsBackToLoadedThreadsWithoutATotal() {
+        let store = Fixture.store()
+        #expect(store.inboxUnread == 2)
+    }
+
     @Test func returnedSnoozeBubblesToTodayAndClearsOnRead() {
         let oldDate = Fixture.date(daysAgo: 10, hour: 9)
         let wakeDate = Fixture.now.addingTimeInterval(-60)

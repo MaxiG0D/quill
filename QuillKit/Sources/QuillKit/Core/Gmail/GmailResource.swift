@@ -75,6 +75,12 @@ enum GmailResource {
         var type: String?
     }
 
+    /// A label's own tallies, which Gmail keeps for the whole mailbox.
+    struct LabelCounts: Decodable, Sendable {
+        var threadsUnread: Int?
+        var threadsTotal: Int?
+    }
+
     struct LabelWrite: Encodable, Sendable {
         let name: String
         var labelListVisibility: String? = "labelShow"

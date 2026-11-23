@@ -112,8 +112,17 @@ export class Mailbox {
     }
   }
 
-  /** How many Inbox threads are unread, for the badge. */
+  /**
+   * How many threads are unread, for the badge: Gmail's own number, which counts only the
+   * Primary category. Without categories (label missing, failing or empty) it is the whole Inbox.
+   */
   async unreadCount() {
+    try {
+      const primary = await this.#call("/labels/CATEGORY_PERSONAL");
+      if ((primary.threadsTotal ?? 0) > 0) return primary.threadsUnread ?? 0;
+    } catch {
+      // Categories are off or unavailable: count the whole Inbox.
+    }
     return (await this.#call("/labels/INBOX")).threadsUnread ?? 0;
   }
 }

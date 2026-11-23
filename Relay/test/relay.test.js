@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
+import { Mailbox } from "../src/google.js";
 import { Refused, Relay } from "../src/relay.js";
 
 const config = { googleClientID: "client", topic: "projects/p/topics/gmail" };
@@ -305,4 +306,16 @@ test("an archive or delete wakes every device with a silent push", async () => {
   assert.equal(apns.sent[0].priority, 5);
   assert.equal(apns.sent[0].payload.aps.alert, undefined);
   assert.equal(apns.sent[0].payload.aps["content-available"], 1);
+});
+
+test("the badge counts the Primary category, and the whole Inbox when categories are off", async () => {
+  stubGoogle({ ...google, "/labels/CATEGORY_PERSONAL": { threadsTotal: 30, threadsUnread: 3 } });
+  assert.equal(await new Mailbox("access").unreadCount(), 3);
+
+  stubGoogle({ ...google, "/labels/CATEGORY_PERSONAL": { threadsTotal: 0, threadsUnread: 0 } });
+  assert.equal(await new Mailbox("access").unreadCount(), 4);
+
+  // The category label is missing (the stub answers 404).
+  stubGoogle(google);
+  assert.equal(await new Mailbox("access").unreadCount(), 4);
 });

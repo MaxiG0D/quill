@@ -23,8 +23,11 @@ struct MailArchive: Codable, Sendable {
     /// Gmail draft resource IDs mapped by their thread ID, for updating and deleting synced drafts.
     var draftIDs: [MailThread.ID: String]?
 
+    /// Unread Inbox threads in the whole mailbox, as Gmail last counted them.
+    var inboxUnread: Int?
+
     var snapshot: MailSnapshot {
-        MailSnapshot(account: account, labels: labels, threads: threads)
+        MailSnapshot(account: account, labels: labels, threads: threads, inboxUnread: inboxUnread)
     }
 
     /// The same mailbox, with every thread due to be fetched again when it was written in an

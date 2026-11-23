@@ -72,9 +72,9 @@ struct RootView: View {
         .onChange(of: store.threads) {
             openRequestedThread()
         }
-        .task(id: store.unreadInboxIDs) {
+        .task(id: [store.unreadInboxIDs.joined(separator: ","), String(store.inboxUnread)]) {
             // Reading or filing mail here changes the badge and clears its notifications.
-            await notifier?.reflect(store.threads)
+            await notifier?.reflect(store.threads, unread: store.inboxUnread)
         }
         .task(id: scenePhase) {
             // The system only shows its prompt to an app that is in front, which Quill

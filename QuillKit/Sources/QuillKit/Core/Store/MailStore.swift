@@ -13,6 +13,10 @@ final class MailStore {
     private(set) var account: Contact
     private(set) var labels: [MailLabel] = []
     private(set) var threads: [MailThread] = []
+    /// Unread Inbox threads in the whole mailbox as Gmail last counted them, and how many
+    /// of those were among the threads on the device at that moment.
+    private var inboxUnreadTotal: Int?
+    private var inboxUnreadBaseline = 0
     /// How much of the mailbox has arrived, from 0 to 1, while it is still arriving. Nil once it is all here.
     private(set) var syncProgress: Double?
 
@@ -139,8 +143,20 @@ final class MailStore {
     /// The number shown beside the title: unread threads in the current mailbox.
     var unreadCount: Int {
         _ = snoozeTick
+        if selection == .mailbox(.inbox) { return inboxUnread }
         let now = self.now
         return threads.count { $0.belongs(to: selection, at: now) && $0.isUnread }
+    }
+
+    /// Unread Inbox threads: Gmail's count for the whole mailbox, moved by what has been
+    /// read or arrived on this device since, or the unread threads on the device when
+    /// Gmail's count is not known yet. The badge, the sidebar and alerts all show this.
+    var inboxUnread: Int {
+        _ = snoozeTick
+        let now = self.now
+        let loaded = threads.count { $0.isUnread && $0.belongs(to: .mailbox(.inbox), at: now) }
+        guard let total = inboxUnreadTotal else { return loaded }
+        return max(loaded, total + loaded - inboxUnreadBaseline)
     }
 
     /// The number shown beside a mailbox or label, or nil when there is nothing to show.
@@ -151,7 +167,8 @@ final class MailStore {
         let count =
             switch selection {
             case .mailbox(.snoozed), .mailbox(.drafts): members.count
-            case .mailbox(.inbox), .label: members.count(where: \.isUnread)
+            case .mailbox(.inbox): inboxUnread
+            case .label: members.count(where: \.isUnread)
             case .mailbox: 0
             }
         return count > 0 ? count : nil
@@ -277,7 +294,7 @@ final class MailStore {
             } else {
                 continueLoading(isWaitingLonger: !hasNews)
             }
-            await notifier?.announce(snapshot.threads, account: snapshot.account)
+            await notifier?.announce(snapshot.threads, account: snapshot.account, unread: inboxUnread)
         } catch GmailError.rateLimited {
             // The service's allowance refills by itself, so this is never the person's
             // problem: whatever is on screen stays, and the fetch is tried again later.
@@ -319,6 +336,12 @@ final class MailStore {
         account = snapshot.account
         labels = snapshot.labels
         threads = snapshot.threads
+        if let total = snapshot.inboxUnread {
+            // A new count from Gmail: it already includes everything read or received so far.
+            let now = self.now
+            inboxUnreadTotal = total
+            inboxUnreadBaseline = snapshot.threads.count { $0.isUnread && $0.belongs(to: .mailbox(.inbox), at: now) }
+        }
         phase = .loaded
         scheduleSnoozeWake()
         refreshHasMore()

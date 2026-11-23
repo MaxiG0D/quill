@@ -85,24 +85,24 @@ final class MailNotifier {
 
     /// Takes in a freshly fetched mailbox: notifies about what is new in it, unless the
     /// person is already looking at Quill, and brings the badge up to date.
-    func announce(_ threads: [MailThread], account: Contact) async {
+    func announce(_ threads: [MailThread], account: Contact, unread: Int? = nil) async {
         let now = clock()
         var ledger = self.ledger ?? NewMailLedger(since: now)
         let mail = ledger.collect(from: threads, account: account, now: now)
         self.ledger = ledger
 
         await readPermission()
-        await reflect(threads)
+        await reflect(threads, unread: unread)
         guard isOn, !isPushed, !mail.isEmpty, !isAppActive() else { return }
         await poster.post(Array(mail.suffix(Self.burstLimit)))
     }
 
     /// Matches the badge to the unread Inbox, and removes notifications for mail that has been dealt with.
-    func reflect(_ threads: [MailThread]) async {
+    func reflect(_ threads: [MailThread], unread: Int? = nil) async {
         guard isOn else { return }
         let now = clock()
         let waiting = threads.filter { $0.isUnread && $0.belongs(to: .mailbox(.inbox), at: now) }
-        await poster.setBadge(waiting.count)
+        await poster.setBadge(max(unread ?? 0, waiting.count))
         await poster.withdraw(keeping: Set(waiting.map(\.id)))
     }
 

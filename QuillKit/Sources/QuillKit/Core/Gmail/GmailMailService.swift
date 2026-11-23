@@ -63,6 +63,7 @@ actor GmailMailService: MailService {
         async let starredPage = api.threadReferencePage(labelIDs: ["STARRED"], limit: Self.sideLimit)
         async let draftsPage = api.threadReferencePage(labelIDs: ["DRAFT"], limit: Self.sideLimit)
         async let recentPage = api.threadReferencePage(limit: Self.recentLimit)
+        async let unreadTotal = try? api.inboxUnread()
         async let trashedPage = api.threadReferencePage(labelIDs: ["TRASH"], includeSpamTrash: true, limit: Self.sideLimit)
 
         let user = try await info
@@ -118,6 +119,7 @@ actor GmailMailService: MailService {
         let latest = stored()?.account.email == account.email ? stored() : nil
         let stillWatched = watchedLabels().filter(existing.contains)
         next.watched = stillWatched
+        next.inboxUnread = await unreadTotal ?? latest?.inboxUnread ?? old?.inboxUnread
         next.draftIDs = latest?.draftIDs ?? old?.draftIDs
         self.watched = stillWatched
         let keptPinned = (latest?.pinned ?? old?.pinned ?? []).subtracting(pass.missing)

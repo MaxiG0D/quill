@@ -56,6 +56,18 @@ struct GmailAPI: Sendable {
         return list.labels ?? []
     }
 
+    /// How many Inbox threads are unread in the whole mailbox, not only the ones on the device.
+    /// Like Gmail's own badge it counts the Primary category only, and the whole Inbox when
+    /// categories are off or unavailable.
+    func inboxUnread() async throws -> Int {
+        if let primary: GmailResource.LabelCounts = try? await call(Self.mail + "labels/CATEGORY_PERSONAL"),
+           (primary.threadsTotal ?? 0) > 0 {
+            return primary.threadsUnread ?? 0
+        }
+        let counts: GmailResource.LabelCounts = try await call(Self.mail + "labels/INBOX")
+        return counts.threadsUnread ?? 0
+    }
+
     func createLabel(name: String) async throws -> GmailResource.Label {
         let payload = GmailResource.LabelWrite(name: name)
         return try await call(Self.mail + "labels", method: "POST", body: JSONEncoder().encode(payload))
