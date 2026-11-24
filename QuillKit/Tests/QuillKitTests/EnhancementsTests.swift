@@ -4,6 +4,15 @@ import Testing
 
 @MainActor
 struct EnhancementsTests {
+    @Test func picturesAreFetchedOverHTTPSWithAScheme() {
+        let html = #"<img src="http://a.example/x.png"><img width=1 src='//b.example/y.png'><td style="background:url(http://c.example/z.png)"></td><a href="http://d.example">d</a>"#
+        let secured = HTMLDocument.securePictures(in: html)
+        #expect(secured.contains(#"src="https://a.example/x.png""#))
+        #expect(secured.contains("src='https://b.example/y.png'"))
+        #expect(secured.contains("url(https://c.example/z.png)"))
+        #expect(secured.contains(#"href="http://d.example""#))
+    }
+
     @Test func inlineCIDImagesAreInlinedOrExtracted() throws {
         let pngData = Data([0x89, 0x50, 0x4E, 0x47])
         let html = #"<p>Logo: <img src="cid:logo@example"></p><p>Hero: <img src="cid:hero@example"></p>"#

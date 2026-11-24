@@ -16,6 +16,7 @@ enum HTMLDocument {
             with: "",
             options: [.regularExpression, .caseInsensitive]
         )
+        html = securePictures(in: html)
         let darkStyle = darkAdapted
             ? """
               html { background: #141a19; filter: invert(0.92) hue-rotate(180deg); }
@@ -29,6 +30,7 @@ enum HTMLDocument {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <meta name="color-scheme" content="light only">
+        <meta name="referrer" content="no-referrer">
         <style>
         html { background: #fff; color: #1f1f1f; -webkit-text-size-adjust: 100%; }
         body { margin: 0; padding: 0; font: -apple-system-body; overflow-wrap: break-word; }
@@ -45,6 +47,22 @@ enum HTMLDocument {
         <body><div id="quill-message">\(html)</div></body>
         </html>
         """
+    }
+
+    /// Pictures a page cannot fetch as written: plain `http` ones, which the system refuses, and
+    /// ones given without a scheme, which have nothing to be relative to inside a message.
+    static func securePictures(in html: String) -> String {
+        var html = html
+        for (pattern, template) in [
+            (#"(<img\b[^>]*?\bsrc\s*=\s*["'])http://"#, "$1https://"),
+            (#"(<img\b[^>]*?\bsrc\s*=\s*["'])//"#, "$1https://"),
+            (#"(<(?:td|table|div|body|v:fill|v:background)\b[^>]*?\b(?:background|src)\s*=\s*["'])http://"#, "$1https://"),
+            (#"(url\(\s*["']?)http://"#, "$1https://"),
+            (#"(url\(\s*["']?)//"#, "$1https://"),
+        ] {
+            html = html.replacingOccurrences(of: pattern, with: template, options: [.regularExpression, .caseInsensitive])
+        }
+        return html
     }
 
     /// Fits a page to its view, then reports `[height, isSettled]`: its height in points, and
@@ -81,6 +99,12 @@ enum HTMLDocument {
             }
             var needed = message.scrollWidth;
             if (needed > available + 1) { message.style.zoom = available / needed; }
+            // A picture that failed would show the engine's broken-image box; show nothing instead.
+            Array.prototype.forEach.call(document.images, function (image) {
+                if (image.complete && image.naturalWidth === 0 && image.getAttribute("src")) {
+                    image.style.visibility = "hidden";
+                }
+            });
             var settled = Array.prototype.every.call(document.images, function (image) {
                 return image.complete || (image.getAttribute("width") && image.getAttribute("height"));
             });
