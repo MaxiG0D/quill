@@ -22,8 +22,10 @@ struct MailtoTests {
     }
 
     @Test func ignoresOtherLinks() throws {
-        #expect(Draft(mailto: try #require(URL(string: "https://x.com"))) == nil)
-        let empty = try #require(Draft(mailto: try #require(URL(string: "mailto:"))))
+        let web = try #require(URL(string: "https://x.com"))
+        #expect(Draft(mailto: web) == nil)
+        let bare = try #require(URL(string: "mailto:"))
+        let empty = try #require(Draft(mailto: bare))
         #expect(empty.to.isEmpty && empty.subject.isEmpty && empty.body.isEmpty)
     }
 }
