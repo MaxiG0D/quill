@@ -71,10 +71,8 @@ struct MessageBody: View {
                 text
                     .tint(Palette.link)
                     .environment(\.openURL, OpenURLAction { url in
-                        if url.scheme?.lowercased() == "mailto",
-                           let router,
-                           let draft = MessageWebView.draft(from: url) {
-                            router.draft = draft
+                        if let router, let draft = Draft(mailto: url) {
+                            router.compose(draft)
                             return .handled
                         }
                         return .systemAction

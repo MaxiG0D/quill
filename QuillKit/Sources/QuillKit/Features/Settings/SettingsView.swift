@@ -64,6 +64,10 @@ struct SettingsView: View {
             }
             heading("Reading & Compose")
             VStack(alignment: .leading, spacing: Spacing.m) {
+                #if os(macOS)
+                DefaultMailSwitch()
+                Divider().overlay(Palette.separator)
+                #endif
                 Toggle(isOn: $preferences.inboxTabs) {
                     Text("Inbox Tabs")
                         .font(.body)

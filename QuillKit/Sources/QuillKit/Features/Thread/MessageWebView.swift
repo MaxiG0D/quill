@@ -98,8 +98,8 @@ struct MessageWebView {
         let router = router
         let openURL = openURL
         coordinator.open = { url in
-            if url.scheme?.lowercased() == "mailto", let router, let draft = Self.draft(from: url) {
-                router.draft = draft
+            if let router, let draft = Draft(mailto: url) {
+                router.compose(draft)
             } else {
                 openURL(url)
             }
@@ -127,32 +127,6 @@ struct MessageWebView {
             coordinator.width = width
             coordinator.fitIfCommitted(view)
         }
-    }
-
-    /// Parses a `mailto:` link into a Quill draft so tapping an address composes inside the app.
-    static func draft(from url: URL) -> Draft? {
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
-        let rawTo = components.path.removingPercentEncoding ?? components.path
-        let addresses = rawTo
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { $0.contains("@") }
-        let to = addresses.map { Contact(name: "", email: $0) }
-        let items = components.queryItems ?? []
-        func value(_ name: String) -> String? {
-            items.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
-        }
-        let cc = (value("cc") ?? "")
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { $0.contains("@") }
-            .map { Contact(name: "", email: $0) }
-        let bcc = (value("bcc") ?? "")
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { $0.contains("@") }
-            .map { Contact(name: "", email: $0) }
-        return Draft(to: to, cc: cc, bcc: bcc, subject: value("subject") ?? "", body: value("body") ?? "")
     }
 
     @MainActor

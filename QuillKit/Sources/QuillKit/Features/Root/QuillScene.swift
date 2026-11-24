@@ -89,6 +89,17 @@ private struct QuillWindow: View {
             .environment(router)
             .focusedSceneValue(\.quillRouter, router)
             .preferredColorScheme(options.colorScheme)
+            .onOpenURL(perform: open)
+            #if os(macOS)
+            // A mailto link opens in the window already on screen instead of a new one.
+            .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
+            #endif
+    }
+
+    /// Mail links from other apps, when Quill is the default mail app, start a new message.
+    private func open(_ url: URL) {
+        guard let draft = Draft(mailto: url) else { return }
+        router.compose(draft)
     }
 }
 

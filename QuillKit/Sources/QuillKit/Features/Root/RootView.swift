@@ -48,6 +48,12 @@ struct RootView: View {
         .onChange(of: store.alert) {
             isShowingAlert = store.alert != nil
         }
+        .task(id: router.draft == nil && router.waitingDraft != nil) {
+            guard router.draft == nil, router.waitingDraft != nil else { return }
+            // Lets the closing composer finish leaving before the next one opens.
+            guard (try? await Task.sleep(for: .milliseconds(450))) != nil else { return }
+            router.composeWaitingDraft()
+        }
         .onChange(of: store.cancelledDraft) {
             if let cancelled = store.cancelledDraft {
                 router.draft = cancelled
