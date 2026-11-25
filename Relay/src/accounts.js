@@ -18,12 +18,12 @@ export class Accounts {
   }
 
   /** Adds or refreshes a device, and takes the newest refresh token. */
-  async addDevice(email, { deviceToken, environment, platform, refreshToken, activityStartToken }) {
+  async addDevice(email, { deviceToken, environment, platform, refreshToken, activityStartToken, allInbox = false }) {
     await this.#collection.doc(email).set(
       {
         refreshToken,
         devices: {
-          [deviceToken]: { environment, platform, activityStartToken: activityStartToken ?? FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() },
+          [deviceToken]: { environment, platform, allInbox, activityStartToken: activityStartToken ?? FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() },
         },
       },
       { merge: true },

@@ -18,6 +18,8 @@ protocol MailService: Sendable {
     /// Fetches one thread by itself and returns the mailbox with it included, without listing
     /// anything else. Nil when the service has no such thread or no mailbox to add it to.
     func fetchThread(_ id: MailThread.ID) async throws -> MailSnapshot?
+    /// Fetches several threads in one pass (updating or removing deleted ones) without a full listing.
+    func fetchThreads(_ ids: [MailThread.ID]) async throws -> MailSnapshot?
     /// Tells a mailing list to stop with a single POST to its RFC 8058 address.
     func postOneClickUnsubscribe(to url: URL) async throws
     /// Downloads the raw bytes of an attachment.
@@ -46,6 +48,15 @@ extension MailService {
     func cachedSnapshot() async -> MailSnapshot? { nil }
     func watch(_ selection: MailboxSelection) async -> Bool { false }
     func fetchThread(_ id: MailThread.ID) async throws -> MailSnapshot? { nil }
+    func fetchThreads(_ ids: [MailThread.ID]) async throws -> MailSnapshot? {
+        var latest: MailSnapshot?
+        for id in ids where !id.isEmpty {
+            if let snapshot = try await fetchThread(id) {
+                latest = snapshot
+            }
+        }
+        return latest
+    }
     func postOneClickUnsubscribe(to url: URL) async throws {}
     func attachmentData(for attachment: Attachment) async throws -> Data {
         if let data = attachment.data { return data }

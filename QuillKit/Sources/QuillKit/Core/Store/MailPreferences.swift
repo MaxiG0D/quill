@@ -37,6 +37,12 @@ final class MailPreferences {
         didSet { defaults.set(inboxTabs, forKey: Keys.inboxTabs) }
     }
 
+    /// The Inbox Tabs switch as saved, readable off the main actor (the Gmail service and the
+    /// push registration count the Inbox differently when tabs are off).
+    nonisolated static var storedInboxTabs: Bool {
+        UserDefaults.standard.object(forKey: Keys.inboxTabs) as? Bool ?? true
+    }
+
     private let defaults: UserDefaults
 
     private enum Keys {

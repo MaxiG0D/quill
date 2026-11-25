@@ -15,6 +15,10 @@ actor GmailMailService: MailService {
     private var watched: [String]?
     /// Continuation tokens for loading older pages of each mailbox or label.
     private var pageTokens: [MailboxSelection: String] = [:]
+    /// Advances on every local mutation so an in-flight refresh never overwrites a newer change.
+    private var mutationCounter = 0
+    private var threadMutationCounter: [MailThread.ID: Int] = [:]
+    private var removedMutationCounter: [MailThread.ID: Int] = [:]
 
     /// How many threads are listed from the Inbox, and from the newest mail anywhere.
     private static let recentLimit = 100
@@ -54,6 +58,7 @@ actor GmailMailService: MailService {
     }
 
     private func refreshed() async throws -> MailSnapshot {
+        let revisionBefore = mutationCounter
         let api = api
         async let info = api.userInfo()
         async let gmailLabels = api.labels()
@@ -65,19 +70,20 @@ actor GmailMailService: MailService {
         async let starredPage = api.threadReferencePage(labelIDs: ["STARRED"], limit: Self.sideLimit)
         async let draftsPage = api.threadReferencePage(labelIDs: ["DRAFT"], limit: Self.sideLimit)
         async let recentPage = api.threadReferencePage(limit: Self.recentLimit)
-        async let unreadTotal = try? api.inboxUnread()
+        async let unreadTotal = try? api.inboxUnread(primaryOnly: MailPreferences.storedInboxTabs)
         async let trashedPage = api.threadReferencePage(labelIDs: ["TRASH"], includeSpamTrash: true, limit: Self.sideLimit)
+
+        // Start watched label lookups as soon as labels return instead of waiting on userInfo.
+        let resolvedLabels = GmailMapper.labels(from: try await gmailLabels)
+        let existing = Set(resolvedLabels.map(\.id)).union(Self.watchableSystemLabels)
+        let watched = watchedLabels().filter(existing.contains)
+        async let labelledPagesTask = labelReferencePages(watched)
 
         let user = try await info
         let account = Contact(name: user.name ?? "", email: user.email.lowercased(), tone: .teal, photoURL: user.photoURL)
-        let mapper = GmailMapper(account: account, labels: GmailMapper.labels(from: try await gmailLabels))
+        let mapper = GmailMapper(account: account, labels: resolvedLabels)
 
-        // Mail under a label can be far older than the newest hundred threads, so every
-        // label the person has opened is asked for by name. Gmail rejects a label it no
-        // longer has, so those that were deleted are dropped first.
-        let existing = Set(mapper.labels.map(\.id)).union(Self.watchableSystemLabels)
-        let watched = watchedLabels().filter(existing.contains)
-        let labelledPages = try await labelReferencePages(watched)
+        let labelledPages = try await labelledPagesTask
 
         let inboxResult = try await inboxPage
         let primaryResult = try await primaryPage
@@ -124,7 +130,8 @@ actor GmailMailService: MailService {
         let latest = stored()?.account.email == account.email ? stored() : nil
         let stillWatched = watchedLabels().filter(existing.contains)
         next.watched = stillWatched
-        next.inboxUnread = await unreadTotal ?? latest?.inboxUnread ?? old?.inboxUnread
+        let fetchedUnread = await unreadTotal
+        next.inboxUnread = (mutationCounter == revisionBefore ? fetchedUnread : nil) ?? latest?.inboxUnread ?? old?.inboxUnread
         next.draftIDs = latest?.draftIDs ?? old?.draftIDs
         self.watched = stillWatched
         let keptPinned = (latest?.pinned ?? old?.pinned ?? []).subtracting(pass.missing)
@@ -134,7 +141,16 @@ actor GmailMailService: MailService {
         var isComplete = true
         var included = Set<MailThread.ID>()
         for reference in references {
-            if let mapped = fetched[reference.id] {
+            if (removedMutationCounter[reference.id] ?? 0) > revisionBefore {
+                continue
+            }
+            if (threadMutationCounter[reference.id] ?? 0) > revisionBefore, let mutated = latest?.thread(reference.id) {
+                // Keep the local mutation made while this refresh was in flight.
+                next.threads.append(next.decorated(mutated))
+                next.anchors[reference.id] = latest?.anchors[reference.id]
+                next.historyIDs[reference.id] = latest?.historyIDs[reference.id]
+                included.insert(reference.id)
+            } else if let mapped = fetched[reference.id] {
                 next.threads.append(next.decorated(mapped.thread))
                 next.anchors[reference.id] = mapped.anchor
                 next.historyIDs[reference.id] = reference.historyId
@@ -173,36 +189,70 @@ actor GmailMailService: MailService {
     /// One thread's own call, for mail a notification has just announced: a single request
     /// instead of the listings and label lookups a full refresh makes first.
     func fetchThread(_ id: MailThread.ID) async throws -> MailSnapshot? {
-        guard var next = stored() else { return nil }
+        try await fetchThreads([id])
+    }
+
+    /// Fetches several announced or changed threads in parallel, updating existing ones and
+    /// removing any that were permanently deleted, without running a full mailbox listing.
+    func fetchThreads(_ ids: [MailThread.ID]) async throws -> MailSnapshot? {
+        var seen = Set<MailThread.ID>()
+        let unique = ids.filter { !$0.isEmpty && seen.insert($0).inserted }
+        guard !unique.isEmpty, var next = stored() else { return nil }
+        let revisionBefore = mutationCounter
         let mapper = GmailMapper(account: next.account, labels: next.labels)
-        let resource: GmailResource.Thread
-        do {
-            resource = try await api.thread(id)
-        } catch GmailError.status(404, _) {
-            return nil
-        }
+        let pass = try await threads(unique, mapper: mapper)
+        guard !pass.threads.isEmpty || !pass.missing.isEmpty else { return nil }
         // Read again: a refresh or a change may have written the archive while Gmail answered.
         next = stored() ?? next
-        guard let mapped = mapper.thread(from: resource) else { return nil }
-        next.threads.removeAll { $0.id == id }
-        next.threads.insert(next.decorated(mapped.thread), at: 0)
-        next.anchors[id] = mapped.anchor
-        next.historyIDs[id] = resource.historyId
+        var changed = false
+        for id in unique {
+            if (threadMutationCounter[id] ?? 0) > revisionBefore || (removedMutationCounter[id] ?? 0) > revisionBefore {
+                continue
+            }
+            if pass.missing.contains(id) {
+                let beforeCount = next.threads.count
+                next.threads.removeAll { $0.id == id }
+                next.pinned.remove(id)
+                next.snoozed[id] = nil
+                next.anchors[id] = nil
+                next.historyIDs[id] = nil
+                next.draftIDs?[id] = nil
+                if next.threads.count != beforeCount { changed = true }
+            } else if let mapped = pass.threads[id] {
+                let decorated = next.decorated(mapped.thread)
+                if let index = next.threads.firstIndex(where: { $0.id == id }) {
+                    next.threads[index] = decorated
+                } else {
+                    next.threads.insert(decorated, at: 0)
+                }
+                next.anchors[id] = mapped.anchor
+                if let historyId = mapped.historyId {
+                    next.historyIDs[id] = historyId
+                }
+                changed = true
+            }
+        }
+        guard changed else { return nil }
         keep(next)
-        return next.snapshot
+        // Do not hand back the cached inboxUnread total as if Gmail had just recounted it,
+        // so MailStore adjusts its unread count by the threads that changed here.
+        var snapshot = next.snapshot
+        snapshot.inboxUnread = nil
+        return snapshot
     }
 
     func apply(_ change: ThreadChange, to ids: [MailThread.ID]) async throws {
         for id in ids {
             let known = stored()?.thread(id)
             let latest = stored()?.anchors[id]?.latestMessageID
+            var newHistoryId: String?
             switch change {
             case .move(let mailbox):
-                try await move(id, from: known?.folder, to: mailbox)
+                newHistoryId = try await move(id, from: known?.folder, to: mailbox)
             case .setStarred(let isStarred):
-                try await mark(id, latest: latest, with: "STARRED", isOn: isStarred)
+                newHistoryId = try await mark(id, latest: latest, with: "STARRED", isOn: isStarred)
             case .setUnread(let isUnread):
-                try await mark(id, latest: latest, with: "UNREAD", isOn: isUnread)
+                newHistoryId = try await mark(id, latest: latest, with: "UNREAD", isOn: isUnread)
             case .setPinned(let isPinned):
                 update { archive in
                     if isPinned {
@@ -214,15 +264,19 @@ actor GmailMailService: MailService {
             case .snooze(let date):
                 update { $0.snoozed[id] = date }
             case .setLabel(let label, let isOn):
-                try await api.modifyThread(id, adding: isOn ? [label] : [], removing: isOn ? [] : [label])
+                newHistoryId = try await api.modifyThread(id, adding: isOn ? [label] : [], removing: isOn ? [] : [label])
             case .file(let label, let old):
                 if known?.folder == .trash {
                     try await api.untrashThread(id)
                 }
-                try await api.modifyThread(id, adding: [label], removing: ["INBOX"] + [old].compactMap { $0 })
+                newHistoryId = try await api.modifyThread(id, adding: [label], removing: ["INBOX"] + [old].compactMap { $0 })
             }
-            // Gmail gives a changed thread a new history ID, so the next refresh fetches it again.
+            mutationCounter += 1
+            threadMutationCounter[id] = mutationCounter
             update { archive in
+                if let newHistoryId {
+                    archive.historyIDs[id] = newHistoryId
+                }
                 if case .move = change {
                     archive.snoozed[id] = nil
                 } else if case .file = change {
@@ -305,6 +359,8 @@ actor GmailMailService: MailService {
     func deletePermanently(_ ids: [MailThread.ID]) async throws {
         for id in ids {
             try await api.deleteThread(id)
+            mutationCounter += 1
+            removedMutationCounter[id] = mutationCounter
             update { archive in
                 archive.threads.removeAll { $0.id == id }
                 archive.pinned.remove(id)
@@ -324,6 +380,8 @@ actor GmailMailService: MailService {
                 removing: isSpam ? ["INBOX"] : ["SPAM"]
             )
             if isSpam {
+                mutationCounter += 1
+                removedMutationCounter[id] = mutationCounter
                 update { archive in
                     archive.threads.removeAll { $0.id == id }
                     archive.pinned.remove(id)
@@ -489,33 +547,34 @@ actor GmailMailService: MailService {
 
     // MARK: Gmail
 
-    private func move(_ id: String, from current: Mailbox?, to mailbox: Mailbox) async throws {
+    private func move(_ id: String, from current: Mailbox?, to mailbox: Mailbox) async throws -> String? {
         if mailbox == .trash {
-            try await api.trashThread(id)
-            return
+            return try await api.trashThread(id)
         }
+        var historyId: String?
         if current == .trash {
-            try await api.untrashThread(id)
+            historyId = try await api.untrashThread(id)
         }
         switch mailbox {
         case .inbox:
-            try await api.modifyThread(id, adding: ["INBOX"])
+            return try await api.modifyThread(id, adding: ["INBOX"]) ?? historyId
         case .archive:
-            try await api.modifyThread(id, removing: ["INBOX"])
+            return try await api.modifyThread(id, removing: ["INBOX"]) ?? historyId
         case .sent, .drafts, .starred, .snoozed, .trash:
             // Gmail files these itself. Going back to one, as Undo does, only needs the thread out of the Trash.
-            break
+            return historyId
         }
     }
 
     /// Sets a flag on the latest message, as Gmail does, or clears it from the whole thread.
-    private func mark(_ id: String, latest: String?, with label: String, isOn: Bool) async throws {
+    private func mark(_ id: String, latest: String?, with label: String, isOn: Bool) async throws -> String? {
         if !isOn {
-            try await api.modifyThread(id, removing: [label])
+            return try await api.modifyThread(id, removing: [label])
         } else if let latest {
             try await api.modifyMessage(latest, adding: [label])
+            return nil
         } else {
-            try await api.modifyThread(id, adding: [label])
+            return try await api.modifyThread(id, adding: [label])
         }
     }
 

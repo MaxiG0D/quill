@@ -29,7 +29,9 @@ struct PushRelayTests {
         #expect(request.httpMethod == "POST")
         #expect(request.url?.absoluteString == "https://relay.example/devices")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer access")
-        let body = try JSONDecoder().decode([String: String].self, from: request.httpBody ?? Data())
+        let json = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any] ?? [:]
+        #expect(json["allInbox"] as? Bool == false)
+        let body = json.compactMapValues { $0 as? String }
         #expect(body["deviceToken"] == "abc123")
         #expect(body["refreshToken"] == "refresh")
         #expect(body["environment"] == "development" || body["environment"] == "production")

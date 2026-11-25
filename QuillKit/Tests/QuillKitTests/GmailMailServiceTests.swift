@@ -56,6 +56,10 @@ struct GmailMailServiceTests {
         // Categories off: the whole Inbox's own tally is exact.
         await http.reply(to: "/labels/CATEGORY_PERSONAL", json: #"{"threadsTotal":0,"threadsUnread":0}"#)
         #expect(try await api.inboxUnread() == 14_811)
+
+        // Tabs off in Quill: the Inbox lists everything, so the badge counts everything.
+        await http.reply(to: "/labels/CATEGORY_PERSONAL", json: #"{"threadsTotal":300,"threadsUnread":185}"#)
+        #expect(try await api.inboxUnread(primaryOnly: false) == 14_811)
     }
 
     @Test func theAccountsPictureIsAskedForAtAvatarSize() throws {
@@ -395,5 +399,31 @@ struct GmailMailServiceTests {
         let saved = try await service.saveDraft(Draft(to: [Contact(name: "Dan", email: "dan@example.com")], subject: "Draft", body: "WIP"))
         #expect(saved?.id == "td1")
         #expect(saved?.folder == .drafts)
+    }
+
+    @Test func fetchThreadsRemovesDeletedThreadsAndLeavesInboxUnreadUnchanged() async throws {
+        let http = await GmailFixture.mailbox()
+        let service = GmailFixture.service(http: http)
+        _ = try await service.snapshot()
+
+        // t1 was permanently deleted on another device (404).
+        await http.reply(to: "/threads/t1?", status: 404, json: #"{"error":{"code":404,"message":"Not Found"}}"#)
+        let snapshot = try #require(await service.fetchThreads(["t1"]))
+        #expect(snapshot.threads.map(\.id) == ["t2"])
+        #expect(snapshot.inboxUnread == nil)
+    }
+
+    @Test func applyRecordsReturnedHistoryIDSoNextRefreshSkipsReFetch() async throws {
+        let http = await GmailFixture.mailbox()
+        await http.reply(to: "/modify", json: #"{"id":"t1","historyId":"105"}"#)
+        let service = GmailFixture.service(http: http)
+        _ = try await service.snapshot()
+
+        try await service.apply(.move(.archive), to: ["t1"])
+        let before = await http.requests.count
+        await http.reply(to: "/threads?", json: #"{"threads":[{"id":"t1","historyId":"105"},{"id":"t2","historyId":"200"}]}"#)
+        _ = try await service.snapshot()
+        let fetched = await http.log().dropFirst(before).filter { $0.contains("/threads/") }
+        #expect(fetched.isEmpty)
     }
 }

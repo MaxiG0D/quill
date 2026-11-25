@@ -2,4 +2,5 @@
 struct MappedThread: Sendable {
     var thread: MailThread
     var anchor: ReplyAnchor
+    var historyId: String?
 }

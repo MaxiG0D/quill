@@ -78,7 +78,7 @@ struct RootView: View {
         .onChange(of: store.threads) {
             openRequestedThread()
         }
-        .task(id: [store.unreadInboxIDs.joined(separator: ","), String(store.inboxUnread)]) {
+        .task(id: [store.unreadInboxIDs.joined(separator: ","), String(store.inboxUnread), String(notifier?.isOn ?? false)]) {
             // Reading or filing mail here changes the badge and clears its notifications.
             await notifier?.reflect(store.threads, unread: store.inboxUnread)
         }

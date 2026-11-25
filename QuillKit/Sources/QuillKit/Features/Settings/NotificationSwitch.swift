@@ -24,8 +24,10 @@ struct NotificationSwitch: View {
     }
 
     private func change(_ isOn: Bool) {
+        // Flip the switch state synchronously so iOS does not bounce back before the Task runs.
+        notifier.setEnabledImmediately(isOn)
         Task {
-            if await !notifier.setOn(isOn), let url = SystemNotificationSettings.url {
+            if await !notifier.finishToggle(isOn), let url = SystemNotificationSettings.url {
                 openURL(url)
             }
         }

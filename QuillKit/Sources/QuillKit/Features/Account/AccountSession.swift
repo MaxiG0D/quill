@@ -107,12 +107,12 @@ final class AccountSession {
         await restoration?.value
     }
 
-    /// Looks for new mail when the system wakes Quill in the background.
-    func checkMail(arrived threadID: String? = nil) async {
+    /// Looks for new or changed mail when the system wakes Quill in the background.
+    func checkMail(arrived threadIDs: [String] = []) async {
         await restore()
-        // The announced thread first, on its own, so it is there before the full refresh ends.
-        if let threadID {
-            await store?.bringIn(arrived: [threadID])
+        // Announced or changed threads first, on their own, so they update before the full refresh ends.
+        if !threadIDs.isEmpty {
+            await store?.bringIn(arrived: threadIDs)
         }
         await store?.refreshUnseen()
     }
@@ -277,8 +277,8 @@ final class AccountSession {
                 await self?.stopPush()
             }
         }
-        PushDevice.shared.onPush = { [weak self] threadID in
-            await self?.checkMail(arrived: threadID)
+        PushDevice.shared.onPush = { [weak self] threadIDs in
+            await self?.checkMail(arrived: threadIDs)
         }
         PushDevice.shared.onActivityToken = { [weak self] in
             await self?.startPush()
@@ -317,7 +317,8 @@ final class AccountSession {
         do {
             try await relay.register(
                 token,
-                activityStartToken: LiveActivitySetting.isOn ? PushDevice.shared.activityStartToken : nil
+                activityStartToken: LiveActivitySetting.isOn ? PushDevice.shared.activityStartToken : nil,
+                allInbox: !MailPreferences.storedInboxTabs
             )
             notifier?.setPushed(true)
         } catch {
@@ -332,6 +333,13 @@ final class AccountSession {
         if !LiveActivitySetting.isOn {
             await LiveActivitySetting.onTurnedOff?()
         }
+        await startPush()
+    }
+
+    /// The Inbox Tabs switch changed: recount the Inbox badge, and tell the relay how this
+    /// device counts it.
+    func inboxTabsChanged() async {
+        await store?.refresh(isQuiet: true)
         await startPush()
     }
 

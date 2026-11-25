@@ -14,8 +14,8 @@ final class PushDevice {
 
     /// The device's push token in hexadecimal, once the system has given one.
     private(set) var knownToken: String?
-    /// Run when a push arrives, so the mailbox is up to date before the person opens it.
-    var onPush: (@MainActor (_ threadID: String?) async -> Void)?
+    /// Run when a push arrives, with the thread IDs it announced or changed, so the mailbox updates at once.
+    var onPush: (@MainActor (_ threadIDs: [String]) async -> Void)?
     /// The token that lets the relay start a Live Activity while the app is closed (iOS only).
     private(set) var activityStartToken: String?
     /// Run when the activity token arrives or changes, so the relay gets it.
@@ -71,9 +71,18 @@ final class PushDevice {
         await onActivityToken?()
     }
 
-    /// `userInfo` is the push as the system delivered it; its thread ID names the new mail.
+    /// `userInfo` is the push as the system delivered it; `aps.thread-id` names new mail and
+    /// `threads` names threads whose labels changed or that were deleted.
     func pushArrived(_ userInfo: [AnyHashable: Any]) async {
-        let aps = userInfo["aps"] as? [String: Any]
-        await onPush?(aps?["thread-id"] as? String)
+        var ids: [String] = []
+        if let aps = userInfo["aps"] as? [String: Any], let id = aps["thread-id"] as? String, !id.isEmpty {
+            ids.append(id)
+        }
+        if let threads = userInfo["threads"] as? [String] {
+            for id in threads where !id.isEmpty && !ids.contains(id) {
+                ids.append(id)
+            }
+        }
+        await onPush?(ids)
     }
 }

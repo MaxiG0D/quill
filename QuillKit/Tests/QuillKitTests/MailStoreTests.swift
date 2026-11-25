@@ -284,4 +284,99 @@ struct MailStoreTests {
         #expect(store.thread("snoozed-old")?.isUnread == false)
         #expect(store.thread("snoozed-old")?.snoozedUntil == nil)
     }
+
+    @Test func anInFlightRefreshDoesNotRevertALocalArchive() async throws {
+        let initial = Fixture.snapshot
+        let service = DelayedSnapshotService(initial: initial)
+        let store = MailStore(service: service, calendar: Fixture.calendar, clock: { Fixture.now }, defaults: nil)
+        await store.load()
+        #expect(store.visibleThreads.map(\.id).contains("dental"))
+        #expect(store.unreadCount == 2)
+
+        // Start a refresh that will return the pre-archive snapshot.
+        await service.holdNextSnapshot()
+        let refreshTask = Task { await store.refresh(isQuiet: true) }
+        await service.waitUntilSnapshotStarted()
+
+        // Archive while the refresh is still in flight.
+        store.archive("dental")
+        #expect(store.thread("dental")?.folder == .archive)
+        #expect(store.unreadCount == 1)
+
+        // Let the stale refresh finish.
+        await service.releaseSnapshot()
+        await refreshTask.value
+
+        #expect(store.thread("dental")?.folder == .archive)
+        #expect(!store.visibleThreads.map(\.id).contains("dental"))
+        #expect(store.unreadCount == 1)
+    }
+
+    @Test func archivingUpdatesNotificationBadgeImmediately() async throws {
+        let log = NotificationLog(.allowed)
+        let name = "quill.tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defaults.removePersistentDomain(forName: name)
+        let notifier = MailNotifier(poster: log, defaults: defaults, isAppActive: { true }, clock: { Fixture.now })
+        let store = MailStore(
+            service: SampleMailService(snapshot: Fixture.snapshot, latency: .zero),
+            notifier: notifier,
+            calendar: Fixture.calendar,
+            clock: { Fixture.now },
+            defaults: nil
+        )
+        await store.load()
+        #expect(await log.badge == 2)
+
+        store.archive("dental")
+        for _ in 0..<50 where await log.badge != 1 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await log.badge == 1)
+        #expect(await log.kept == ["lease-renewal"])
+    }
+}
+
+private actor DelayedSnapshotService: MailService {
+    private let initial: MailSnapshot
+    private var shouldHold = false
+    private var startedContinuation: CheckedContinuation<Void, Never>?
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+    private var snapshotStarted = false
+
+    init(initial: MailSnapshot) {
+        self.initial = initial
+    }
+
+    func holdNextSnapshot() {
+        shouldHold = true
+        snapshotStarted = false
+    }
+
+    func waitUntilSnapshotStarted() async {
+        if snapshotStarted { return }
+        await withCheckedContinuation { startedContinuation = $0 }
+    }
+
+    func releaseSnapshot() {
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
+
+    func snapshot() async throws -> MailSnapshot {
+        if shouldHold {
+            shouldHold = false
+            snapshotStarted = true
+            startedContinuation?.resume()
+            startedContinuation = nil
+            await withCheckedContinuation { releaseContinuation = $0 }
+        }
+        var copy = initial
+        copy.inboxUnread = 2
+        return copy
+    }
+
+    func apply(_ change: ThreadChange, to ids: [MailThread.ID]) async throws {}
+    func send(_ draft: Draft) async throws {}
+    func search(_ query: String) async throws -> [MailThread] { [] }
 }

@@ -167,6 +167,46 @@ struct NotificationTests {
         #expect(defaults.data(forKey: "newMailLedger") == nil)
         #expect(await log.badge == 0)
     }
+
+    @Test func togglingOffUpdatesStateSynchronouslyAndClearsBadgeBeforeRelay() async throws {
+        let log = NotificationLog()
+        let notifier = Self.notifier(log, defaults: try Self.defaults())
+        await notifier.announce([Self.thread("t1", [Self.message("m1", after: 0)])], account: Self.me)
+        #expect(await log.badge == 1)
+
+        var badgeWhenSwitchRan: Int?
+        notifier.onSwitch = { _ in
+            badgeWhenSwitchRan = await log.badge
+        }
+        notifier.setEnabledImmediately(false)
+        #expect(!notifier.isOn)
+        #expect(await notifier.finishToggle(false))
+        #expect(badgeWhenSwitchRan == 0)
+        #expect(await log.kept == [])
+    }
+
+    @Test func reflectReadsPermissionOnFirstCallAndDoesNotCountPromotionsInBadge() async throws {
+        let log = NotificationLog(.allowed)
+        let notifier = Self.notifier(log, defaults: try Self.defaults())
+        var promo = Self.thread("promo", [Self.message("m1", after: 0)], isUnread: true)
+        promo.categories = [.promotions]
+        // Permission starts undecided; reflect reads it and uses the Primary unread count (0), not promo (1).
+        await notifier.reflect([promo], unread: 0)
+        #expect(await log.badge == 0)
+        #expect(await log.kept == ["promo"])
+    }
+
+    @Test func pushArrivedExtractsBothSingleThreadAndSyncThreads() async {
+        var received: [[String]] = []
+        let device = PushDevice()
+        device.onPush = { received.append($0) }
+
+        await device.pushArrived(["aps": ["thread-id": "t1"]])
+        await device.pushArrived(["aps": ["content-available": 1, "badge": 2], "sync": true, "threads": ["t2", "t3", "t2"]])
+        await device.pushArrived(["aps": ["thread-id": "t1"], "threads": ["t1", "t4"]])
+
+        #expect(received == [["t1"], ["t2", "t3"], ["t1", "t4"]])
+    }
 }
 
 private extension MailThread {

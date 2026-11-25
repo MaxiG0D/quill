@@ -73,6 +73,9 @@ struct SettingsView: View {
                         .font(.body)
                         .foregroundStyle(Palette.label)
                 }
+                .onChange(of: preferences.inboxTabs) {
+                    Task { await session.inboxTabsChanged() }
+                }
                 Divider().overlay(Palette.separator)
                 Toggle(isOn: $preferences.undoSendEnabled) {
                     VStack(alignment: .leading, spacing: 2) {

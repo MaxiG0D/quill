@@ -64,6 +64,12 @@ final class MailStore {
     private var remoteSearchIDs: Set<MailThread.ID> = []
     private var pendingMutations: [MailThread.ID: Task<Void, Never>] = [:]
     private var mutationGenerations: [MailThread.ID: Int] = [:]
+    private var pendingRemovals: Set<MailThread.ID> = []
+    /// Advances on every local edit so an in-flight refresh never reverts a newer change.
+    private var mutationEpoch = 0
+    private var mutatedThreadEpochs: [MailThread.ID: Int] = [:]
+    private var locallyRemovedEpochs: [MailThread.ID: Int] = [:]
+    private var notificationTask: Task<Void, Never>?
     private var snoozeWakeTask: Task<Void, Never>?
     private var pendingSendTask: Task<Void, Never>?
     private var pendingSendDraft: Draft?
@@ -201,9 +207,11 @@ final class MailStore {
         return max(loaded, total + loaded - inboxUnreadBaseline)
     }
 
-    /// Gmail counts the Primary tab only, which is the whole Inbox when tabs are off.
+    /// With tabs on, only the Primary tab counts, like Gmail's badge. With tabs off the Inbox
+    /// lists everything, so every unread Inbox thread counts.
     private static func countsTowardInboxUnread(_ thread: MailThread, at now: Date) -> Bool {
-        thread.isUnread && thread.belongs(to: .mailbox(.inbox), at: now) && thread.isFiled(under: .primary)
+        thread.isUnread && thread.belongs(to: .mailbox(.inbox), at: now)
+            && (!MailPreferences.shared.inboxTabs || thread.isFiled(under: .primary))
     }
 
     /// The number shown beside a mailbox or label, or nil when there is nothing to show.
@@ -291,17 +299,18 @@ final class MailStore {
         await fetch(isQuiet: isQuiet)
     }
 
-    /// Puts mail a notification announced on screen at once, by fetching just those threads,
-    /// so it is already there when the person arrives and the full refresh has yet to finish.
+    /// Puts mail a notification announced or changed on screen at once, by fetching just those threads
+    /// in parallel, so it is already there before the full refresh finishes.
     func bringIn(arrived ids: [MailThread.ID]) async {
         if phase == .idle, let cached = await service.cachedSnapshot() {
             adopt(cached)
         }
         guard phase == .loaded else { return }
-        for id in ids where !id.isEmpty {
-            guard let snapshot = try? await service.fetchThread(id) else { continue }
-            adopt(snapshot)
-        }
+        let unique = ids.filter { !$0.isEmpty }
+        guard !unique.isEmpty else { return }
+        let epochBeforeFetch = mutationEpoch
+        guard let snapshot = try? await service.fetchThreads(unique) else { return }
+        adopt(snapshot, fetchedBefore: epochBeforeFetch)
     }
 
     /// Brings the mailbox up to date while no one is looking, keeping any failure to itself.
@@ -332,16 +341,17 @@ final class MailStore {
 
     private func fetchOnce(isQuiet: Bool) async {
         do {
+            let epochBeforeFetch = mutationEpoch
             let snapshot = try await service.snapshot()
             let hasNews = snapshot.threads != threads
-            adopt(snapshot)
+            adopt(snapshot, fetchedBefore: epochBeforeFetch, reflectNotifications: false)
             syncProgress = snapshot.isComplete ? nil : snapshot.progress
             if snapshot.isComplete {
                 waits = 0
             } else {
                 continueLoading(isWaitingLonger: !hasNews)
             }
-            await notifier?.announce(snapshot.threads, account: snapshot.account, unread: inboxUnread)
+            await notifier?.announce(threads, account: account, unread: inboxUnread)
         } catch GmailError.rateLimited {
             // The service's allowance refills by itself, so this is never the person's
             // problem: whatever is on screen stays, and the fetch is tried again later.
@@ -379,21 +389,74 @@ final class MailStore {
         error is DecodingError ? "Unexpected reply from the mail service. \(error)" : error.localizedDescription
     }
 
-    private func adopt(_ snapshot: MailSnapshot) {
+    private func adopt(_ snapshot: MailSnapshot, fetchedBefore: Int? = nil, reflectNotifications: Bool = true) {
         account = snapshot.account
         labels = snapshot.labels
-        threads = snapshot.threads
-        if let total = snapshot.inboxUnread {
+        var incoming = snapshot.threads
+        let mutatedDuringFetch = fetchedBefore.map { mutationEpoch != $0 } ?? false
+        let hasPendingEdits = !pendingMutations.isEmpty || !pendingRemovals.isEmpty
+        if mutatedDuringFetch || hasPendingEdits {
+            var keepRemoved = pendingRemovals
+            if let fetchedBefore {
+                for (id, epoch) in locallyRemovedEpochs where epoch > fetchedBefore {
+                    keepRemoved.insert(id)
+                }
+            }
+            if !keepRemoved.isEmpty {
+                incoming.removeAll { keepRemoved.contains($0.id) }
+            }
+            var preserveLocal = Set(pendingMutations.keys)
+            if let fetchedBefore {
+                for (id, epoch) in mutatedThreadEpochs where epoch > fetchedBefore {
+                    preserveLocal.insert(id)
+                }
+            }
+            for id in preserveLocal where !keepRemoved.contains(id) {
+                guard let local = thread(id) else { continue }
+                if let index = incoming.firstIndex(where: { $0.id == id }) {
+                    incoming[index] = local
+                } else {
+                    incoming.append(local)
+                }
+            }
+        }
+        threads = incoming
+        if !mutatedDuringFetch && !hasPendingEdits, let total = snapshot.inboxUnread {
             // A new count from Gmail: it already includes everything read or received so far.
             let now = self.now
             inboxUnreadTotal = total
-            inboxUnreadBaseline = snapshot.threads.count { Self.countsTowardInboxUnread($0, at: now) }
+            inboxUnreadBaseline = incoming.count { Self.countsTowardInboxUnread($0, at: now) }
         }
         phase = .loaded
         scheduleSnoozeWake()
         refreshHasMore()
         if hasSearchQuery {
             refreshSearchResults()
+        }
+        if reflectNotifications {
+            syncNotifications()
+        }
+    }
+
+    private func noteMutation(for id: MailThread.ID, removed: Bool = false) {
+        mutationEpoch += 1
+        if removed {
+            locallyRemovedEpochs[id] = mutationEpoch
+            mutatedThreadEpochs[id] = nil
+        } else {
+            mutatedThreadEpochs[id] = mutationEpoch
+            locallyRemovedEpochs[id] = nil
+        }
+    }
+
+    /// Updates the app icon badge and delivered notifications right away without waiting on a view pass.
+    private func syncNotifications() {
+        guard let notifier else { return }
+        let currentThreads = threads
+        let unread = inboxUnread
+        notificationTask?.cancel()
+        notificationTask = Task {
+            await notifier.reflect(currentThreads, unread: unread)
         }
     }
 
@@ -471,14 +534,20 @@ final class MailStore {
         guard let previous = thread(id) else { return }
         deselect(id)
         threads.removeAll { $0.id == id }
+        noteMutation(for: id, removed: true)
+        pendingRemovals.insert(id)
         if hasSearchQuery { refreshSearchResults() }
+        syncNotifications()
         haptic = HapticCue(kind: .warning)
         Task {
+            defer { pendingRemovals.remove(id) }
             do {
                 try await service.deletePermanently([id])
             } catch {
                 if !threads.contains(where: { $0.id == previous.id }) {
                     threads.append(previous)
+                    noteMutation(for: id, removed: false)
+                    syncNotifications()
                 }
                 alert = error.localizedDescription
             }
@@ -495,13 +564,21 @@ final class MailStore {
             selectedThreadID = nil
         }
         threads.removeAll { idSet.contains($0.id) }
+        for id in ids {
+            noteMutation(for: id, removed: true)
+            pendingRemovals.insert(id)
+        }
+        syncNotifications()
         haptic = HapticCue(kind: .warning)
         Task {
+            defer { pendingRemovals.subtract(idSet) }
             do {
                 try await service.deletePermanently(ids)
             } catch {
                 let existing = Set(threads.map(\.id))
                 threads += trashed.filter { !existing.contains($0.id) }
+                for id in ids { noteMutation(for: id, removed: false) }
+                syncNotifications()
                 alert = error.localizedDescription
             }
         }
@@ -512,16 +589,22 @@ final class MailStore {
         guard let previous = thread(id) else { return }
         deselect(id)
         threads.removeAll { $0.id == id }
+        noteMutation(for: id, removed: true)
+        pendingRemovals.insert(id)
         if hasSearchQuery { refreshSearchResults() }
+        syncNotifications()
         haptic = HapticCue(kind: .warning)
         toast = UndoToast(title: "Marked as Spam", symbol: "exclamationmark.octagon", previous: [previous])
         Task {
+            defer { pendingRemovals.remove(id) }
             do {
                 try await service.markSpam([id], isSpam: true)
             } catch {
                 if !threads.contains(where: { $0.id == previous.id }) {
                     threads.append(previous)
+                    noteMutation(for: id, removed: false)
                     if hasSearchQuery { refreshSearchResults() }
+                    syncNotifications()
                 }
                 alert = error.localizedDescription
             }
@@ -836,11 +919,15 @@ final class MailStore {
             guard let index = threads.firstIndex(where: { $0.id == previous.id }) else {
                 // Thread was removed from local list (for example by Mark as Spam): restore it.
                 threads.append(previous)
+                pendingRemovals.remove(previous.id)
+                noteMutation(for: previous.id, removed: false)
                 Task {
                     do {
                         try await service.markSpam([previous.id], isSpam: false)
                     } catch {
                         threads.removeAll { $0.id == previous.id }
+                        noteMutation(for: previous.id, removed: true)
+                        syncNotifications()
                         alert = error.localizedDescription
                     }
                 }
@@ -849,6 +936,7 @@ final class MailStore {
             let current = threads[index]
             let labels = Set(current.labelIDs).symmetricDifference(previous.labelIDs)
             threads[index] = previous
+            noteMutation(for: previous.id)
             var changes: [ThreadChange] = []
             for label in labels.sorted() {
                 changes.append(.setLabel(label, previous.labelIDs.contains(label)))
@@ -870,6 +958,7 @@ final class MailStore {
         if hasSearchQuery {
             refreshSearchResults()
         }
+        syncNotifications()
         haptic = HapticCue(kind: .selection)
     }
 
@@ -914,9 +1003,11 @@ final class MailStore {
         guard let index = threads.firstIndex(where: { $0.id == id }) else { return }
         let previous = threads[index]
         change.apply(to: &threads[index])
+        noteMutation(for: id)
         if hasSearchQuery {
             refreshSearchResults()
         }
+        syncNotifications()
         if let cue {
             haptic = HapticCue(kind: cue)
         }
@@ -930,6 +1021,11 @@ final class MailStore {
         let previousTask = pendingMutations[id]
         let task = Task {
             await previousTask?.value
+            defer {
+                if mutationGenerations[id] == generation {
+                    pendingMutations[id] = nil
+                }
+            }
             do {
                 try await service.apply(change, to: [id])
             } catch {
@@ -937,9 +1033,11 @@ final class MailStore {
                    mutationGenerations[id] == generation,
                    let index = threads.firstIndex(where: { $0.id == id }) {
                     threads[index] = rollback
+                    noteMutation(for: id)
                     if hasSearchQuery {
                         refreshSearchResults()
                     }
+                    syncNotifications()
                 }
                 alert = error.localizedDescription
             }

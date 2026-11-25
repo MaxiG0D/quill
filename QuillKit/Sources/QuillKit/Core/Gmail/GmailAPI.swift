@@ -58,10 +58,11 @@ struct GmailAPI: Sendable {
 
     /// How many Inbox threads are unread in the whole mailbox, not only the ones on the device.
     /// Like Gmail's own badge it counts the Primary category only, and the whole Inbox when
-    /// categories are off or unavailable. Primary's own tally also covers archived mail, so
+    /// categories are off or unavailable, or when `primaryOnly` is false because Quill's Inbox
+    /// Tabs switch is off and its Inbox lists everything. Primary's own tally also covers archived mail, so
     /// those threads are counted from the Inbox itself, in pages.
-    func inboxUnread() async throws -> Int {
-        if let primary: GmailResource.LabelCounts = try? await call(Self.mail + "labels/CATEGORY_PERSONAL"),
+    func inboxUnread(primaryOnly: Bool = true) async throws -> Int {
+        if primaryOnly, let primary: GmailResource.LabelCounts = try? await call(Self.mail + "labels/CATEGORY_PERSONAL"),
            (primary.threadsTotal ?? 0) > 0,
            let count = try? await unreadPrimaryInboxThreads() {
             return count
@@ -153,9 +154,11 @@ struct GmailAPI: Sendable {
         return data
     }
 
-    func modifyThread(_ id: String, adding: [String] = [], removing: [String] = []) async throws {
+    @discardableResult
+    func modifyThread(_ id: String, adding: [String] = [], removing: [String] = []) async throws -> String? {
         let change = GmailResource.LabelChange(addLabelIds: adding, removeLabelIds: removing)
-        let _: GmailResource.Ignored = try await call(Self.mail + "threads/\(id)/modify", method: "POST", body: JSONEncoder().encode(change))
+        let response: GmailResource.ThreadMutation = try await call(Self.mail + "threads/\(id)/modify", method: "POST", body: JSONEncoder().encode(change))
+        return response.historyId
     }
 
     func modifyMessage(_ id: String, adding: [String] = [], removing: [String] = []) async throws {
@@ -163,12 +166,16 @@ struct GmailAPI: Sendable {
         let _: GmailResource.Ignored = try await call(Self.mail + "messages/\(id)/modify", method: "POST", body: JSONEncoder().encode(change))
     }
 
-    func trashThread(_ id: String) async throws {
-        let _: GmailResource.Ignored = try await call(Self.mail + "threads/\(id)/trash", method: "POST")
+    @discardableResult
+    func trashThread(_ id: String) async throws -> String? {
+        let response: GmailResource.ThreadMutation = try await call(Self.mail + "threads/\(id)/trash", method: "POST")
+        return response.historyId
     }
 
-    func untrashThread(_ id: String) async throws {
-        let _: GmailResource.Ignored = try await call(Self.mail + "threads/\(id)/untrash", method: "POST")
+    @discardableResult
+    func untrashThread(_ id: String) async throws -> String? {
+        let response: GmailResource.ThreadMutation = try await call(Self.mail + "threads/\(id)/untrash", method: "POST")
+        return response.historyId
     }
 
     /// Permanently deletes a thread from Gmail (cannot be undone).

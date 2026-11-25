@@ -65,13 +65,19 @@ final class MailNotifier {
         permission = await poster.permission()
     }
 
-    /// Turns notifications on or off. Returns false when only the system's settings can turn them on.
-    func setOn(_ isOn: Bool) async -> Bool {
+    /// Updates the local choice immediately so the UI switch responds without waiting on async work.
+    func setEnabledImmediately(_ isOn: Bool) {
         isEnabled = isOn
         defaults.set(isOn, forKey: Self.enabledKey)
+    }
+
+    /// Completes the async work after `setEnabledImmediately(_:)`: clears the badge immediately
+    /// when turning off, checks or requests permission when turning on, and notifies the relay.
+    func finishToggle(_ isOn: Bool) async -> Bool {
         guard isOn else {
-            await onSwitch?(false)
+            // Clear the local badge and notifications right away instead of waiting on the relay.
             await clear()
+            await onSwitch?(false)
             return true
         }
         await readPermission()
@@ -81,6 +87,12 @@ final class MailNotifier {
         guard permission == .allowed else { return false }
         await onSwitch?(true)
         return true
+    }
+
+    /// Turns notifications on or off. Returns false when only the system's settings can turn them on.
+    func setOn(_ isOn: Bool) async -> Bool {
+        setEnabledImmediately(isOn)
+        return await finishToggle(isOn)
     }
 
     /// Takes in a freshly fetched mailbox: notifies about what is new in it, unless the
@@ -99,10 +111,14 @@ final class MailNotifier {
 
     /// Matches the badge to the unread Inbox, and removes notifications for mail that has been dealt with.
     func reflect(_ threads: [MailThread], unread: Int? = nil) async {
+        if permission == .undecided {
+            await readPermission()
+        }
         guard isOn else { return }
         let now = clock()
         let waiting = threads.filter { $0.isUnread && $0.belongs(to: .mailbox(.inbox), at: now) }
-        await poster.setBadge(max(unread ?? 0, waiting.count))
+        let primaryWaiting = waiting.count { $0.isFiled(under: .primary) }
+        await poster.setBadge(unread ?? primaryWaiting)
         await poster.withdraw(keeping: Set(waiting.map(\.id)))
     }
 

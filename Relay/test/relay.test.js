@@ -291,10 +291,31 @@ test("an activity is accepted only from a registered device, with a token and a 
   await assert.rejects(relay.dismiss(undefined, { code: "482913" }), (error) => error.status === 401);
 });
 
-test("an archive or delete wakes every device with a silent push", async () => {
+test("an archive or delete updates the badge immediately and wakes every device with changed thread IDs", async () => {
   stubGoogle({
     ...google,
-    "/history": { history: [{ labelsRemoved: [{ message: { id: "m1", labelIds: [] }, labelIds: ["INBOX"] }] }] },
+    "/history": { history: [{ labelsRemoved: [{ message: { id: "m1", threadId: "t1", labelIds: [] }, labelIds: ["INBOX"] }] }] },
+  });
+  const apns = new RecordingAPNs();
+  const relay = new Relay({ config, accounts: new MemoryAccounts(), apns });
+  await relay.register("bearer", { deviceToken: device, environment: "production", platform: "ios", refreshToken: "refresh" });
+  await relay.mailboxChanged({ emailAddress: "max@example.com", historyId: 150 });
+
+  assert.equal(apns.sent.length, 1);
+  assert.equal(apns.sent[0].pushType, "alert");
+  assert.equal(apns.sent[0].priority, 10);
+  assert.equal(apns.sent[0].payload.aps.alert, undefined);
+  assert.equal(apns.sent[0].payload.aps.sound, undefined);
+  assert.equal(apns.sent[0].payload.aps.badge, 4);
+  assert.equal(apns.sent[0].payload.aps["content-available"], 1);
+  assert.deepEqual(apns.sent[0].payload.threads, ["t1"]);
+});
+
+test("a sync push falls back to background priority when the badge count cannot be read", async () => {
+  stubGoogle({
+    ...google,
+    "/labels/INBOX": { status: 503, body: {} },
+    "/history": { history: [{ labelsRemoved: [{ message: { id: "m1", threadId: "t1" }, labelIds: ["INBOX"] }] }] },
   });
   const apns = new RecordingAPNs();
   const relay = new Relay({ config, accounts: new MemoryAccounts(), apns });
@@ -304,8 +325,9 @@ test("an archive or delete wakes every device with a silent push", async () => {
   assert.equal(apns.sent.length, 1);
   assert.equal(apns.sent[0].pushType, "background");
   assert.equal(apns.sent[0].priority, 5);
-  assert.equal(apns.sent[0].payload.aps.alert, undefined);
+  assert.equal(apns.sent[0].payload.aps.badge, undefined);
   assert.equal(apns.sent[0].payload.aps["content-available"], 1);
+  assert.deepEqual(apns.sent[0].payload.threads, ["t1"]);
 });
 
 test("the badge counts the Primary category, and the whole Inbox when categories are off", async () => {
@@ -323,4 +345,14 @@ test("the badge counts the Primary category, and the whole Inbox when categories
   // The category label is missing (the stub answers 404).
   stubGoogle(google);
   assert.equal(await new Mailbox("access").unreadCount(), 4);
+});
+
+test("a device with tabs off gets the whole Inbox count even when Primary has mail", async () => {
+  stubGoogle({
+    ...google,
+    "/labels/CATEGORY_PERSONAL": { threadsTotal: 300, threadsUnread: 185 },
+    "/threads": { threads: [{ id: "a" }] },
+  });
+  assert.equal(await new Mailbox("access").unreadCount({ allInbox: true }), 4);
+  assert.equal(await new Mailbox("access").unreadCount(), 1);
 });

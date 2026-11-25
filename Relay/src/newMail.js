@@ -29,8 +29,38 @@ export function hasChanges(history) {
   );
 }
 
-/** A push with no alert: it only wakes Quill to bring its mailbox up to date. */
-export const syncPayload = { aps: { "content-available": 1 }, sync: true };
+/** Thread IDs whose labels changed or whose messages were deleted, without repeats. */
+export function changedThreads(history) {
+  const seen = new Set();
+  const ids = [];
+  for (const record of history ?? []) {
+    for (const list of [record.messagesDeleted, record.labelsAdded, record.labelsRemoved]) {
+      for (const item of list ?? []) {
+        const id = item.message?.threadId;
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+  }
+  return ids;
+}
+
+/**
+ * A push with no banner or sound: updates the app icon badge immediately (when given)
+ * and wakes Quill with the changed thread IDs so archived, deleted and read mail updates at once.
+ */
+export function syncPayload(badge, threads = []) {
+  const listed = threads.slice(-12);
+  return {
+    ...(listed.length && { threads: listed }),
+    aps: {
+      ...(badge !== undefined && { badge }),
+      "content-available": 1,
+    },
+    sync: true,
+  };
+}
 
 /**
  * True when a message, as it stands now, deserves a notification: still unread in the

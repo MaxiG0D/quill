@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, verify } from "node:crypto";
 import { test } from "node:test";
-import { addedToInbox, hasChanges, isWaiting, payload, signInActivity } from "../src/newMail.js";
+import { addedToInbox, changedThreads, hasChanges, isWaiting, payload, signInActivity, syncPayload } from "../src/newMail.js";
 import { decodeEntities, decodeHeader, senderAddress, senderName } from "../src/text.js";
 
 test("history yields each message added to the Inbox once, oldest first", () => {
@@ -169,4 +169,23 @@ test("only relabelled or deleted mail counts as a change to sync", () => {
   assert.equal(hasChanges([{ messagesDeleted: [{ message: { id: "m1" } }] }]), true);
   assert.equal(hasChanges([{ messagesAdded: [{ message: { id: "m1" } }] }]), false);
   assert.equal(hasChanges(undefined), false);
+});
+
+test("changedThreads collects unique thread IDs from label and delete history", () => {
+  const history = [
+    { labelsRemoved: [{ message: { id: "m1", threadId: "t1" } }, { message: { id: "m2", threadId: "t1" } }] },
+    { labelsAdded: [{ message: { id: "m3", threadId: "t2" } }] },
+    { messagesDeleted: [{ message: { id: "m4", threadId: "t3" } }] },
+    { messagesAdded: [{ message: { id: "m5", threadId: "t4" } }] },
+  ];
+  assert.deepEqual(changedThreads(history), ["t1", "t2", "t3"]);
+  assert.deepEqual(syncPayload(2, ["t1", "t2"]), {
+    threads: ["t1", "t2"],
+    aps: { badge: 2, "content-available": 1 },
+    sync: true,
+  });
+  assert.deepEqual(syncPayload(undefined, []), {
+    aps: { "content-available": 1 },
+    sync: true,
+  });
 });

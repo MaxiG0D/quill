@@ -62,7 +62,7 @@ struct GmailMapper: Sendable {
             messageID: latest.header("Message-ID"),
             references: latest.header("References")
         )
-        return MappedThread(thread: thread, anchor: anchor)
+        return MappedThread(thread: thread, anchor: anchor, historyId: resource.historyId)
     }
 
     private func message(from resource: GmailResource.Message) -> Message {

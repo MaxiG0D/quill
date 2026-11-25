@@ -1,5 +1,5 @@
 import { GoogleError, Mailbox, SignedOut, accessToken, tokenInfo } from "./google.js";
-import { addedToInbox, burstLimit, codeLifetime, hasChanges, isWaiting, payload, signInActivity, syncPayload } from "./newMail.js";
+import { addedToInbox, burstLimit, changedThreads, codeLifetime, hasChanges, isWaiting, payload, signInActivity, syncPayload } from "./newMail.js";
 
 /** A request the relay turns away, with the HTTP status to answer with. */
 export class Refused extends Error {
@@ -33,7 +33,7 @@ export class Relay {
   }
 
   /** Registers a device for the account a Quill access token belongs to. */
-  async register(bearer, { deviceToken, environment, platform, refreshToken, activityStartToken }) {
+  async register(bearer, { deviceToken, environment, platform, refreshToken, activityStartToken, allInbox }) {
     if (!/^[0-9a-f]{64,200}$/i.test(deviceToken ?? "") || !refreshToken) {
       throw new Refused(400, "A device token and a refresh token are required.");
     }
@@ -48,6 +48,7 @@ export class Relay {
         environment: environment === "development" ? "development" : "production",
         platform: platform === "macos" ? "macos" : "ios",
         refreshToken,
+        allInbox: allInbox === true,
         activityStartToken: /^[0-9a-f]{64,400}$/i.test(activityStartToken ?? "") ? activityStartToken.toLowerCase() : undefined,
       });
       await this.#watch(email, mailbox, await this.#accounts.get(email), true);
@@ -155,8 +156,8 @@ export class Relay {
           // Gmail keeps about a week of history. Past that, the relay starts again from now.
           if (!(error instanceof GoogleError && error.status === 404)) throw error;
         }
-        await this.#notify(email, account, mailbox, addedToInbox(records));
-        if (hasChanges(records)) await this.#sync(email, account);
+        const notifiedBadges = await this.#notify(email, account, mailbox, addedToInbox(records));
+        if (hasChanges(records)) await this.#sync(email, account, mailbox, changedThreads(records), notifiedBadges);
       }
       if (!start || BigInt(historyId) > BigInt(start)) {
         await this.#accounts.update(email, { historyId: String(historyId) });
@@ -190,32 +191,59 @@ export class Relay {
       const message = await mailbox.message(id);
       if (message && isWaiting(message)) messages.push(message);
     }
-    if (!messages.length) return;
+    if (!messages.length) return undefined;
 
-    await this.#send(email, account, messages, await mailbox.unreadCount());
+    const badges = await this.#badges(account, mailbox);
+    await this.#send(email, account, messages, badges);
+    return badges;
   }
 
-  /** Wakes every device of the account without an alert, so archived, deleted and read mail shows up at once. */
-  async #sync(email, account) {
-    for (const [deviceToken, device] of Object.entries(account.devices)) {
-      try {
-        const { outcome, environment } = await this.#apns.send({
-          deviceToken,
-          environment: device.environment,
-          payload: syncPayload,
-          collapseID: "sync",
-          pushType: "background",
-          priority: 5,
-        });
-        if (outcome === "gone") await this.#accounts.removeDevice(email, deviceToken);
-        else if (environment !== device.environment) await this.#accounts.setEnvironment(email, deviceToken, environment);
-      } catch (error) {
-        console.error(`Sync push failed for ${device.platform} ${deviceToken.slice(0, 8)}: ${error.message}`);
-      }
+  /**
+   * The badge for each way a device counts: Gmail's Primary unread, or the whole Inbox for a
+   * device whose tabs are off. Keyed by whether the device counts the whole Inbox.
+   */
+  async #badges(account, mailbox) {
+    const badges = new Map();
+    for (const device of Object.values(account.devices ?? {})) {
+      const all = device.allInbox === true;
+      if (!badges.has(all)) badges.set(all, await mailbox.unreadCount({ allInbox: all }));
     }
+    return badges;
   }
 
-  async #send(email, account, messages, badge) {
+  /**
+   * Updates the app icon badge and wakes every device of the account without a banner or sound,
+   * so archived, deleted and read mail shows up at once instead of waiting on background throttling.
+   */
+  async #sync(email, account, mailbox, threadIDs = [], knownBadges = undefined) {
+    const badges = knownBadges ?? (await this.#badges(account, mailbox).catch(() => undefined));
+    await Promise.all(
+      Object.entries(account.devices).map(async ([deviceToken, device]) => {
+        const badge = badges?.get(device.allInbox === true);
+        const body = syncPayload(badge, threadIDs);
+        // A badge-only push uses pushType "alert" (per APNs rules) so iOS updates the badge
+        // immediately without background throttling and without showing a banner or sound.
+        const pushType = badge !== undefined ? "alert" : "background";
+        const priority = badge !== undefined ? 10 : 5;
+        try {
+          const { outcome, environment } = await this.#apns.send({
+            deviceToken,
+            environment: device.environment,
+            payload: body,
+            collapseID: "sync",
+            pushType,
+            priority,
+          });
+          if (outcome === "gone") await this.#accounts.removeDevice(email, deviceToken);
+          else if (environment !== device.environment) await this.#accounts.setEnvironment(email, deviceToken, environment);
+        } catch (error) {
+          console.error(`Sync push failed for ${device.platform} ${deviceToken.slice(0, 8)}: ${error.message}`);
+        }
+      }),
+    );
+  }
+
+  async #send(email, account, messages, badges) {
     for (const [deviceToken, device] of Object.entries(account.devices)) {
       const name = `${device.platform} ${deviceToken.slice(0, 8)}`;
       let delivered = 0;
@@ -224,7 +252,7 @@ export class Relay {
           const { outcome, environment, reason } = await this.#apns.send({
             deviceToken,
             environment: device.environment,
-            payload: payload(message, badge),
+            payload: payload(message, badges?.get(device.allInbox === true)),
             collapseID: message.id,
           });
           if (outcome === "gone") {

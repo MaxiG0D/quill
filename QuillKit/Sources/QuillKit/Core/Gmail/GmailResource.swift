@@ -178,6 +178,12 @@ enum GmailResource {
         var drafts: [DraftSummary]?
     }
 
+    /// Returned by thread mutation endpoints (`/modify`, `/trash`, `/untrash`), carrying the new history ID.
+    struct ThreadMutation: Decodable, Sendable {
+        var id: String?
+        var historyId: String?
+    }
+
     /// Stands in for a response Quill has no use for.
     struct Ignored: Decodable, Sendable {}
 }

@@ -236,12 +236,10 @@ private struct SwipeRowModifier: ViewModifier {
         }
         isCommitting = true
         if !isArmed {
-            withAnimation(.spring(duration: 0.3, bounce: 0.2)) { arm = 1 }
+            withAnimation(.easeOut(duration: 0.16)) { arm = 1 }
         }
         let target = sign * (width + Spacing.xs)
-        let distance = target - offset
-        let relative = distance == 0 ? 0 : min(max(velocity / distance, 0), 8)
-        withAnimation(.interpolatingSpring(duration: 0.32, bounce: 0, initialVelocity: relative)) {
+        withAnimation(.easeOut(duration: 0.16)) {
             offset = target
         } completion: {
             item.action()
