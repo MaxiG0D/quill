@@ -23,6 +23,12 @@ struct MailRow: View {
         return event
     }
 
+    /// Where an upcoming event is, so the row can offer directions.
+    private var eventAddress: MailAddress? {
+        guard upcomingEvent != nil, let latest = thread.latest else { return nil }
+        return MailAddressCache.address(in: latest)
+    }
+
     private var signInCode: SignInCode? {
         guard thread.isUnread, let latest = thread.latest else { return nil }
         let body = latest.body.isEmpty ? (latest.snippet ?? "") : latest.body
@@ -102,6 +108,9 @@ struct MailRow: View {
                         }
                         if let event = upcomingEvent {
                             EventChip(event: event, now: store.now, onTint: isSelected)
+                        }
+                        if let address = eventAddress {
+                            DirectionsChip(address: address, onTint: isSelected)
                         }
                         ForEach(Array(attachments.prefix(2).enumerated()), id: \.element.id) { index, attachment in
                             let overflow = index == 1 ? max(attachments.count - 2, 0) : 0

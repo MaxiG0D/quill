@@ -39,18 +39,18 @@ enum MapsApp: String, CaseIterable, Identifiable, Sendable {
 
     /// The link that shows `address`, or the way there.
     @MainActor
-    func url(for address: String, at coordinate: CLLocationCoordinate2D, directions: Bool) -> URL? {
-        let point = "\(coordinate.latitude),\(coordinate.longitude)"
+    func url(for address: String, at coordinate: CLLocationCoordinate2D? = nil, directions: Bool) -> URL? {
+        let point = coordinate.map { "\($0.latitude),\($0.longitude)" }
         switch self {
         case .apple:
             return Self.link("https://maps.apple.com/", directions
                 ? ["daddr": address]
-                : ["q": address, "ll": point])
+                : ["q": address, "ll": point ?? ""])
         case .google:
             if Self.hasGoogleMapsApp {
                 return Self.link("comgooglemaps://", directions
                     ? ["daddr": address]
-                    : ["q": address, "center": point])
+                    : ["q": address, "center": point ?? ""])
             }
             return directions
                 ? Self.link("https://www.google.com/maps/dir/", ["api": "1", "destination": address])
@@ -60,7 +60,7 @@ enum MapsApp: String, CaseIterable, Identifiable, Sendable {
 
     private static func link(_ base: String, _ query: KeyValuePairs<String, String>) -> URL? {
         var components = URLComponents(string: base)
-        components?.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+        components?.queryItems = query.filter { !$0.value.isEmpty }.map { URLQueryItem(name: $0.key, value: $0.value) }
         return components?.url
     }
 }

@@ -17,6 +17,12 @@ struct PinnedCard: View {
         return event
     }
 
+    /// Where an upcoming event is, so the row can offer directions.
+    private var eventAddress: MailAddress? {
+        guard upcomingEvent != nil, let latest = thread.latest else { return nil }
+        return MailAddressCache.address(in: latest)
+    }
+
     private var signInCode: SignInCode? {
         guard thread.isUnread, let latest = thread.latest else { return nil }
         let body = latest.body.isEmpty ? (latest.snippet ?? "") : latest.body
@@ -86,6 +92,9 @@ struct PinnedCard: View {
                     }
                     if let event = upcomingEvent {
                         EventChip(event: event, now: store.now, onTint: true)
+                    }
+                    if let address = eventAddress {
+                        DirectionsChip(address: address, onTint: true)
                     }
                     if let attachment = thread.attachments.last {
                         AttachmentChip(
