@@ -82,13 +82,12 @@ struct ThreadColumn: View {
             if case .failed = store.phase, !isSearching {
                 LoadFailedView()
                     .transition(.opacity)
+            } else if isLoadingEmpty {
+                MailLoadingIndicator()
             } else if isEmpty {
                 emptyView
                     .transition(.opacity)
             }
-        }
-        .overlay(alignment: .top) {
-            SyncProgressBar()
         }
         .overlay(alignment: .bottom) {
             if store.isSelecting || !store.selectedThreadIDs.isEmpty {
@@ -376,6 +375,10 @@ struct ThreadColumn: View {
         } else {
             store.isSettled && store.sections.isEmpty
         }
+    }
+
+    private var isLoadingEmpty: Bool {
+        !isSearching && !store.isSettled && store.sections.isEmpty
     }
 
     private func focusList() {

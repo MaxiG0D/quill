@@ -127,14 +127,13 @@ struct ThreadList: View {
         .scrollContentBackground(.hidden)
         .contentMargins(.top, topMargin ?? 0, for: .scrollContent)
         .closesSwipeRowsOnScroll()
-        .overlay(alignment: .top) {
-            SyncProgressBar()
-        }
         .ignoresSafeArea(.container, edges: topMargin == nil ? [] : .top)
         .overlay {
             if case .failed = store.phase {
                 LoadFailedView()
                     .transition(.opacity)
+            } else if isLoadingEmpty {
+                MailLoadingIndicator()
             } else if isEmpty {
                 if store.filter != .all {
                     VStack(spacing: Spacing.s) {
@@ -169,6 +168,10 @@ struct ThreadList: View {
 
     private var isEmpty: Bool {
         store.isSettled && store.sections.isEmpty
+    }
+
+    private var isLoadingEmpty: Bool {
+        !store.isSettled && store.sections.isEmpty
     }
 
     private func showMailboxes() {
