@@ -28,14 +28,22 @@ struct SplitRootView: View {
             SidebarView(onSelect: dismissSlideOverSidebar)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 236, max: 300)
                 #if !os(macOS)
-                // The sidebar button moves to the bottom row, beside Search.
+                // The sidebar button lives in the bottom row, beside Search. The system
+                // toggle hops to whichever column still shows a bar (the list hides its own,
+                // so the thread pane would get it), so every column drops it.
                 .toolbar(removing: .sidebarToggle)
                 #endif
         } content: {
             ThreadColumn()
                 .navigationSplitViewColumnWidth(min: 300, ideal: 365, max: 460)
+                #if !os(macOS)
+                .toolbar(removing: .sidebarToggle)
+                #endif
         } detail: {
             ThreadPane()
+                #if !os(macOS)
+                .toolbar(removing: .sidebarToggle)
+                #endif
         }
         .navigationSplitViewStyle(.balanced)
         #if os(macOS)
