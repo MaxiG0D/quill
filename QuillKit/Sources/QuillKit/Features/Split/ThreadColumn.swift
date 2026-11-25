@@ -128,6 +128,8 @@ struct ThreadColumn: View {
                     .padding(.leading, Spacing.xs)
             }
             .sharedBackgroundVisibility(.hidden)
+            // Pushes Select and Filter to the column's trailing edge, clear of the title, as on iPad.
+            ToolbarSpacer(.flexible)
             ToolbarItemGroup(placement: .automatic) {
                 if !isSearching {
                     Button(store.isSelecting ? "Done" : "Select", systemImage: store.isSelecting ? "checkmark.circle.fill" : "checkmark.circle") {
