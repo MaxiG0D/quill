@@ -4,7 +4,7 @@ import Foundation
 /// It also holds what Gmail has no place for: pins and snoozes.
 struct MailArchive: Codable, Sendable {
     /// Raised whenever threads start keeping something more from Gmail.
-    static let currentFormat = 4
+    static let currentFormat = 5
 
     /// The format this archive was written in. Older archives carry none.
     var format: Int? = MailArchive.currentFormat
