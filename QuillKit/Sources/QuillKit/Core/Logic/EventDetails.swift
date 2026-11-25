@@ -19,64 +19,15 @@ struct EventDetails: Hashable, Sendable {
         )
     }
 
-    private static let postal = regex(
-        // Canadian postal code, US state and ZIP, or a French postcode opening its line.
-        #"\b[A-Z]\d[A-Z][ -]?\d[A-Z]\d\b|\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b|^\d{5}\s+\p{L}"#,
-        options: [.caseInsensitive, .anchorsMatchLines]
-    )
-    private static let street = regex(#"^\d+[A-Za-z]?(?:-\d+)?[,\s]+\p{L}"#)
-    private static let country = regex(#"^(?:canada|usa|united states|etats-unis|france)$"#)
-
-    private static let addressDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.address.rawValue)
     private static let phoneDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.phoneNumber.rawValue)
 
-    /// A postal address: the lines from the street number down to the postal code, joined on one line.
+    /// The message's street address, on one line.
     static func address(in text: String) -> String? {
-        let lines = text.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-
-        for (index, line) in lines.enumerated() where line.count <= 120 && matches(postal, line) {
-            var first: Int?
-            var cursor = index
-            while cursor >= 0, index - cursor <= 3 {
-                let candidate = lines[cursor]
-                if candidate.isEmpty || candidate.count > 120 { break }
-                if matches(street, candidate) {
-                    first = cursor
-                    break
-                }
-                cursor -= 1
-            }
-            guard let first else { continue }
-            var parts = Array(lines[first...index])
-            if index + 1 < lines.count, matches(country, lines[index + 1].folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)) {
-                parts.append(lines[index + 1])
-            }
-            return parts.joined(separator: ", ")
-        }
-
-        let range = NSRange(text.startIndex..., in: text)
-        guard let match = addressDetector?.firstMatch(in: text, range: range),
-              let bounds = Range(match.range, in: text) else { return nil }
-        return text[bounds]
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-            .joined(separator: ", ")
+        MailAddress.find(in: text)?.full
     }
 
     static func phone(in text: String) -> String? {
         let range = NSRange(text.startIndex..., in: text)
         return phoneDetector?.firstMatch(in: text, range: range)?.phoneNumber
-    }
-
-    private static func matches(_ expression: NSRegularExpression, _ text: String) -> Bool {
-        expression.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
-    }
-
-    private static func regex(_ pattern: String, options: NSRegularExpression.Options = [.caseInsensitive]) -> NSRegularExpression {
-        // The patterns are constants, checked by the tests.
-        // swiftlint:disable:next force_try
-        try! NSRegularExpression(pattern: pattern, options: options)
     }
 }

@@ -72,7 +72,12 @@ enum SampleData {
             messages: [
                 Message(
                     id: "dental-1", sender: dental, to: [me], date: at(0, 8, 47),
-                    body: "Your cleaning is scheduled for Nov 18 at 3:30 PM with Dr. Alvarez. Reply to this message if you need to move it."
+                    body: """
+                    Your cleaning is scheduled for Nov 18 at 3:30 PM with Dr. Alvarez. Reply to this message if you need to move it.
+
+                    1200 Pine Street, Suite 300
+                    Seattle, WA 98101
+                    """
                 )
             ],
             isUnread: true

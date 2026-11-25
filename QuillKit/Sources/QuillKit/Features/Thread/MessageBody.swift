@@ -1,3 +1,4 @@
+import MapKit
 import QuickLook
 import SwiftUI
 
@@ -14,6 +15,7 @@ struct MessageBody: View {
     @State private var loadingAttachmentID: Attachment.ID?
     @State private var previewURL: URL?
     @State private var downloadedURLs: [Attachment.ID: URL] = [:]
+    @State private var place: CLLocationCoordinate2D?
 
     /// The message as text, with anything it quotes behind a toggle.
     @ViewBuilder
@@ -48,6 +50,7 @@ struct MessageBody: View {
     var body: some View {
         let now = store?.now ?? .now
         let codeSource = message.body.isEmpty ? (message.snippet ?? "") : message.body
+        let address = MailAddressCache.address(in: message)
         VStack(alignment: .leading, spacing: Spacing.xs) {
             if let code = SignInCode.find(in: subject.isEmpty ? codeSource : "\(subject)\n\(codeSource)") {
                 SignInCodeChip(code: code)
@@ -64,6 +67,11 @@ struct MessageBody: View {
                     messageID: message.id
                 )
                 .padding(.bottom, Spacing.xs)
+            }
+            if let address, let place {
+                AddressCard(address: address, coordinate: place)
+                    .padding(.bottom, Spacing.xs)
+                    .transition(.opacity)
             }
             if let html = message.html {
                 HTMLMessageView(html: html, inlineImages: message.inlineImages)
@@ -104,6 +112,11 @@ struct MessageBody: View {
             }
         }
         .quickLookPreview($previewURL)
+        .task(id: address) {
+            guard let address else { place = nil; return }
+            let found = await AddressPlaces.locate(address.full)
+            withAnimation(Motion.quick) { place = found }
+        }
     }
 
     private func openAttachment(_ attachment: Attachment) {
