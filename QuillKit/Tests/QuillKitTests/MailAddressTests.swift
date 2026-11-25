@@ -92,4 +92,23 @@ struct MailAddressTests {
         """
         #expect(MailAddress.find(in: text)?.street == "1150 Boulevard René-Lévesque Ouest")
     }
+
+    @Test func readsAStreetOnItsOwnLine() {
+        let text = """
+        Si vous devez modifier votre rendez-vous, contactez-nous au (450) 468-9999.
+
+        (450) 468-9999
+        1251 Chemin du Tremblay
+
+        Pour vous désabonner des courriels, cliquez ici.
+        """
+        let address = MailAddress.find(in: text)
+        #expect(address?.street == "1251 Chemin du Tremblay")
+        #expect(address?.locality == "")
+    }
+
+    @Test func leavesSentencesWithAStreetAlone() {
+        #expect(MailAddress.find(in: "We moved 3 desks to the Main St office last week.") == nil)
+        #expect(MailAddress.find(in: "Shipping to\n42 Rue Principale") == nil)
+    }
 }

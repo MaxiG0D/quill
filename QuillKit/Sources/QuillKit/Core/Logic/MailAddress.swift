@@ -14,7 +14,9 @@ struct MailAddress: Hashable, Sendable {
     /// The first address in `text` that is not in a footer, a signature or a shipping or billing block.
     static func find(in text: String) -> MailAddress? {
         let lines = body(of: text)
-        return postalBlock(in: lines) ?? detected(in: lines.joined(separator: "\n"))
+        return postalBlock(in: lines)
+            ?? detected(in: lines.joined(separator: "\n"))
+            ?? loneStreet(in: lines)
     }
 
     // MARK: Where to look
@@ -96,6 +98,22 @@ struct MailAddress: Hashable, Sendable {
             )
         }
         return MailAddress(street: parts[0], locality: parts.dropFirst().joined(separator: ", "))
+    }
+
+    // MARK: Lone street
+
+    /// A line that is only a street, as clinics often sign off: "1251 Chemin du Tremblay".
+    /// Maps places it near the reader, and no card shows when it cannot.
+    private static func loneStreet(in lines: [String]) -> MailAddress? {
+        for (index, line) in lines.enumerated()
+        where line.count <= 60
+            && line.split(separator: " ").count <= 8
+            && !line.contains(where: { ".!?:;".contains($0) })
+            && matches(streetLine, line)
+            && !isAccountAddress(lines, above: index) {
+            return split([line])
+        }
+        return nil
     }
 
     // MARK: Detected
