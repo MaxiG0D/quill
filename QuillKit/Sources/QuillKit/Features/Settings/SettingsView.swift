@@ -99,6 +99,8 @@ struct SettingsView: View {
                     }
                 }
                 Divider().overlay(Palette.separator)
+                MapsAppPicker()
+                Divider().overlay(Palette.separator)
                 SignatureSettingsCard(preferences: preferences)
             }
             .card()

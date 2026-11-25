@@ -36,11 +36,11 @@ struct AddressCard: View {
         }
         .buttonStyle(.pressable)
         .frame(maxWidth: 440, alignment: .leading)
-        .help("Open in Maps")
+        .help("Open in \(MapsApp.current.title)")
         .accessibilityLabel(address.full)
-        .accessibilityHint("Opens in Maps")
+        .accessibilityHint("Opens in \(MapsApp.current.title)")
         .contextMenu {
-            Button("Open in Maps", systemImage: "map") { open(directions: false) }
+            Button("Open in \(MapsApp.current.title)", systemImage: "map") { open(directions: false) }
             Button("Directions", systemImage: "arrow.triangle.turn.up.right.diamond") { open(directions: true) }
             Button("Copy Address", systemImage: "doc.on.doc") { copy() }
         }
@@ -63,7 +63,7 @@ struct AddressCard: View {
     }
 
     private func open(directions: Bool) {
-        if let url = AddressPlaces.mapsURL(for: address.full, at: coordinate, directions: directions) {
+        if let url = MapsApp.current.url(for: address.full, at: coordinate, directions: directions) {
             openURL(url)
         }
     }
@@ -98,14 +98,5 @@ enum AddressPlaces {
         if found.count > 500 { found.removeAll() }
         found[address] = coordinate
         return coordinate
-    }
-
-    static func mapsURL(for address: String, at coordinate: CLLocationCoordinate2D, directions: Bool) -> URL? {
-        var components = URLComponents(string: "https://maps.apple.com/")
-        let point = "\(coordinate.latitude),\(coordinate.longitude)"
-        components?.queryItems = directions
-            ? [URLQueryItem(name: "daddr", value: address)]
-            : [URLQueryItem(name: "q", value: address), URLQueryItem(name: "ll", value: point)]
-        return components?.url
     }
 }
