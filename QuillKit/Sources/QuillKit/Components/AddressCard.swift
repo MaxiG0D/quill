@@ -53,10 +53,10 @@ struct AddressCard: View {
         ) {
             Marker("", systemImage: "mappin", coordinate: coordinate)
                 .tint(Palette.accentFill)
+                .annotationTitles(.hidden)
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
         .mapControlVisibility(.hidden)
-        .annotationTitles(.hidden)
         .allowsHitTesting(false)
         .frame(height: 120)
         .accessibilityHidden(true)
