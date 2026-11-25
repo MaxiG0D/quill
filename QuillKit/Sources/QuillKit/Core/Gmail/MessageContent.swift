@@ -122,10 +122,45 @@ enum MessageContent {
 
     private static func decoded(_ part: GmailResource.Part) -> String? {
         guard let data = part.body?.data.flatMap({ Data(base64URLEncoded: $0) }) else { return nil }
-        if let encoding = charsetEncoding(in: part), let decoded = String(data: data, encoding: encoding) {
-            return decoded
+        return text(from: data, declared: charsetEncoding(in: part))
+    }
+
+    /// Valid UTF-8 wins over a declared legacy charset, since senders often mislabel UTF-8 as Latin-1 or Windows-1252.
+    static func text(from data: Data, declared: String.Encoding?) -> String? {
+        let utf8 = String(data: data, encoding: .utf8)
+        let isLegacy = declared == .isoLatin1 || declared == .windowsCP1252 || declared == .ascii
+        let decoded: String?
+        if let utf8, declared == nil || isLegacy || declared == .utf8 {
+            decoded = utf8
+        } else if let declared, let text = String(data: data, encoding: declared) {
+            decoded = text
+        } else {
+            decoded = utf8 ?? String(data: data, encoding: .windowsCP1252) ?? String(data: data, encoding: .isoLatin1)
         }
-        return String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
+        return decoded.map(repairingMojibake)
+    }
+
+    /// Fixes text whose UTF-8 bytes were read as Windows-1252 ("demandÃ©" becomes "demandé"). Text that doesn't round-trip is left alone.
+    static func repairingMojibake(_ text: String) -> String {
+        guard text.contains(where: { $0 == "Ã" || $0 == "â" || $0 == "Â" }) else { return text }
+        var current = text
+        for _ in 0..<2 {
+            guard let bytes = current.data(using: .windowsCP1252) ?? latin1Bytes(current),
+                  let fixed = String(data: bytes, encoding: .utf8), fixed != current else { break }
+            current = fixed
+        }
+        return current
+    }
+
+    /// Latin-1 bytes for text where Windows-1252 has no mapping (such as the C1 controls 0x81 or 0x8D).
+    private static func latin1Bytes(_ text: String) -> Data? {
+        var bytes = Data()
+        for scalar in text.unicodeScalars {
+            if let cp = String(scalar).data(using: .windowsCP1252) { bytes.append(cp) }
+            else if scalar.value < 256 { bytes.append(UInt8(scalar.value)) }
+            else { return nil }
+        }
+        return bytes
     }
 
     private static func charsetEncoding(in part: GmailResource.Part) -> String.Encoding? {

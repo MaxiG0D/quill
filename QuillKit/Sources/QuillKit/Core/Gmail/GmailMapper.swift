@@ -78,7 +78,7 @@ struct GmailMapper: Sendable {
             quoted: text.quoted,
             attachments: MessageContent.attachments(of: resource.payload, messageID: resource.id),
             html: MessageContent.designedHTML(of: resource.payload),
-            snippet: resource.snippet.map { HTMLText.decodingEntities(in: $0).trimmingCharacters(in: .whitespaces) },
+            snippet: resource.snippet.map { MessageContent.repairingMojibake(HTMLText.decodingEntities(in: $0)).trimmingCharacters(in: .whitespaces) },
             unsubscribe: sender == account ? nil : Unsubscribe(
                 list: resource.header("List-Unsubscribe"),
                 post: resource.header("List-Unsubscribe-Post")
