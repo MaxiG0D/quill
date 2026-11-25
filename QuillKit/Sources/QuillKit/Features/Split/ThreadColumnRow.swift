@@ -29,8 +29,9 @@ struct ThreadColumnRow: View {
         .animation(Motion.quick, value: isSelected)
         .animation(Motion.quick, value: isHovering)
         #if !os(macOS)
-        .threadSwipeActions(thread)
-        .plainColumnRow()
+        .threadSwipeActions(thread, insets: .columnRow)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
         #endif
     }
 
@@ -85,8 +86,13 @@ extension View {
     /// Strips a List row to the bare content the column draws itself.
     func plainColumnRow() -> some View {
         self
-            .listRowInsets(EdgeInsets(top: 1, leading: Spacing.xs, bottom: 1, trailing: Spacing.xs))
+            .listRowInsets(.columnRow)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
     }
+}
+
+extension EdgeInsets {
+    /// The inset around each row of the wide layout's list column.
+    static let columnRow = EdgeInsets(top: 1, leading: Spacing.xs, bottom: 1, trailing: Spacing.xs)
 }

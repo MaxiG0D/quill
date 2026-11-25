@@ -27,10 +27,9 @@ struct ThreadListRow: View {
                 .hidesNavigationLinkIndicator()
             }
         }
-        .listRowInsets(EdgeInsets(top: Spacing.s, leading: Spacing.m, bottom: Spacing.s, trailing: Spacing.m))
+        .threadSwipeActions(thread, insets: EdgeInsets(top: Spacing.s, leading: Spacing.m, bottom: Spacing.s, trailing: Spacing.m))
         .listRowBackground((isPinned || isBulkSelected) ? Palette.accentTint : Palette.surface)
         .listRowSeparatorTint(Palette.separator)
-        .threadSwipeActions(thread)
         .contextMenu {
             ThreadActions(thread: thread)
         }
@@ -47,76 +46,96 @@ struct ThreadListRow: View {
 }
 
 /// The swipe actions every thread list shares, driven by user swipe preferences in Settings.
+/// The modifier owns the row's insets: on iOS the row slides across the whole cell.
 struct ThreadSwipeActions: ViewModifier {
     @Environment(MailStore.self) private var store
     @Environment(Router.self) private var router: Router?
 
     let thread: MailThread
+    let insets: EdgeInsets
 
     private var prefs: MailPreferences { .shared }
 
     func body(content: Content) -> some View {
+        #if os(iOS)
         content
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            swipeButton(for: prefs.trailingSwipe)
-            if prefs.trailingSecondarySwipe != prefs.trailingSwipe {
-                swipeButton(for: prefs.trailingSecondarySwipe)
+            .swipeRow(
+                id: thread.id,
+                insets: insets,
+                isEnabled: !store.isSelecting,
+                leading: items(prefs.leadingSwipe, prefs.leadingSecondarySwipe),
+                trailing: items(prefs.trailingSwipe, prefs.trailingSecondarySwipe)
+            )
+        #else
+        content
+            .listRowInsets(insets)
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                buttons(items(prefs.trailingSwipe, prefs.trailingSecondarySwipe))
             }
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            swipeButton(for: prefs.leadingSwipe)
-            if prefs.leadingSecondarySwipe != prefs.leadingSwipe {
-                swipeButton(for: prefs.leadingSecondarySwipe)
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                buttons(items(prefs.leadingSwipe, prefs.leadingSecondarySwipe))
             }
-        }
+        #endif
     }
 
+    #if !os(iOS)
     @ViewBuilder
-    private func swipeButton(for action: SwipeAction) -> some View {
+    private func buttons(_ items: [SwipeItem]) -> some View {
+        ForEach(items) { item in
+            Button(item.title, systemImage: item.symbol, role: item.removesRow ? .destructive : nil, action: item.action)
+                .tint(item.tint)
+        }
+    }
+    #endif
+
+    private func items(_ primary: SwipeAction, _ secondary: SwipeAction) -> [SwipeItem] {
+        let first = item(for: primary)
+        let second = secondary == primary ? nil : item(for: secondary)
+        return [first, second].compactMap { $0 }
+    }
+
+    private func item(for action: SwipeAction) -> SwipeItem? {
         switch action {
         case .archive:
             if thread.folder == .archive || thread.folder == .trash {
-                Button("Inbox", systemImage: "tray.and.arrow.down", role: store.hasSearchQuery ? nil : .destructive, action: moveToInbox)
-                    .tint(Palette.accentFill)
+                SwipeItem(title: "Inbox", symbol: "tray.and.arrow.down", tint: Palette.accentFill, removesRow: !store.hasSearchQuery, action: moveToInbox)
             } else {
-                Button("Archive", systemImage: "archivebox", role: store.archiveRemovesRow ? .destructive : nil, action: archive)
-                    .tint(Palette.accentFill)
+                SwipeItem(title: "Archive", symbol: "archivebox", tint: Palette.accentFill, removesRow: store.archiveRemovesRow, action: archive)
             }
         case .delete:
-            if thread.folder != .trash {
-                Button("Delete", systemImage: "trash", role: .destructive, action: trash)
-                    .tint(Palette.destructiveFill)
-            }
+            thread.folder == .trash ? nil
+                : SwipeItem(title: "Delete", symbol: "trash", tint: Palette.destructiveFill, removesRow: true, action: trash)
         case .unread:
-            Button(
-                thread.isUnread ? "Read" : "Unread",
-                systemImage: thread.isUnread ? "envelope.open" : "envelope.badge",
+            SwipeItem(
+                title: thread.isUnread ? "Read" : "Unread",
+                symbol: thread.isUnread ? "envelope.open" : "envelope.badge",
+                tint: Palette.accentFill,
+                removesRow: false,
                 action: toggleUnread
             )
-            .tint(Palette.accentFill)
         case .pin:
-            Button(
-                thread.isPinned ? "Unpin" : "Pin",
-                systemImage: thread.isPinned ? "pin.slash" : "pin",
+            SwipeItem(
+                title: thread.isPinned ? "Unpin" : "Pin",
+                symbol: thread.isPinned ? "pin.slash" : "pin",
+                tint: Palette.warmFill,
+                removesRow: false,
                 action: togglePin
             )
-            .tint(Palette.warmFill)
         case .star:
-            Button(
-                thread.isStarred ? "Unstar" : "Star",
-                systemImage: thread.isStarred ? "star.slash" : "star",
+            SwipeItem(
+                title: thread.isStarred ? "Unstar" : "Star",
+                symbol: thread.isStarred ? "star.slash" : "star",
+                tint: Palette.warmFill,
+                removesRow: false,
                 action: toggleStar
             )
-            .tint(Palette.warmFill)
         case .snooze:
-            if thread.folder != .trash {
-                Button("Snooze", systemImage: "clock", action: snooze)
-                    .tint(Palette.neutralFill)
-            }
+            thread.folder == .trash ? nil
+                : SwipeItem(title: "Snooze", symbol: "clock", tint: Palette.neutralFill, removesRow: false, action: snooze)
         }
     }
 
-    // The system slides the row off; the animation here, and on the list, closes the gap smoothly.
+    // The row has already slid off; the animation here, and on the list, closes the gap smoothly.
     private func archive() {
         withAnimation(Motion.list) { store.archive(thread.id) }
     }
@@ -151,8 +170,8 @@ struct ThreadSwipeActions: ViewModifier {
 }
 
 extension View {
-    func threadSwipeActions(_ thread: MailThread) -> some View {
-        modifier(ThreadSwipeActions(thread: thread))
+    func threadSwipeActions(_ thread: MailThread, insets: EdgeInsets) -> some View {
+        modifier(ThreadSwipeActions(thread: thread, insets: insets))
     }
 }
 

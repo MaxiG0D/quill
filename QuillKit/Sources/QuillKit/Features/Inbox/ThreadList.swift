@@ -126,6 +126,7 @@ struct ThreadList: View {
         .cardListStyle()
         .scrollContentBackground(.hidden)
         .contentMargins(.top, topMargin ?? 0, for: .scrollContent)
+        .closesSwipeRowsOnScroll()
         .overlay(alignment: .top) {
             SyncProgressBar()
         }

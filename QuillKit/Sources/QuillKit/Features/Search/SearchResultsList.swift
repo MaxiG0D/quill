@@ -59,8 +59,7 @@ struct SearchResultsList: View {
                             MailRow(thread: result.thread, query: store.searchQuery, excerpt: result.excerpt)
                         }
                         .hidesNavigationLinkIndicator()
-                        .listRowInsets(EdgeInsets(top: Spacing.s, leading: Spacing.m, bottom: Spacing.s, trailing: Spacing.m))
-                        .threadSwipeActions(result.thread)
+                        .threadSwipeActions(result.thread, insets: EdgeInsets(top: Spacing.s, leading: Spacing.m, bottom: Spacing.s, trailing: Spacing.m))
                         .contextMenu {
                             ThreadActions(thread: result.thread)
                         }
@@ -82,6 +81,7 @@ struct SearchResultsList: View {
         }
         .cardListStyle()
         .scrollContentBackground(.hidden)
+        .closesSwipeRowsOnScroll()
         .contentMargins(.top, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.immediately)
         .overlay {

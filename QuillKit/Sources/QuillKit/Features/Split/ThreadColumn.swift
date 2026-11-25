@@ -286,6 +286,7 @@ struct ThreadColumn: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .closesSwipeRowsOnScroll()
         .scrollDismissesKeyboard(.immediately)
         .listRowSpacing(0)
         .environment(\.defaultMinListRowHeight, 0)
