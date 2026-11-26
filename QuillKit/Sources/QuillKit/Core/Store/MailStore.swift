@@ -783,6 +783,21 @@ final class MailStore {
         file(id, in: .trash, title: "Moved to Trash", symbol: Mailbox.trash.symbol, cue: .warning)
     }
 
+    /// Files a thread from an alert's Archive or Delete. Quill may be in the background with only
+    /// seconds to run, so the change is waited on, and a thread not loaded yet goes straight to Gmail.
+    func fileFromNotification(_ id: MailThread.ID, in mailbox: Mailbox) async {
+        if let thread = thread(id) {
+            guard thread.folder != mailbox else { return }
+            if willLeaveCurrentList(id, after: .move(mailbox)) {
+                deselect(id)
+            }
+            commit(.move(mailbox), to: id, cue: nil)
+            await pendingMutations[id]?.value
+        } else {
+            try? await service.apply(.move(mailbox), to: [id])
+        }
+    }
+
     func move(_ id: MailThread.ID, to mailbox: Mailbox) {
         file(id, in: mailbox, title: "Moved to \(mailbox.title)", symbol: mailbox.symbol, cue: .lift)
     }

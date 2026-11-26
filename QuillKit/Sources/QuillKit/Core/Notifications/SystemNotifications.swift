@@ -47,6 +47,7 @@ struct SystemNotifications: NotificationPosting {
             } else {
                 content.subtitle = item.subject
                 content.body = item.preview
+                content.categoryIdentifier = NotificationActions.mailCategory
             }
             content.sound = .default
             content.threadIdentifier = item.threadID

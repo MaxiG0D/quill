@@ -11,9 +11,12 @@ public struct QuillScene: Scene {
     public init(googleClientID: String = "", pushRelayURL: String = "") {
         let options = LaunchOptions()
         self.options = options
-        _session = State(initialValue: AccountSession(options: options, googleClientID: googleClientID, pushRelayURL: pushRelayURL))
+        let session = AccountSession(options: options, googleClientID: googleClientID, pushRelayURL: pushRelayURL)
+        _session = State(initialValue: session)
         NotificationTaps.shared.listen()
-        CodeCopying.register()
+        NotificationActions.register { threadID, mailbox in
+            await session.file(threadID, in: mailbox)
+        }
     }
 
     /// Hands over the token that lets the push relay start a Live Activity while Quill is closed.

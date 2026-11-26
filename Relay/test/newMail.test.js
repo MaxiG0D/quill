@@ -39,6 +39,7 @@ test("a payload shows the sender, subject and summary, and names the thread", ()
     sender: "news@hollis.example",
     aps: {
       alert: { title: "Hollis Library — News", subtitle: "Café hours", body: "The renewal is attached. Don't wait" },
+      category: "NEW_MAIL",
       sound: "default",
       badge: 3,
       "thread-id": "t1",

@@ -107,6 +107,13 @@ final class AccountSession {
         await restoration?.value
     }
 
+    /// Archives or deletes a thread from an alert's button. Quill may have just been launched
+    /// in the background for it, so the account opens first.
+    func file(_ threadID: MailThread.ID, in mailbox: Mailbox) async {
+        await restore()
+        await store?.fileFromNotification(threadID, in: mailbox)
+    }
+
     /// Looks for new or changed mail when the system wakes Quill in the background.
     func checkMail(arrived threadIDs: [String] = []) async {
         await restore()

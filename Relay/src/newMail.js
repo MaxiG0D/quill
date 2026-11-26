@@ -89,6 +89,7 @@ export function payload(message, badge) {
   const snippet = decodeEntities(message.snippet ?? "").trim();
   const code = signInCode(`${subject} ${snippet}`);
   // A sign-in code is the whole alert, with a Copy action to take it without opening Quill.
+  // Both categories carry Archive and Delete.
   const alert = code
     ? { title: senderName(from), body: display(code) }
     : { title: senderName(from), subtitle: subject, body: snippet };
@@ -97,7 +98,7 @@ export function payload(message, badge) {
     ...(code && { code }),
     aps: {
       alert,
-      ...(code && { category: "SIGN_IN_CODE" }),
+      category: code ? "SIGN_IN_CODE" : "NEW_MAIL",
       sound: "default",
       badge,
       "thread-id": message.threadId,

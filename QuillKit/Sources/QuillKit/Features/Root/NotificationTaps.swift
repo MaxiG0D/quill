@@ -28,8 +28,11 @@ final class NotificationTaps: NSObject, UNUserNotificationCenterDelegate {
         let threadID = content.threadIdentifier
         let code = content.userInfo["code"] as? String
         let isCopy = response.actionIdentifier == CodeCopying.action
+        let filing = NotificationActions.mailbox(for: response.actionIdentifier)
         Task { @MainActor in
-            if isCopy, let code {
+            if let filing {
+                await NotificationActions.file(threadID, in: filing)
+            } else if isCopy, let code {
                 CodeCopying.copy(code)
                 await CodeCopying.dismissEverywhere(code)
             } else {
