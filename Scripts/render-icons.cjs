@@ -4,12 +4,13 @@
 // For each icon it writes:
 //   Design/Icon/<Name>-light.svg and -dark.svg          the vector sources, for reference
 //   App/Assets.xcassets/AppIcon[-<Name>].appiconset     light, dark, tinted and macOS sizes
+//   App/QuillIcon.icon/Assets                          the primary icon's light and dark pictures, for the Mac app icon
 //   QuillKit/Sources/QuillKit/Resources/Icons.xcassets  the previews the icon picker shows and the Mac Dock pictures
 //
 // The primary icon's set is named AppIcon. The others are alternate icons, named
 // AppIcon-<Name>, which is the name `AppIcon.alternateName` passes to the system.
 const { chromium } = require("playwright");
-const { readFileSync, writeFileSync, mkdirSync, rmSync } = require("node:fs");
+const { readFileSync, writeFileSync, mkdirSync, rmSync, copyFileSync } = require("node:fs");
 
 const { icons, tinted } = JSON.parse(readFileSync("Design/Icon/icons.json", "utf8"));
 const appAssets = "App/Assets.xcassets";
@@ -115,6 +116,11 @@ async function main() {
     writeFileSync(`${set}/icon-light.png`, await render(svg(icon.light), 1024));
     writeFileSync(`${set}/icon-dark.png`, await render(svg(icon.dark), 1024));
     writeFileSync(`${set}/icon-tinted.png`, tintedPNG);
+    if (icon.primary) {
+      // The Mac app icon: its light and dark pictures, which QuillIcon.icon switches between with the appearance.
+      copyFileSync(`${set}/icon-light.png`, "App/QuillIcon.icon/Assets/Light.png");
+      copyFileSync(`${set}/icon-dark.png`, "App/QuillIcon.icon/Assets/Dark.png");
+    }
     for (const size of macSizes) {
       writeFileSync(`${set}/mac-${size}.png`, await render(svg(icon.light, 230), size, { inset: 100 }));
     }
