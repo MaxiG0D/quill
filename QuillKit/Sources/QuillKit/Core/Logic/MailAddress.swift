@@ -24,14 +24,15 @@ struct MailAddress: Hashable, Sendable {
     static func isAnnounced(_ address: MailAddress, in text: String) -> Bool {
         let folded = fold(String(text.prefix(20_000)))
         guard let range = folded.range(of: fold(address.street)) else { return false }
-        let lead = folded[folded.index(range.lowerBound, offsetBy: -120, limitedBy: folded.startIndex) ?? folded.startIndex..<range.lowerBound]
+        let leadStart: String.Index = folded.index(range.lowerBound, offsetBy: -120, limitedBy: folded.startIndex) ?? folded.startIndex
+        let lead: Substring = folded[leadStart..<range.lowerBound]
         // Only the last line or two before the street count, so a cue elsewhere in the message does not.
         let nearby = lead.split(separator: "\n", omittingEmptySubsequences: true).suffix(2).joined(separator: "\n")
         return placeCue.firstMatch(in: nearby, range: NSRange(nearby.startIndex..., in: nearby)) != nil
     }
 
     private static let placeCue = regex(
-        #"(?:^|\n)\s*(?:adresse|address|lieu|location|emplacement|venue|where|ou|point de rencontre|meeting point)\s*:|\b(?:located at|situee? au|situee? a|nous trouver|find us at|join us at|see you at|meet (?:us |me )?at|rendez-vous (?:au|a|chez)|pick ?up (?:at|from)|cueillette au|takes place at|se tiendra au|aura lieu au|held at)\b"#
+        #"(?:^|\n)\s*(?:adresse|address|lieu|location|emplacement|venue|where|ou|point de rencontre|meeting point)\s*:|\b(?:located at|situee? au|situee? a|nous trouver|find us at|join us (?:\w+ ){0,6}?at|see you at|meet (?:us |me )?at|rendez-vous (?:au|a|chez)|pick ?up (?:at|from)|cueillette au|takes place at|se tiendra au|aura lieu au|held at)\b"#
     )
 
     // MARK: Where to look
