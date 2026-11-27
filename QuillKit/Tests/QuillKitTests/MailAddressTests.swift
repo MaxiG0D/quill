@@ -111,4 +111,29 @@ struct MailAddressTests {
         #expect(MailAddress.find(in: "We moved 3 desks to the Main St office last week.") == nil)
         #expect(MailAddress.find(in: "Shipping to\n42 Rue Principale") == nil)
     }
+
+    @Test func knowsWhenTheMessageLeadsIntoTheAddress() throws {
+        let venue = "Join us for the launch party at\n1150 Boulevard René-Lévesque Ouest\nMontréal, QC H3B 4P8"
+        let found = try #require(MailAddress.find(in: venue))
+        #expect(MailAddress.isAnnounced(found, in: venue))
+
+        let labeled = "Votre commande est prête.\nAdresse :\n42 Rue Principale\nGranby, QC J2G 2T6"
+        let pickup = try #require(MailAddress.find(in: labeled))
+        #expect(MailAddress.isAnnounced(pickup, in: labeled))
+    }
+
+    @Test func letterheadsAreNotAnnounced() throws {
+        let letter = """
+        Bonjour Max,
+
+        Voici le relevé de votre compte pour novembre.
+
+        Merci,
+        Cabinet BG Avocats
+        1000 Rue Sherbrooke Ouest
+        Montréal, QC H3A 3G4
+        """
+        let found = try #require(MailAddress.find(in: letter))
+        #expect(!MailAddress.isAnnounced(found, in: letter))
+    }
 }

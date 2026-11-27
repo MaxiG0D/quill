@@ -50,7 +50,7 @@ struct MessageBody: View {
     var body: some View {
         let now = store?.now ?? .now
         let codeSource = message.body.isEmpty ? (message.snippet ?? "") : message.body
-        let address = MailAddressCache.address(in: message)
+        let address = MailAddressCache.cardAddress(in: message, subject: subject)
         VStack(alignment: .leading, spacing: Spacing.xs) {
             if let code = SignInCode.find(in: subject.isEmpty ? codeSource : "\(subject)\n\(codeSource)") {
                 SignInCodeChip(code: code)

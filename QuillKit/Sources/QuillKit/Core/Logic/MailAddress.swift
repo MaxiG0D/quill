@@ -19,6 +19,21 @@ struct MailAddress: Hashable, Sendable {
             ?? loneStreet(in: lines)
     }
 
+    /// True when the text introduces the address as a place to go: "Adresse :", "Where:", "Join us at".
+    /// Company addresses in letterheads and sign-offs have no such lead-in.
+    static func isAnnounced(_ address: MailAddress, in text: String) -> Bool {
+        let folded = fold(String(text.prefix(20_000)))
+        guard let range = folded.range(of: fold(address.street)) else { return false }
+        let lead = folded[folded.index(range.lowerBound, offsetBy: -120, limitedBy: folded.startIndex) ?? folded.startIndex..<range.lowerBound]
+        // Only the last line or two before the street count, so a cue elsewhere in the message does not.
+        let nearby = lead.split(separator: "\n", omittingEmptySubsequences: true).suffix(2).joined(separator: "\n")
+        return placeCue.firstMatch(in: nearby, range: NSRange(nearby.startIndex..., in: nearby)) != nil
+    }
+
+    private static let placeCue = regex(
+        #"(?:^|\n)\s*(?:adresse|address|lieu|location|emplacement|venue|where|ou|point de rencontre|meeting point)\s*:|\b(?:located at|situee? au|situee? a|nous trouver|find us at|join us at|see you at|meet (?:us |me )?at|rendez-vous (?:au|a|chez)|pick ?up (?:at|from)|cueillette au|takes place at|se tiendra au|aura lieu au|held at)\b"#
+    )
+
     // MARK: Where to look
 
     /// The message without its signature and without the footer bulk mail ends with.
@@ -144,9 +159,13 @@ struct MailAddress: Hashable, Sendable {
 
     // MARK: Matching
 
+    private static func fold(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    }
+
     /// Matches ignore case and accents, so "Désabonner" and "desabonner" read the same.
     private static func matches(_ expression: NSRegularExpression, _ text: String) -> Bool {
-        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        let folded = fold(text)
         return expression.firstMatch(in: folded, range: NSRange(folded.startIndex..., in: folded)) != nil
     }
 
@@ -170,5 +189,21 @@ enum MailAddressCache {
         if found.count > 2000 { found.removeAll() }
         found[key] = address
         return address
+    }
+
+    private static var cards: [String: Bool] = [:]
+
+    /// The address worth a map card: one the message is about, because it holds an event
+    /// or introduces the address as a place to go. Letterheads and company sign-offs get none.
+    static func cardAddress(in message: Message, subject: String) -> MailAddress? {
+        guard let address = address(in: message) else { return nil }
+        let source = message.body.isEmpty ? message.snippet ?? "" : message.body
+        let key = "\(message.id):\(source.count)"
+        if let shows = cards[key] { return shows ? address : nil }
+        let shows = MailEventCache.event(in: message, subject: subject) != nil
+            || MailAddress.isAnnounced(address, in: source)
+        if cards.count > 2000 { cards.removeAll() }
+        cards[key] = shows
+        return shows ? address : nil
     }
 }
